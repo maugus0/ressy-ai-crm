@@ -21,9 +21,7 @@ export function CallTranscriptsTable({ calls, onCallSelect }: CallTranscriptsTab
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
       {(!calls || calls.length === 0) && (
-        <div className="p-8 text-center text-muted-foreground">
-          No calls to display yet.
-        </div>
+        <div className="p-8 text-center text-muted-foreground">No calls to display yet.</div>
       )}
       {/* Mobile list (stacked cards) */}
       <div className="md:hidden divide-y divide-border">
@@ -36,10 +34,13 @@ export function CallTranscriptsTable({ calls, onCallSelect }: CallTranscriptsTab
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm text-foreground">{call.call_id.slice(0, 8)}</span>
+                  <span className="font-mono text-sm text-foreground">
+                    {call.call_id.slice(0, 8)}
+                  </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {fmtTime(call.start_time)} • From {call.from_number || "—"} • {call.duration_seconds}s
+                  {fmtTime(call.start_time)} • From {call.from_number || "—"} •{" "}
+                  {call.duration_seconds}s
                 </div>
               </div>
               <div className="shrink-0">
@@ -47,7 +48,10 @@ export function CallTranscriptsTable({ calls, onCallSelect }: CallTranscriptsTab
                   variant="ghost"
                   size="sm"
                   className="text-primary hover:text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/30"
-                  onClick={(e) => { e.stopPropagation(); onCallSelect(call); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCallSelect(call);
+                  }}
                 >
                   Open
                 </Button>
@@ -84,7 +88,9 @@ export function CallTranscriptsTable({ calls, onCallSelect }: CallTranscriptsTab
                 className="border-t border-border hover:bg-table-row-hover dark:hover:bg-white/5 cursor-pointer transition-colors"
                 onClick={() => onCallSelect(call)}
               >
-                <td className="px-6 py-4 text-sm font-mono text-foreground">{call.call_id.slice(0, 8)}</td>
+                <td className="px-6 py-4 text-sm font-mono text-foreground">
+                  {call.call_id.slice(0, 8)}
+                </td>
                 <td className="px-6 py-4 text-sm text-foreground">{fmtTime(call.start_time)}</td>
                 <td className="px-6 py-4 text-sm text-foreground">{call.from_number || "—"}</td>
                 <td className="px-6 py-4 text-sm text-foreground">{call.duration_seconds}s</td>
@@ -94,7 +100,10 @@ export function CallTranscriptsTable({ calls, onCallSelect }: CallTranscriptsTab
                     variant="ghost"
                     size="sm"
                     className="text-primary hover:text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/30"
-                    onClick={(e) => { e.stopPropagation(); onCallSelect(call); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCallSelect(call);
+                    }}
                   >
                     Open
                   </Button>

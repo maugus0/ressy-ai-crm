@@ -25,7 +25,7 @@ export function ExpensesModal({ isOpen, onClose, calls }: ExpensesModalProps) {
     return {
       ...c,
       durationFormatted: `${Math.floor(c.duration / 60)}m ${c.duration % 60}s`,
-      cost: cost.toFixed(2)
+      cost: cost.toFixed(2),
     };
   });
 
@@ -38,9 +38,9 @@ export function ExpensesModal({ isOpen, onClose, calls }: ExpensesModalProps) {
         c.callId,
         new Date(c.timestamp).toLocaleString(),
         c.durationFormatted,
-        `$${c.cost}`
+        `$${c.cost}`,
       ]),
-      ["", "Total", "", `$${total}`]
+      ["", "Total", "", `$${total}`],
     ]
       .map((row) => row.join(","))
       .join("\n");
@@ -60,7 +60,8 @@ export function ExpensesModal({ isOpen, onClose, calls }: ExpensesModalProps) {
         <DialogHeader className="p-6 pb-4 border-b border-border bg-card">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold">
-              Expense breakdown <span className="text-muted-foreground">(${RATE_PER_MINUTE}/min)</span>
+              Expense breakdown{" "}
+              <span className="text-muted-foreground">(${RATE_PER_MINUTE}/min)</span>
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-5 w-5" />
@@ -95,9 +96,7 @@ export function ExpensesModal({ isOpen, onClose, calls }: ExpensesModalProps) {
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-muted-foreground">
-                  No calls recorded yet.
-                </div>
+                <div className="p-6 text-center text-muted-foreground">No calls recorded yet.</div>
               )}
             </div>
 

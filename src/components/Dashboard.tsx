@@ -17,15 +17,24 @@ import type { Restaurant } from "@/types";
 type Segment = { speaker: string; text: string; timestamp?: string };
 
 type IncomingCall = {
-  callId?: string; call_id?: string;
-  timestamp?: string; start_time?: string;
-  restaurantId?: string; restaurant_id?: string;
-  branchId?: string; branch_id?: string;
-  duration?: number; duration_seconds?: number;
+  callId?: string;
+  call_id?: string;
+  timestamp?: string;
+  start_time?: string;
+  restaurantId?: string;
+  restaurant_id?: string;
+  branchId?: string;
+  branch_id?: string;
+  duration?: number;
+  duration_seconds?: number;
   transcript?: string;
   segments?: Segment[];
   sentiment?: string;
   topics?: string[];
+  cost?: number | string;
+  status?: string;
+  from_number?: string;
+  outcome?: string;
 };
 type CallDetail = {
   callId: string;
@@ -50,7 +59,7 @@ type TableRow = {
 };
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState("landing"); 
+  const [activeTab, setActiveTab] = useState("landing");
   const [companyName, setCompanyName] = useState<string>("");
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Restaurant | null>(null);
@@ -82,10 +91,11 @@ export function Dashboard() {
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return tableRows;
-    return tableRows.filter((r) =>
-      r.call_id.toLowerCase().includes(q) ||
-      (r.from_number || "").toLowerCase().includes(q) ||
-      new Date(r.start_time).toLocaleString().toLowerCase().includes(q)
+    return tableRows.filter(
+      (r) =>
+        r.call_id.toLowerCase().includes(q) ||
+        (r.from_number || "").toLowerCase().includes(q) ||
+        new Date(r.start_time).toLocaleString().toLowerCase().includes(q)
     );
   }, [tableRows, searchQuery]);
 
@@ -103,8 +113,6 @@ export function Dashboard() {
     const end = start + pageSize;
     return filteredRows.slice(start, end);
   }, [filteredRows, pageClamped]);
-
-
 
   useEffect(() => {
     // Decode company_name from JWT if available
@@ -153,15 +161,18 @@ export function Dashboard() {
           : [];
         setCalls(mapped);
         // Build table rows aligned with backend fields
-        const rows: TableRow[] = (Array.isArray(callsRes) ? callsRes : []).map((c: IncomingCall) => ({
-          call_id: (c.call_id as string) || (c.callId as string) || "unknown",
-          start_time: (c.start_time as string) || (c.timestamp as string) || new Date().toISOString(),
-          duration_seconds: (c.duration_seconds as number) ?? (c.duration as number) ?? 0,
-          cost: (c as any).cost ? Number((c as any).cost) : 0,
-          status: (c as any).status || "completed",
-          from_number: (c as any).from_number,
-          outcome: (c as any).outcome,
-        }));
+        const rows: TableRow[] = (Array.isArray(callsRes) ? callsRes : []).map(
+          (c: IncomingCall) => ({
+            call_id: (c.call_id as string) || (c.callId as string) || "unknown",
+            start_time:
+              (c.start_time as string) || (c.timestamp as string) || new Date().toISOString(),
+            duration_seconds: (c.duration_seconds as number) ?? (c.duration as number) ?? 0,
+            cost: c.cost ? Number(c.cost) : 0,
+            status: c.status || "completed",
+            from_number: c.from_number,
+            outcome: c.outcome,
+          })
+        );
         setTableRows(rows);
         type AnalyticsIn = Partial<{
           total_calls: number;
@@ -177,13 +188,13 @@ export function Dashboard() {
         const byDay = new Map<string, { calls: number; bookings: number }>();
         rows.forEach((r) => {
           const d = new Date(r.start_time);
-          const key = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+          const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
           const cur = byDay.get(key) || { calls: 0, bookings: 0 };
           cur.calls += 1;
           byDay.set(key, cur);
         });
         const calls_over_time = Array.from(byDay.entries())
-          .sort((a,b)=>a[0]<b[0]? -1: 1)
+          .sort((a, b) => (a[0] < b[0] ? -1 : 1))
           .map(([day, v]) => ({ day, calls: v.calls, bookings: v.bookings }));
 
         const total_calls = rows.length;
@@ -222,15 +233,28 @@ export function Dashboard() {
     document.body.style.overflow = "hidden";
 
     const container = sidebarRef.current;
-    if (!container) return () => { document.body.style.overflow = previousOverflow; };
+    if (!container)
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
 
     const focusableSelectors = [
-      'a[href]','button','textarea','input[type="text"]','input[type="radio"]','input[type="checkbox"]','select','[tabindex]:not([tabindex="-1"])'
-    ].join(',');
-    const getFocusable = () => Array.from(container.querySelectorAll<HTMLElement>(focusableSelectors)).filter(el => !el.hasAttribute('disabled'));
+      "a[href]",
+      "button",
+      "textarea",
+      'input[type="text"]',
+      'input[type="radio"]',
+      'input[type="checkbox"]',
+      "select",
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(",");
+    const getFocusable = () =>
+      Array.from(container.querySelectorAll<HTMLElement>(focusableSelectors)).filter(
+        (el) => !el.hasAttribute("disabled")
+      );
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
+      if (e.key !== "Tab") return;
       const focusable = getFocusable();
       if (focusable.length === 0) return;
       const first = focusable[0];
@@ -249,13 +273,13 @@ export function Dashboard() {
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     // move focus into the drawer
     const focusable = getFocusable();
     if (focusable[0]) focusable[0].focus();
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
   }, [sidebarOpen]);
@@ -263,10 +287,10 @@ export function Dashboard() {
   // Close sidebar on Escape
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSidebarOpen(false);
+      if (e.key === "Escape") setSidebarOpen(false);
     };
-    if (sidebarOpen) document.addEventListener('keydown', onEsc);
-    return () => document.removeEventListener('keydown', onEsc);
+    if (sidebarOpen) document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
   }, [sidebarOpen]);
 
   // (kept for backward compatibility in other parts if referenced)
@@ -287,10 +311,7 @@ export function Dashboard() {
           aria-modal="true"
           aria-label="Sidebar navigation"
         >
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
           <div className="relative h-full w-auto max-w-[80vw]">
             <div
               ref={sidebarRef}
@@ -317,9 +338,7 @@ export function Dashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header with hamburger */}
         <div className="md:hidden flex items-center justify-between bg-card border-b border-border px-4 py-3">
-          <h1 className="text-lg font-semibold text-foreground">
-            {companyName || "Your Company"}
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">{companyName || "Your Company"}</h1>
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-foreground"
@@ -335,19 +354,14 @@ export function Dashboard() {
             <h1 className="text-xl font-semibold text-foreground">
               {companyName || "Your Company"}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Transcripts, analytics, and database
-            </p>
+            <p className="text-sm text-muted-foreground">Transcripts, analytics, and database</p>
           </div>
-          
         </header>
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto pt-14 md:pt-0">
           {/* Overview / Landing Tab */}
-          {activeTab === "landing" && (
-            <Landing customer={selectedCustomer || undefined} />
-          )}
+          {activeTab === "landing" && <Landing customer={selectedCustomer || undefined} />}
           {/* Calls Tab */}
           {activeTab === "calls" && (
             <div className="p-4 md:p-6 space-y-4">
@@ -371,10 +385,10 @@ export function Dashboard() {
                           String(r.duration_seconds),
                           r.outcome || "",
                         ]);
-                        const header = ["Call ID","Time","From","Duration (s)","Outcome"];
+                        const header = ["Call ID", "Time", "From", "Duration (s)", "Outcome"];
                         const esc = (s: string) => s.replace(/"/g, '""');
                         const csv = [header, ...rows]
-                          .map(r => r.map(x => `"${esc(String(x))}"`).join(","))
+                          .map((r) => r.map((x) => `"${esc(String(x))}"`).join(","))
                           .join("\n");
                         const blob = new Blob([csv], { type: "text/csv" });
                         const url = URL.createObjectURL(blob);
@@ -399,15 +413,23 @@ export function Dashboard() {
                   }))}
                   onCallSelect={async (row) => {
                     const base = calls.find((c) => c.callId === row.call_id) || null;
-                    if (!base) { setSelectedCall(null); return; }
+                    if (!base) {
+                      setSelectedCall(null);
+                      return;
+                    }
                     try {
-                      const items = await getCallTranscripts(base.callId) as Array<{ text: string; timestamp: string }>;
+                      const items = (await getCallTranscripts(base.callId)) as Array<{
+                        text: string;
+                        timestamp: string;
+                      }>;
                       let lastSpeaker: "caller" | "assistant" = "assistant";
                       const segments = Array.isArray(items)
                         ? items.map((t: { text: string; timestamp: string }) => {
                             const raw = (t.text || "").trim();
                             const mCaller = raw.match(/^\s*(?:user|caller)\s*[:-]\s*(.*)$/i);
-                            const mAgent = raw.match(/^\s*(?:ressy|agent|assistant)\s*[:-]\s*(.*)$/i);
+                            const mAgent = raw.match(
+                              /^\s*(?:ressy|agent|assistant)\s*[:-]\s*(.*)$/i
+                            );
                             let speaker: "caller" | "assistant";
                             let text = raw;
                             if (mCaller) {
@@ -424,7 +446,9 @@ export function Dashboard() {
                             return { speaker, text, timestamp: t.timestamp };
                           })
                         : [];
-                      const transcript = Array.isArray(items) ? items.map((t) => t.text).join("\n") : base.transcript || "";
+                      const transcript = Array.isArray(items)
+                        ? items.map((t) => t.text).join("\n")
+                        : base.transcript || "";
                       setSelectedCall({ ...base, segments, transcript });
                     } catch {
                       setSelectedCall(base);
@@ -464,15 +488,23 @@ export function Dashboard() {
               <div className="bg-card rounded-lg border border-border p-4 md:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-4">Customer Database</h2>
                 {tableRows.length === 0 ? (
-                  <div className="text-center text-muted-foreground border border-dashed rounded p-8">No records yet.</div>
+                  <div className="text-center text-muted-foreground border border-dashed rounded p-8">
+                    No records yet.
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-table-header dark:bg-muted/30">
                         <tr>
-                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">Call ID</th>
-                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">Customer Name</th>
-                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">Phone</th>
+                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">
+                            Call ID
+                          </th>
+                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">
+                            Customer Name
+                          </th>
+                          <th className="text-left px-6 py-4 text-sm font-medium text-foreground">
+                            Phone
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -481,9 +513,13 @@ export function Dashboard() {
                             key={r.call_id}
                             className="border-t border-border hover:bg-table-row-hover dark:hover:bg-white/5 transition-colors"
                           >
-                            <td className="px-6 py-4 text-sm font-mono text-foreground">{r.call_id.slice(0, 8)}</td>
+                            <td className="px-6 py-4 text-sm font-mono text-foreground">
+                              {r.call_id.slice(0, 8)}
+                            </td>
                             <td className="px-6 py-4 text-sm text-foreground">-</td>
-                            <td className="px-6 py-4 text-sm text-foreground">{r.from_number || "—"}</td>
+                            <td className="px-6 py-4 text-sm text-foreground">
+                              {r.from_number || "—"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -499,7 +535,7 @@ export function Dashboard() {
             <AnalyticsDashboard
               data={analytics}
               loading={loading}
-              calls={tableRows.map(r => ({
+              calls={tableRows.map((r) => ({
                 callId: r.call_id,
                 timestamp: r.start_time,
                 duration: r.duration_seconds,
@@ -534,10 +570,7 @@ export function Dashboard() {
       </div>
 
       {/* Call Detail Modal */}
-      <CallDetailModal
-        call={selectedCall}
-        onClose={() => setSelectedCall(null)}
-      />
+      <CallDetailModal call={selectedCall} onClose={() => setSelectedCall(null)} />
     </div>
   );
 }

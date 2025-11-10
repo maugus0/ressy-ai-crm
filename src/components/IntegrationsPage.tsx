@@ -77,14 +77,10 @@ export function IntegrationsPage() {
           >
             <div className="flex flex-col h-full">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  {integration.name}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {integration.description}
-                </p>
+                <h3 className="text-lg font-semibold text-foreground mb-2">{integration.name}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{integration.description}</p>
               </div>
-              
+
               <div className="mt-auto">
                 {integration.status === "connected" ? (
                   <Button

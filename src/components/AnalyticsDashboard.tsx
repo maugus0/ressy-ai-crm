@@ -120,15 +120,11 @@ export function AnalyticsDashboard({ data, loading, calls }: AnalyticsDashboardP
         {/* Volume & Bookings Chart */}
         <Card className="xl:col-span-1 overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg font-semibold">
-              Volume & bookings
-            </CardTitle>
+            <CardTitle className="text-base sm:text-lg font-semibold">Volume & bookings</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 pt-0">
             {safeData.calls_over_time.length === 0 ? (
-              <div className="text-center text-muted-foreground py-12">
-                No call data available.
-              </div>
+              <div className="text-center text-muted-foreground py-12">No call data available.</div>
             ) : (
               <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -136,8 +132,26 @@ export function AnalyticsDashboard({ data, loading, calls }: AnalyticsDashboardP
                     <XAxis dataKey="day" axisLine={false} tickLine={false} />
                     <YAxis axisLine={false} tickLine={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey="calls" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive animationDuration={800} animationBegin={100} />
-                    <Line type="monotone" dataKey="bookings" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} isAnimationActive animationDuration={800} animationBegin={200} />
+                    <Line
+                      type="monotone"
+                      dataKey="calls"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive
+                      animationDuration={800}
+                      animationBegin={100}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="bookings"
+                      stroke="hsl(var(--accent))"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive
+                      animationDuration={800}
+                      animationBegin={200}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -148,9 +162,7 @@ export function AnalyticsDashboard({ data, loading, calls }: AnalyticsDashboardP
         {/* Outcome by Intent Chart */}
         <Card className="xl:col-span-1 overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg font-semibold">
-              Outcome by intent
-            </CardTitle>
+            <CardTitle className="text-base sm:text-lg font-semibold">Outcome by intent</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 pt-0">
             {safeData.outcomes.length === 0 ? (
@@ -164,7 +176,13 @@ export function AnalyticsDashboard({ data, loading, calls }: AnalyticsDashboardP
                     <XAxis dataKey="intent" axisLine={false} tickLine={false} />
                     <YAxis axisLine={false} tickLine={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="value" fill="hsl(var(--accent))" radius={[2, 2, 0, 0]} isAnimationActive animationDuration={700} />
+                    <Bar
+                      dataKey="value"
+                      fill="hsl(var(--accent))"
+                      radius={[2, 2, 0, 0]}
+                      isAnimationActive
+                      animationDuration={700}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>

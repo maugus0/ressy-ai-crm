@@ -151,18 +151,12 @@ export function SettingsPage() {
 
             <div className="space-y-2">
               <Label>Escalation rule</Label>
-              <Input
-                value={escalationRule}
-                onChange={(e) => setEscalationRule(e.target.value)}
-              />
+              <Input value={escalationRule} onChange={(e) => setEscalationRule(e.target.value)} />
             </div>
 
             <div className="space-y-2">
               <Label>No-show policy</Label>
-              <Input
-                value={noShowPolicy}
-                onChange={(e) => setNoShowPolicy(e.target.value)}
-              />
+              <Input value={noShowPolicy} onChange={(e) => setNoShowPolicy(e.target.value)} />
             </div>
           </div>
         </Card>

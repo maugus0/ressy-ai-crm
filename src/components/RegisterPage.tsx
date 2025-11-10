@@ -2,7 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Building } from "lucide-react";
@@ -44,7 +51,7 @@ export function RegisterPage() {
           <div className="flex justify-center">
             <div className="h-54 w-34 rounded-lg flex items-center justify-center bg-white ">
               <img
-                src="/ressy-logo.png"
+                src={`${import.meta.env.BASE_URL}ressy-logo.png`}
                 alt="Ressy AI Logo"
                 className="h-10 w-auto object-contain"
               />
@@ -113,7 +120,11 @@ export function RegisterPage() {
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={isLoading}
+              >
                 {isLoading ? "Creating account..." : "Create account"}
               </Button>
 
@@ -132,7 +143,7 @@ export function RegisterPage() {
             <Button
               variant="link"
               className="text-primary p-0 h-auto text-sm"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate("/login")}
             >
               Log in
             </Button>
