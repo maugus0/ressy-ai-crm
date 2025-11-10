@@ -6,7 +6,17 @@ type ViteEnv = { [k: string]: string | undefined };
 const meta = (import.meta as unknown as { env?: ViteEnv });
 let resolvedApi = meta.env?.VITE_API_URL;
 if (resolvedApi) resolvedApi = resolvedApi.replace(/\/$/, "");
-const API_URL = resolvedApi || (typeof window !== "undefined" && window.location.port === "8080" ? "http://localhost:5001/api" : "/api");
+
+// Get base path for GitHub Pages
+const getBasePath = () => {
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/ressy-ai-crm")) {
+    return "/ressy-ai-crm";
+  }
+  return "";
+};
+
+const basePath = getBasePath();
+const API_URL = resolvedApi || (typeof window !== "undefined" && window.location.port === "8080" ? "http://localhost:5001/api" : `${basePath}/api`);
 
 // One-time debug log to help diagnose misrouted requests
 const w = (typeof window !== "undefined" ? (window as unknown as { __RESSY_API_LOGGED__?: boolean }) : undefined);

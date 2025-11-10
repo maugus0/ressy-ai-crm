@@ -19,12 +19,21 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+// Get base path for GitHub Pages
+const getBasePath = () => {
+  // Check if we're on GitHub Pages
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/ressy-ai-crm")) {
+    return "/ressy-ai-crm";
+  }
+  return "";
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={getBasePath()}>
         <Routes>
           {/* Default to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
