@@ -44,7 +44,7 @@ export function RegisterPage() {
           <div className="flex justify-center">
             <div className="h-54 w-34 rounded-lg flex items-center justify-center bg-white ">
               <img
-                src="/ressy-logo.png"
+                src={`${import.meta.env.BASE_URL}ressy-logo.png`}
                 alt="Ressy AI Logo"
                 className="h-10 w-auto object-contain"
               />
