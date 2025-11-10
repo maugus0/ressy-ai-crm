@@ -3,7 +3,7 @@ import { mockCalls, mockAnalytics, mockRestaurants } from "@/data/mockData";
 
 // Resolve API base URL with sane dev fallback
 type ViteEnv = { [k: string]: string | undefined };
-const meta = (import.meta as unknown as { env?: ViteEnv });
+const meta = import.meta as unknown as { env?: ViteEnv };
 let resolvedApi = meta.env?.VITE_API_URL;
 if (resolvedApi) resolvedApi = resolvedApi.replace(/\/$/, "");
 
@@ -16,10 +16,17 @@ const getBasePath = () => {
 };
 
 const basePath = getBasePath();
-const API_URL = resolvedApi || (typeof window !== "undefined" && window.location.port === "8080" ? "http://localhost:5001/api" : `${basePath}/api`);
+const API_URL =
+  resolvedApi ||
+  (typeof window !== "undefined" && window.location.port === "8080"
+    ? "http://localhost:5001/api"
+    : `${basePath}/api`);
 
 // One-time debug log to help diagnose misrouted requests
-const w = (typeof window !== "undefined" ? (window as unknown as { __RESSY_API_LOGGED__?: boolean }) : undefined);
+const w =
+  typeof window !== "undefined"
+    ? (window as unknown as { __RESSY_API_LOGGED__?: boolean })
+    : undefined;
 if (w && !w.__RESSY_API_LOGGED__) {
   w.__RESSY_API_LOGGED__ = true;
   console.info("Ressy API base:", API_URL);
@@ -30,7 +37,12 @@ function getToken() {
 }
 
 // Registration API (creates user in DynamoDB via backend)
-export async function register(email: string, password: string, role: string = "client", companyName: string = "") {
+export async function register(
+  email: string,
+  password: string,
+  role: string = "client",
+  companyName: string = ""
+) {
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -67,7 +79,7 @@ async function request(path: string, options: RequestInit = {}) {
 // Mock Auth: Validates credentials locally
 export async function login(email: string, password: string) {
   // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // Mock credentials
   const MOCK_EMAIL = "admin@ressy.com";
@@ -79,15 +91,17 @@ export async function login(email: string, password: string) {
   }
 
   // Generate mock token (simple base64 encoded string for demo purposes)
-  const mockToken = btoa(JSON.stringify({
-    email: MOCK_EMAIL,
-    exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
-    iat: Date.now()
-  }));
+  const mockToken = btoa(
+    JSON.stringify({
+      email: MOCK_EMAIL,
+      exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
+      iat: Date.now(),
+    })
+  );
 
   const data = {
     access_token: mockToken,
-    token_type: "bearer"
+    token_type: "bearer",
   };
 
   setToken(data.access_token);
@@ -95,13 +109,13 @@ export async function login(email: string, password: string) {
 }
 
 // Mock API functions - simulate network delay
-const mockDelay = () => new Promise(resolve => setTimeout(resolve, 300));
+const mockDelay = () => new Promise((resolve) => setTimeout(resolve, 300));
 
 // Calls API (Mocked)
 export async function getCallHistory(limit: number = 50) {
   await mockDelay();
   // Return calls limited by the limit parameter
-  return mockCalls.slice(0, limit).map(call => ({
+  return mockCalls.slice(0, limit).map((call) => ({
     call_id: call.call_id,
     callId: call.callId,
     start_time: call.start_time,
@@ -125,12 +139,12 @@ export async function getCallHistory(limit: number = 50) {
 
 export async function getCallTranscripts(callId: string) {
   await mockDelay();
-  const call = mockCalls.find(c => c.call_id === callId || c.callId === callId);
+  const call = mockCalls.find((c) => c.call_id === callId || c.callId === callId);
   if (!call || !call.segments) {
     return [];
   }
   // Return transcript segments in the format expected by the component
-  return call.segments.map(seg => ({
+  return call.segments.map((seg) => ({
     text: `${seg.speaker === "caller" ? "Caller" : "Ressy"}: ${seg.text}`,
     timestamp: seg.timestamp || "",
   }));

@@ -29,7 +29,7 @@ export function CallDetailModal({ call, onClose }: CallDetailModalProps) {
   const ratePerMinute = 0.25; // USD per minute
   const durationInSeconds = call.duration || 0;
   const durationInMinutes = (durationInSeconds / 60).toFixed(2);
-  const callExpense = (durationInSeconds / 60 * ratePerMinute).toFixed(2);
+  const callExpense = ((durationInSeconds / 60) * ratePerMinute).toFixed(2);
 
   const copyTranscript = () => {
     navigator.clipboard.writeText(call.transcript || "");
@@ -83,9 +83,7 @@ export function CallDetailModal({ call, onClose }: CallDetailModalProps) {
                       <p className="text-sm text-foreground">
                         <span
                           className={
-                            seg.speaker === "caller"
-                              ? "text-primary font-medium"
-                              : "font-medium"
+                            seg.speaker === "caller" ? "text-primary font-medium" : "font-medium"
                           }
                         >
                           {seg.speaker === "caller" ? "Caller" : "Ressy"}
@@ -129,7 +127,12 @@ export function CallDetailModal({ call, onClose }: CallDetailModalProps) {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={downloadTranscript}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={downloadTranscript}
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Download .txt
                   </Button>

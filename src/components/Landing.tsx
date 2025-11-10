@@ -33,9 +33,7 @@ export function Landing({ customer }: LandingProps) {
       {/* Header */}
       <header className="border-b border-border px-6 py-4">
         <h1 className="text-xl font-semibold text-foreground">Welcome back 👋</h1>
-        <p className="text-sm text-muted-foreground">
-          Quick snapshot of your activity today
-        </p>
+        <p className="text-sm text-muted-foreground">Quick snapshot of your activity today</p>
       </header>
 
       {/* Content */}
@@ -48,9 +46,7 @@ export function Landing({ customer }: LandingProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Calls Received</p>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.callsReceived}
-              </p>
+              <p className="text-2xl font-bold text-foreground">{stats.callsReceived}</p>
             </div>
           </div>
 
@@ -61,9 +57,7 @@ export function Landing({ customer }: LandingProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Calls Answered</p>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.callsAnswered}
-              </p>
+              <p className="text-2xl font-bold text-foreground">{stats.callsAnswered}</p>
             </div>
           </div>
 
@@ -74,9 +68,7 @@ export function Landing({ customer }: LandingProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Answer Rate</p>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.answerRate}
-              </p>
+              <p className="text-2xl font-bold text-foreground">{stats.answerRate}</p>
             </div>
           </div>
         </div>
@@ -86,9 +78,7 @@ export function Landing({ customer }: LandingProps) {
           <div className="mt-8 bg-card border border-border rounded-xl p-6 shadow-sm">
             <div className="flex items-center space-x-3 mb-4">
               <User className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold text-foreground">
-                Client Information
-              </h2>
+              <h2 className="text-lg font-semibold text-foreground">Client Information</h2>
             </div>
             <p>
               <strong>Business Name:</strong> {customer.name}

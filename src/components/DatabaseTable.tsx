@@ -55,23 +55,13 @@ export function DatabaseTable({ customers, onCustomerSelect }: DatabaseTableProp
               className="border-b border-border hover:bg-table-row-hover cursor-pointer transition-colors"
               onClick={() => onCustomerSelect?.(customer)}
             >
-              <TableCell className="font-medium text-foreground">
-                {customer.id}
-              </TableCell>
-              <TableCell className="text-foreground">
-                {customer.name}
-              </TableCell>
-              <TableCell className="text-foreground font-mono">
-                {customer.phone}
-              </TableCell>
+              <TableCell className="font-medium text-foreground">{customer.id}</TableCell>
+              <TableCell className="text-foreground">{customer.name}</TableCell>
+              <TableCell className="text-foreground font-mono">{customer.phone}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {customer.tags.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      variant={getTagVariant(tag)}
-                      className="text-xs"
-                    >
+                    <Badge key={index} variant={getTagVariant(tag)} className="text-xs">
                       {tag}
                     </Badge>
                   ))}
