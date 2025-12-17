@@ -17,8 +17,18 @@
     
 
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="module" crossorigin src="/assets/index-k4cYYr9X.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DYx01a9M.css">
+    <script>
+      // GitHub Pages SPA fallback: convert ?p=/some/path back into the real URL
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var p = params.get("p");
+        if (p) {
+          window.history.replaceState(null, "", decodeURIComponent(p));
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DMYoGXE6.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-d2vuKv-S.css">
   </head>
 
   <body>

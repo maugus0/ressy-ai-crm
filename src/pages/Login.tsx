@@ -174,7 +174,7 @@ export function Login() {
             <Button
               variant="link"
               className="text-primary p-0 h-auto text-sm"
-              onClick={() => window.open("mailto:support@ressy.ai")}
+              onClick={() => window.open("mailto:info@ressy.ai")}
             >
               Contact Support
             </Button>

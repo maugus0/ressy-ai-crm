@@ -17,6 +17,16 @@
     
 
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // GitHub Pages SPA fallback: convert ?p=/some/path back into the real URL
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var p = params.get("p");
+        if (p) {
+          window.history.replaceState(null, "", decodeURIComponent(p));
+        }
+      })();
+    </script>
   </head>
 
   <body>
