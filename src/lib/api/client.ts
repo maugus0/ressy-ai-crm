@@ -1,0 +1,207 @@
+/**
+ * API Client
+ * Centralized HTTP client with authentication handling for Client Dashboard
+ */
+
+import { env } from "@/config/env";
+import { refreshTokenDirect, STORAGE_KEY } from "@/lib/utils/tokenRefresh";
+import type { StoredAuthData } from "@/types/auth.types";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface RequestConfig extends RequestInit {
+  skipAuth?: boolean;
+}
+
+interface ApiResponse<T> {
+  data: T | null;
+  error: string | null;
+  status: number;
+}
+
+// ============================================================================
+// Token Management
+// ============================================================================
+
+export const getStoredAuthData = (): StoredAuthData | null => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredAuthData = (data: StoredAuthData): void => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+};
+
+export const clearStoredAuthData = (): void => {
+  localStorage.removeItem(STORAGE_KEY);
+};
+
+export const getAccessToken = (): string | null => {
+  const authData = getStoredAuthData();
+  return authData?.access_token || null;
+};
+
+export const getRefreshToken = (): string | null => {
+  const authData = getStoredAuthData();
+  return authData?.refresh_token || null;
+};
+
+export const getRestaurantId = (): number | null => {
+  const authData = getStoredAuthData();
+  return authData?.restaurant_id || null;
+};
+
+// ============================================================================
+// API Client
+// ============================================================================
+
+/**
+ * Makes an API request with automatic auth header injection
+ */
+export async function apiRequest<T>(
+  endpoint: string,
+  config: RequestConfig = {}
+): Promise<ApiResponse<T>> {
+  const { skipAuth = false, headers = {}, ...restConfig } = config;
+
+  // Build headers
+  const requestHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...headers,
+  };
+
+  // Add auth header if not skipped
+  if (!skipAuth) {
+    const token = getAccessToken();
+    if (token) {
+      (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  try {
+    const url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
+
+    let response = await fetch(url, {
+      ...restConfig,
+      headers: requestHeaders,
+    });
+
+    // Handle 401 Unauthorized - try to refresh token once
+    if (response.status === 401 && !skipAuth && getAccessToken()) {
+      // Attempt to refresh token
+      const refreshResult = await refreshTokenDirect();
+
+      if (refreshResult.success) {
+        // Retry the original request with new token
+        const newToken = getAccessToken();
+        if (newToken) {
+          (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${newToken}`;
+
+          response = await fetch(url, {
+            ...restConfig,
+            headers: requestHeaders,
+          });
+        }
+      } else {
+        // Refresh failed, return 401 error
+        return {
+          data: null,
+          error: "Session expired. Please login again.",
+          status: 401,
+        };
+      }
+    }
+
+    // Handle 403 Forbidden
+    if (response.status === 403) {
+      return {
+        data: null,
+        error: "Access denied. You don't have permission to perform this action.",
+        status: 403,
+      };
+    }
+
+    // Parse response
+    let data: T | null = null;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      const json = await response.json();
+
+      if (!response.ok) {
+        // Handle error response
+        const errorMessage =
+          typeof json.detail === "string"
+            ? json.detail
+            : json.message || `Request failed with status ${response.status}`;
+
+        return {
+          data: null,
+          error: errorMessage,
+          status: response.status,
+        };
+      }
+
+      data = json as T;
+    }
+
+    return {
+      data,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Network error";
+    return {
+      data: null,
+      error: message,
+      status: 0,
+    };
+  }
+}
+
+// ============================================================================
+// HTTP Methods
+// ============================================================================
+
+export const api = {
+  get: <T>(endpoint: string, config?: RequestConfig) =>
+    apiRequest<T>(endpoint, { ...config, method: "GET" }),
+
+  post: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
+    apiRequest<T>(endpoint, {
+      ...config,
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  put: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
+    apiRequest<T>(endpoint, {
+      ...config,
+      method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  patch: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
+    apiRequest<T>(endpoint, {
+      ...config,
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  delete: <T>(endpoint: string, config?: RequestConfig) =>
+    apiRequest<T>(endpoint, { ...config, method: "DELETE" }),
+};
+
+// ============================================================================
+// Export Types
+// ============================================================================
+
+export type { ApiResponse, RequestConfig };

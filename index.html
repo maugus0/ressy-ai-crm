@@ -8,16 +8,25 @@
     <meta property="og:title" content="Client Dashboard" />
     <meta property="og:description" content="Client Dashboard" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://maugus0.github.io/ressy-ai-crm/ressy-logo.png" />
+    <meta property="og:image" content="/ressy-logo.png" />
     <meta name="description" content="Client Dashboard Ressy" />
     <meta name="twitter:title" content="Client Dashboard Ressy" />
     <meta name="twitter:description" content="Client Dashboard Ressy" />
-    <meta name="twitter:image" content="https://maugus0.github.io/ressy-ai-crm/ressy-logo.png" />
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/svg+xml" href="/ressy-logo.png" />
+    <meta name="twitter:image" content="/ressy-logo.png" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     
 
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // GitHub Pages SPA fallback: convert ?p=/some/path back into the real URL
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var p = params.get("p");
+        if (p) {
+          window.history.replaceState(null, "", decodeURIComponent(p));
+        }
+      })();
+    </script>
   </head>
 
   <body>
