@@ -3,7 +3,7 @@
  * Manage restaurant menu items
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,17 +30,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UtensilsCrossed, Search, Plus, Star, Pencil, Trash2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { MenuItem, CreateMenuItemRequest } from "@/types/api.types";
 
-export default function MenuPage() {
-  const { restaurantId } = useAuth();
+export function Menu() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -53,98 +49,27 @@ export default function MenuPage() {
     is_special: false,
   });
 
-  useEffect(() => {
-    fetchMenuItems();
-  }, [restaurantId]);
-
-  async function fetchMenuItems() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<MenuItem[]>(ENDPOINTS.MENU.LIST(restaurantId));
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setMenuItems(response.data);
-      }
-    } catch (err) {
-      setError("Failed to load menu items");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const handleSubmit = async () => {
-    if (!restaurantId) return;
-
-    try {
-      if (editingItem) {
-        const response = await api.put(ENDPOINTS.MENU.UPDATE(editingItem.id), formData);
-        if (response.error) {
-          toast.error(response.error);
-        } else {
-          toast.success("Menu item updated");
-          fetchMenuItems();
-          closeDialog();
-        }
-      } else {
-        const response = await api.post(ENDPOINTS.MENU.CREATE(restaurantId), formData);
-        if (response.error) {
-          toast.error(response.error);
-        } else {
-          toast.success("Menu item created");
-          fetchMenuItems();
-          closeDialog();
-        }
-      }
-    } catch (err) {
-      toast.error("Failed to save menu item");
-    }
+    // UI-only: keep modal flow but don't persist anywhere.
+    closeDialog();
   };
 
   const handleDelete = async (item: MenuItem) => {
     if (!confirm(`Delete "${item.name}"?`)) return;
-
-    try {
-      const response = await api.delete(ENDPOINTS.MENU.DELETE(item.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Menu item deleted");
-        fetchMenuItems();
-      }
-    } catch (err) {
-      toast.error("Failed to delete menu item");
-    }
+    // UI-only: remove locally
+    setMenuItems((prev) => prev.filter((x) => x.id !== item.id));
   };
 
   const handleToggleAvailability = async (item: MenuItem) => {
-    try {
-      const response = await api.patch(ENDPOINTS.MENU.TOGGLE_AVAILABILITY(item.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        fetchMenuItems();
-      }
-    } catch (err) {
-      toast.error("Failed to update availability");
-    }
+    setMenuItems((prev) =>
+      prev.map((x) => (x.id === item.id ? { ...x, is_available: !x.is_available } : x))
+    );
   };
 
   const handleToggleSpecial = async (item: MenuItem) => {
-    try {
-      const response = await api.patch(ENDPOINTS.MENU.TOGGLE_SPECIAL(item.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        fetchMenuItems();
-      }
-    } catch (err) {
-      toast.error("Failed to update special status");
-    }
+    setMenuItems((prev) =>
+      prev.map((x) => (x.id === item.id ? { ...x, is_special: !x.is_special } : x))
+    );
   };
 
   const openEditDialog = (item: MenuItem) => {
@@ -193,6 +118,7 @@ export default function MenuPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -240,7 +166,9 @@ export default function MenuPage() {
                     type="number"
                     step="0.01"
                     value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -316,9 +244,7 @@ export default function MenuPage() {
             <Star className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {menuItems.filter((i) => i.is_special).length}
-            </div>
+            <div className="text-2xl font-bold">{menuItems.filter((i) => i.is_special).length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -433,3 +359,5 @@ export default function MenuPage() {
     </div>
   );
 }
+
+export default Menu;

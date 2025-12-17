@@ -5,16 +5,21 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, UserCircle2, LogOut } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const { restaurantName } = useAuth();
+  const { restaurantName, user, logout } = useAuth();
 
   const companyName = restaurantName || "Your Restaurant";
+  const email = user?.email || "manager@restaurant.com";
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   // Accessibility: trap focus inside mobile sidebar and lock body scroll
   useEffect(() => {
@@ -131,6 +136,23 @@ export function DashboardLayout() {
             <h1 className="text-xl font-semibold text-foreground">{companyName}</h1>
             <p className="text-sm text-muted-foreground">Restaurant Manager Portal</p>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 rounded-full border border-border bg-background/60 px-3 py-1.5">
+              <UserCircle2 className="h-7 w-7 text-muted-foreground" />
+              <div className="leading-tight">
+                <p className="text-sm font-medium text-foreground">Restaurant Manager</p>
+                <p className="text-xs text-muted-foreground">{email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
         </header>
 
         {/* Page Content */}
@@ -141,3 +163,5 @@ export function DashboardLayout() {
     </div>
   );
 }
+
+export default DashboardLayout;

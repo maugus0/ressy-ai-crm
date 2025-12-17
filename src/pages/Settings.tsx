@@ -3,19 +3,23 @@
  * Manage restaurant settings and information
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Settings, Building, Clock, CalendarDays, Save, Loader2 } from "lucide-react";
+import {
+  Settings as SettingsIcon,
+  Building,
+  Clock,
+  CalendarDays,
+  Save,
+  Loader2,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { RestaurantSettings, OpeningHours } from "@/types/api.types";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -27,11 +31,11 @@ const DEFAULT_HOURS: OpeningHours[] = DAYS_OF_WEEK.map((day) => ({
   is_closed: false,
 }));
 
-export default function SettingsPage() {
-  const { restaurantId, restaurantName } = useAuth();
-  const [loading, setLoading] = useState(true);
+export function Settings() {
+  const { restaurantName } = useAuth();
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const [settings, setSettings] = useState<RestaurantSettings>({
     name: restaurantName || "",
     address: "",
@@ -48,52 +52,10 @@ export default function SettingsPage() {
     },
   });
 
-  useEffect(() => {
-    fetchSettings();
-  }, [restaurantId]);
-
-  async function fetchSettings() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<RestaurantSettings>(ENDPOINTS.SETTINGS.GET(restaurantId));
-      if (response.error) {
-        // If no settings found, use defaults
-        setSettings((prev) => ({ ...prev, name: restaurantName || "" }));
-      } else if (response.data) {
-        setSettings({
-          ...response.data,
-          opening_hours: response.data.opening_hours || DEFAULT_HOURS,
-          reservation_settings: response.data.reservation_settings || settings.reservation_settings,
-        });
-      }
-    } catch (err) {
-      setError("Failed to load settings");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const handleSave = async () => {
-    if (!restaurantId) return;
-
     setSaving(true);
-
-    try {
-      const response = await api.put(ENDPOINTS.SETTINGS.UPDATE(restaurantId), settings);
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Settings saved successfully");
-      }
-    } catch (err) {
-      toast.error("Failed to save settings");
-    } finally {
-      setSaving(false);
-    }
+    // UI-only: simulate save delay
+    window.setTimeout(() => setSaving(false), 450);
   };
 
   const handleHoursChange = (index: number, field: keyof OpeningHours, value: string | boolean) => {
@@ -102,27 +64,16 @@ export default function SettingsPage() {
     setSettings({ ...settings, opening_hours: newHours });
   };
 
-  if (loading) {
-    return (
-      <div className="p-4 md:p-6 space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-64" />
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-          <p className="text-muted-foreground">Manage your restaurant's information and preferences</p>
+          <p className="text-muted-foreground">
+            Manage your restaurant's information and preferences
+          </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
@@ -220,7 +171,10 @@ export default function SettingsPage() {
         <CardContent>
           <div className="space-y-3">
             {(settings.opening_hours || DEFAULT_HOURS).map((hours, index) => (
-              <div key={hours.day} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <div
+                key={hours.day}
+                className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
+              >
                 <div className="w-24 font-medium">{hours.day}</div>
                 <div className="flex items-center gap-2 flex-1">
                   <Switch
@@ -368,3 +322,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+export default Settings;

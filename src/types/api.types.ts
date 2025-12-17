@@ -211,7 +211,13 @@ export interface UpdateCallerRequest {
 // Order Types
 // ============================================================================
 
-export type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "completed"
+  | "cancelled";
 export type OrderType = "takeout" | "delivery" | "dine_in";
 
 export interface OrderItem {

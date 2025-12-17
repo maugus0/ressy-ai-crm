@@ -25,11 +25,9 @@ import { refreshTokenDirect } from "@/lib/utils/tokenRefresh";
  * Login with email and password
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResult> {
-  const response = await api.post<LoginResponse>(
-    ENDPOINTS.AUTH.CLIENT_LOGIN,
-    credentials,
-    { skipAuth: true }
-  );
+  const response = await api.post<LoginResponse>(ENDPOINTS.AUTH.CLIENT_LOGIN, credentials, {
+    skipAuth: true,
+  });
 
   if (response.error || !response.data) {
     return { success: false, error: response.error || "Login failed" };

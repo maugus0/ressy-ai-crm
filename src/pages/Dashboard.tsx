@@ -3,14 +3,11 @@
  * Shows stats and analytics for the restaurant
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Phone, CalendarDays, ShoppingBag, DollarSign, TrendingUp, Users } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import type { DashboardStats } from "@/types/api.types";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 
 interface StatCardProps {
   title: string;
@@ -45,12 +42,12 @@ function StatCard({ title, value, description, icon, trend, loading }: StatCardP
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
         {trend && (
-          <div className={`flex items-center text-xs mt-1 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            <TrendingUp className={`h-3 w-3 mr-1 ${!trend.isPositive && 'rotate-180'}`} />
+          <div
+            className={`flex items-center text-xs mt-1 ${trend.isPositive ? "text-green-600" : "text-red-600"}`}
+          >
+            <TrendingUp className={`h-3 w-3 mr-1 ${!trend.isPositive && "rotate-180"}`} />
             {trend.value}% from last week
           </div>
         )}
@@ -59,61 +56,26 @@ function StatCard({ title, value, description, icon, trend, loading }: StatCardP
   );
 }
 
-export default function DashboardPage() {
-  const { restaurantId } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchStats() {
-      if (!restaurantId) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.get<DashboardStats>(ENDPOINTS.DASHBOARD.STATS(restaurantId));
-        if (response.error) {
-          setError(response.error);
-        } else if (response.data) {
-          setStats(response.data);
-        }
-      } catch (err) {
-        setError("Failed to load dashboard stats");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStats();
-  }, [restaurantId]);
+export function Dashboard() {
+  // UI-only: no backend integration yet
+  const [loading] = useState(false);
+  const stats = null;
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Overview of your restaurant's performance
-        </p>
+        <p className="text-muted-foreground">Overview of your restaurant's performance</p>
       </div>
-
-      {/* Error State */}
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <p className="text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -191,3 +153,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+export default Dashboard;

@@ -3,7 +3,7 @@
  * Manage restaurant reservations
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,17 +36,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, Search, Plus, Users, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Reservation, ReservationStatus, CreateReservationRequest } from "@/types/api.types";
 
-export default function ReservationsPage() {
-  const { restaurantId } = useAuth();
+export function Reservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -61,89 +57,24 @@ export default function ReservationsPage() {
     notes: "",
   });
 
-  useEffect(() => {
-    fetchReservations();
-  }, [restaurantId]);
-
-  async function fetchReservations() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<Reservation[]>(ENDPOINTS.RESERVATIONS.LIST(restaurantId));
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setReservations(response.data);
-      }
-    } catch (err) {
-      setError("Failed to load reservations");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const handleSubmit = async () => {
-    if (!restaurantId) return;
-
-    try {
-      const response = await api.post(ENDPOINTS.RESERVATIONS.CREATE(restaurantId), formData);
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Reservation created");
-        fetchReservations();
-        closeDialog();
-      }
-    } catch (err) {
-      toast.error("Failed to create reservation");
-    }
+    // UI-only: close modal without persisting
+    closeDialog();
   };
 
   const handleUpdateStatus = async (reservation: Reservation, newStatus: ReservationStatus) => {
-    try {
-      const response = await api.put(ENDPOINTS.RESERVATIONS.UPDATE(reservation.id), { status: newStatus });
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success(`Reservation ${newStatus}`);
-        fetchReservations();
-      }
-    } catch (err) {
-      toast.error("Failed to update reservation");
-    }
+    setReservations((prev) =>
+      prev.map((x) => (x.id === reservation.id ? { ...x, status: newStatus } : x))
+    );
   };
 
   const handleConfirm = async (reservation: Reservation) => {
-    try {
-      const response = await api.post(ENDPOINTS.RESERVATIONS.FINALIZE(reservation.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Reservation confirmed");
-        fetchReservations();
-      }
-    } catch (err) {
-      toast.error("Failed to confirm reservation");
-    }
+    await handleUpdateStatus(reservation, "confirmed");
   };
 
   const handleCancel = async (reservation: Reservation) => {
     if (!confirm("Cancel this reservation?")) return;
-
-    try {
-      const response = await api.post(ENDPOINTS.RESERVATIONS.CANCEL(reservation.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Reservation cancelled");
-        fetchReservations();
-      }
-    } catch (err) {
-      toast.error("Failed to cancel reservation");
-    }
+    await handleUpdateStatus(reservation, "cancelled");
   };
 
   const closeDialog = () => {
@@ -183,7 +114,10 @@ export default function ReservationsPage() {
   };
 
   const getStatusBadge = (status: ReservationStatus) => {
-    const variants: Record<ReservationStatus, { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+    const variants: Record<
+      ReservationStatus,
+      { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }
+    > = {
       pending: { variant: "outline", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
       confirmed: { variant: "outline", className: "bg-green-50 text-green-700 border-green-200" },
       cancelled: { variant: "destructive" },
@@ -206,6 +140,7 @@ export default function ReservationsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -243,7 +178,9 @@ export default function ReservationsPage() {
                     type="number"
                     min="1"
                     value={formData.party_size}
-                    onChange={(e) => setFormData({ ...formData, party_size: parseInt(e.target.value) || 1 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, party_size: parseInt(e.target.value) || 1 })
+                    }
                   />
                 </div>
               </div>
@@ -422,7 +359,9 @@ export default function ReservationsPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{reservation.name}</p>
-                          <p className="text-sm text-muted-foreground">{reservation.phone_number}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {reservation.phone_number}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell>{formatDateShort(reservation.date_time)}</TableCell>
@@ -518,7 +457,9 @@ export default function ReservationsPage() {
               {selectedReservation.special_request && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Special Requests</p>
-                  <p className="bg-muted p-3 rounded-lg text-sm">{selectedReservation.special_request}</p>
+                  <p className="bg-muted p-3 rounded-lg text-sm">
+                    {selectedReservation.special_request}
+                  </p>
                 </div>
               )}
               {selectedReservation.notes && (
@@ -531,23 +472,42 @@ export default function ReservationsPage() {
               {!["completed", "cancelled", "no_show"].includes(selectedReservation.status) && (
                 <div className="flex gap-2 justify-end pt-4 border-t">
                   {selectedReservation.status === "pending" && (
-                    <Button onClick={() => { handleConfirm(selectedReservation); setSelectedReservation(null); }}>
+                    <Button
+                      onClick={() => {
+                        handleConfirm(selectedReservation);
+                        setSelectedReservation(null);
+                      }}
+                    >
                       Confirm
                     </Button>
                   )}
                   {selectedReservation.status === "confirmed" && (
                     <>
-                      <Button onClick={() => { handleUpdateStatus(selectedReservation, "completed"); setSelectedReservation(null); }}>
+                      <Button
+                        onClick={() => {
+                          handleUpdateStatus(selectedReservation, "completed");
+                          setSelectedReservation(null);
+                        }}
+                      >
                         Mark Completed
                       </Button>
-                      <Button variant="secondary" onClick={() => { handleUpdateStatus(selectedReservation, "no_show"); setSelectedReservation(null); }}>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          handleUpdateStatus(selectedReservation, "no_show");
+                          setSelectedReservation(null);
+                        }}
+                      >
                         No Show
                       </Button>
                     </>
                   )}
                   <Button
                     variant="destructive"
-                    onClick={() => { handleCancel(selectedReservation); setSelectedReservation(null); }}
+                    onClick={() => {
+                      handleCancel(selectedReservation);
+                      setSelectedReservation(null);
+                    }}
                   >
                     Cancel
                   </Button>
@@ -560,3 +520,5 @@ export default function ReservationsPage() {
     </div>
   );
 }
+
+export default Reservations;

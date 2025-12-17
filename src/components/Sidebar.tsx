@@ -22,7 +22,12 @@ const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { id: "calls", label: "Calls", icon: Phone, path: "/dashboard/calls" },
   { id: "callers", label: "Callers", icon: Users, path: "/dashboard/callers" },
-  { id: "reservations", label: "Reservations", icon: CalendarDays, path: "/dashboard/reservations" },
+  {
+    id: "reservations",
+    label: "Reservations",
+    icon: CalendarDays,
+    path: "/dashboard/reservations",
+  },
   { id: "orders", label: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
   { id: "menu", label: "Menu", icon: UtensilsCrossed, path: "/dashboard/menu" },
   { id: "faqs", label: "FAQs", icon: HelpCircle, path: "/dashboard/faqs" },
@@ -74,9 +79,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     )
                   }
                 >
-                  <Icon
-                    className="w-5 h-5 transition-transform duration-200 group-hover:scale-110"
-                  />
+                  <Icon className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
                   <span>{item.label}</span>
                 </NavLink>
               </li>
@@ -108,3 +111,5 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     </div>
   );
 }
+
+export default Sidebar;

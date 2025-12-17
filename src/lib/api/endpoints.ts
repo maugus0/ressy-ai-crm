@@ -1,7 +1,7 @@
 /**
  * API Endpoints
  * Centralized endpoint definitions matching backend routes
- * 
+ *
  * For Client Dashboard (Restaurant Manager Portal)
  * All endpoints are scoped to the logged-in restaurant's restaurant_id
  */
@@ -100,6 +100,7 @@ export const ENDPOINTS = {
     GET: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings`,
     UPDATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings`,
     OPENING_HOURS: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings/hours`,
-    RESERVATION_SETTINGS: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings/reservations`,
+    RESERVATION_SETTINGS: (restaurantId: number) =>
+      `/client/restaurants/${restaurantId}/settings/reservations`,
   },
 } as const;

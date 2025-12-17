@@ -3,7 +3,7 @@
  * Manage takeout orders
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,90 +32,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ShoppingBag, Search, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Order, OrderStatus } from "@/types/api.types";
 
-export default function OrdersPage() {
-  const { restaurantId } = useAuth();
+export function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [restaurantId]);
-
-  async function fetchOrders() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<Order[]>(ENDPOINTS.ORDERS.LIST(restaurantId));
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setOrders(response.data);
-      }
-    } catch (err) {
-      setError("Failed to load orders");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
-    try {
-      const response = await api.put(ENDPOINTS.ORDERS.UPDATE(order.id), { status: newStatus });
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success(`Order ${newStatus}`);
-        fetchOrders();
-        if (selectedOrder?.id === order.id) {
-          setSelectedOrder({ ...order, status: newStatus });
-        }
-      }
-    } catch (err) {
-      toast.error("Failed to update order");
-    }
+    // UI-only: no backend yet. Update local state for demo purposes.
+    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: newStatus });
   };
 
   const handleFinalizeOrder = async (order: Order) => {
-    try {
-      const response = await api.post(ENDPOINTS.ORDERS.FINALIZE(order.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Order finalized");
-        fetchOrders();
-      }
-    } catch (err) {
-      toast.error("Failed to finalize order");
-    }
+    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: "completed" });
   };
 
   const handleCancelOrder = async (order: Order) => {
     if (!confirm("Cancel this order?")) return;
-
-    try {
-      const response = await api.post(ENDPOINTS.ORDERS.CANCEL(order.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("Order cancelled");
-        fetchOrders();
-      }
-    } catch (err) {
-      toast.error("Failed to cancel order");
-    }
+    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: "cancelled" });
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -140,10 +79,16 @@ export default function OrdersPage() {
   };
 
   const getStatusBadge = (status: OrderStatus) => {
-    const variants: Record<OrderStatus, { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+    const variants: Record<
+      OrderStatus,
+      { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }
+    > = {
       pending: { variant: "outline", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
       confirmed: { variant: "outline", className: "bg-blue-50 text-blue-700 border-blue-200" },
-      preparing: { variant: "outline", className: "bg-purple-50 text-purple-700 border-purple-200" },
+      preparing: {
+        variant: "outline",
+        className: "bg-purple-50 text-purple-700 border-purple-200",
+      },
       ready: { variant: "outline", className: "bg-green-50 text-green-700 border-green-200" },
       completed: { variant: "default" },
       cancelled: { variant: "destructive" },
@@ -166,6 +111,7 @@ export default function OrdersPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
@@ -299,11 +245,7 @@ export default function OrdersPage() {
                       <TableCell>{formatDate(order.pickup_time)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedOrder(order)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           {order.status === "pending" && (
@@ -360,7 +302,9 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Order Type</p>
-                  <p className="font-medium capitalize">{selectedOrder.order_type.replace("_", " ")}</p>
+                  <p className="font-medium capitalize">
+                    {selectedOrder.order_type.replace("_", " ")}
+                  </p>
                   {selectedOrder.pickup_time && (
                     <>
                       <p className="text-sm font-medium text-muted-foreground mt-2">Pickup Time</p>
@@ -410,8 +354,12 @@ export default function OrdersPage() {
               {/* Special Instructions */}
               {selectedOrder.special_instructions && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Special Instructions</p>
-                  <p className="text-sm bg-muted p-3 rounded-lg">{selectedOrder.special_instructions}</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Special Instructions
+                  </p>
+                  <p className="text-sm bg-muted p-3 rounded-lg">
+                    {selectedOrder.special_instructions}
+                  </p>
                 </div>
               )}
 
@@ -456,3 +404,5 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+export default Orders;

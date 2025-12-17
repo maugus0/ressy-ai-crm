@@ -3,7 +3,7 @@
  * View call logs for the restaurant
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,53 +25,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Phone, Search, Clock, Download, Eye } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Call, CallTranscriptSegment } from "@/types/api.types";
 
-export default function CallsPage() {
-  const { restaurantId } = useAuth();
+export function Calls() {
   const [calls, setCalls] = useState<Call[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [transcript, setTranscript] = useState<CallTranscriptSegment[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
-
-  useEffect(() => {
-    async function fetchCalls() {
-      if (!restaurantId) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.get<Call[]>(ENDPOINTS.CALLS.LIST(restaurantId));
-        if (response.error) {
-          setError(response.error);
-        } else if (response.data) {
-          setCalls(response.data);
-        }
-      } catch (err) {
-        setError("Failed to load calls");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchCalls();
-  }, [restaurantId]);
 
   const handleViewTranscript = async (call: Call) => {
     setSelectedCall(call);
     setLoadingTranscript(true);
 
     try {
-      const response = await api.get<CallTranscriptSegment[]>(ENDPOINTS.CALLS.TRANSCRIPT(call.id));
-      if (response.data) {
-        setTranscript(response.data);
+      // UI-only: no backend yet. Use local fallback if present.
+      if (call.transcript) {
+        setTranscript([{ speaker: "transcript", text: call.transcript }]);
+      } else {
+        setTranscript([]);
       }
     } catch (err) {
       // Use the call's transcript if available
@@ -121,7 +96,9 @@ export default function CallsPage() {
       other: "bg-gray-100 text-gray-800",
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[outcome] || colors.other}`}>
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[outcome] || colors.other}`}
+      >
         {outcome}
       </span>
     );
@@ -137,7 +114,9 @@ export default function CallsPage() {
       call.status,
       call.outcome || "",
     ]);
-    const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -149,6 +128,7 @@ export default function CallsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -202,7 +182,9 @@ export default function CallsPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {calls.length > 0
-                ? formatDuration(Math.round(calls.reduce((a, c) => a + c.duration_seconds, 0) / calls.length))
+                ? formatDuration(
+                    Math.round(calls.reduce((a, c) => a + c.duration_seconds, 0) / calls.length)
+                  )
                 : "0:00"}
             </div>
           </CardContent>
@@ -332,3 +314,5 @@ export default function CallsPage() {
     </div>
   );
 }
+
+export default Calls;

@@ -1,3 +1,8 @@
+/**
+ * Login Page
+ * Authentication page for the CRM dashboard
+ */
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,7 +20,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export function LoginPage() {
+export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -179,3 +184,5 @@ export function LoginPage() {
     </div>
   );
 }
+
+export default Login;

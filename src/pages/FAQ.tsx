@@ -3,7 +3,7 @@
  * Manage restaurant FAQs
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,20 +28,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { HelpCircle, Search, Plus, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
-import type { FAQ, CreateFAQRequest } from "@/types/api.types";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
+import type { FAQ as FAQType, CreateFAQRequest } from "@/types/api.types";
 
-export default function FAQsPage() {
-  const { restaurantId } = useAuth();
-  const [faqs, setFaqs] = useState<FAQ[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function FAQ() {
+  const [faqs, setFaqs] = useState<FAQType[]>([]);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
+  const [editingFaq, setEditingFaq] = useState<FAQType | null>(null);
   const [formData, setFormData] = useState<CreateFAQRequest>({
     question: "",
     answer: "",
@@ -49,90 +45,21 @@ export default function FAQsPage() {
     is_active: true,
   });
 
-  useEffect(() => {
-    fetchFAQs();
-  }, [restaurantId]);
-
-  async function fetchFAQs() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<FAQ[]>(ENDPOINTS.FAQ.LIST(restaurantId));
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setFaqs(response.data);
-      }
-    } catch (err) {
-      setError("Failed to load FAQs");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const handleSubmit = async () => {
-    if (!restaurantId) return;
-
-    try {
-      if (editingFaq) {
-        const response = await api.put(ENDPOINTS.FAQ.UPDATE(editingFaq.id), formData);
-        if (response.error) {
-          toast.error(response.error);
-        } else {
-          toast.success("FAQ updated");
-          fetchFAQs();
-          closeDialog();
-        }
-      } else {
-        const response = await api.post(ENDPOINTS.FAQ.CREATE(restaurantId), formData);
-        if (response.error) {
-          toast.error(response.error);
-        } else {
-          toast.success("FAQ created");
-          fetchFAQs();
-          closeDialog();
-        }
-      }
-    } catch (err) {
-      toast.error("Failed to save FAQ");
-    }
+    // UI-only: close modal without persisting
+    closeDialog();
   };
 
-  const handleDelete = async (faq: FAQ) => {
+  const handleDelete = async (faq: FAQType) => {
     if (!confirm("Delete this FAQ?")) return;
-
-    try {
-      const response = await api.delete(ENDPOINTS.FAQ.DELETE(faq.id));
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success("FAQ deleted");
-        fetchFAQs();
-      }
-    } catch (err) {
-      toast.error("Failed to delete FAQ");
-    }
+    setFaqs((prev) => prev.filter((x) => x.id !== faq.id));
   };
 
-  const handleToggleActive = async (faq: FAQ) => {
-    try {
-      const response = await api.put(ENDPOINTS.FAQ.UPDATE(faq.id), {
-        is_active: !faq.is_active,
-      });
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        fetchFAQs();
-      }
-    } catch (err) {
-      toast.error("Failed to update FAQ");
-    }
+  const handleToggleActive = async (faq: FAQType) => {
+    setFaqs((prev) => prev.map((x) => (x.id === faq.id ? { ...x, is_active: !x.is_active } : x)));
   };
 
-  const openEditDialog = (faq: FAQ) => {
+  const openEditDialog = (faq: FAQType) => {
     setEditingFaq(faq);
     setFormData({
       question: faq.question,
@@ -164,20 +91,27 @@ export default function FAQsPage() {
   });
 
   const categories = [...new Set(faqs.filter((f) => f.category).map((f) => f.category!))];
-  const groupedFaqs = categories.length > 0
-    ? categories.reduce((acc, cat) => {
-        acc[cat] = filteredFaqs.filter((f) => f.category === cat);
-        return acc;
-      }, {} as Record<string, FAQ[]>)
-    : { "General": filteredFaqs };
+  const groupedFaqs =
+    categories.length > 0
+      ? categories.reduce(
+          (acc, cat) => {
+            acc[cat] = filteredFaqs.filter((f) => f.category === cat);
+            return acc;
+          },
+          {} as Record<string, FAQType[]>
+        )
+      : { General: filteredFaqs };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">FAQs</h2>
-          <p className="text-muted-foreground">Manage frequently asked questions for your restaurant</p>
+          <p className="text-muted-foreground">
+            Manage frequently asked questions for your restaurant
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -266,9 +200,7 @@ export default function FAQsPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {faqs.filter((f) => f.is_active).length}
-            </div>
+            <div className="text-2xl font-bold">{faqs.filter((f) => f.is_active).length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -277,9 +209,7 @@ export default function FAQsPage() {
             <XCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {faqs.filter((f) => !f.is_active).length}
-            </div>
+            <div className="text-2xl font-bold">{faqs.filter((f) => !f.is_active).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -330,7 +260,9 @@ export default function FAQsPage() {
                       <AccordionTrigger className="text-left">
                         <div className="flex items-center gap-2">
                           {!faq.is_active && (
-                            <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              Inactive
+                            </Badge>
                           )}
                           <span>{faq.question}</span>
                         </div>
@@ -340,7 +272,9 @@ export default function FAQsPage() {
                           <p className="text-muted-foreground">{faq.answer}</p>
                           <div className="flex items-center justify-between pt-2 border-t">
                             <div className="flex items-center gap-2">
-                              <Label htmlFor={`active-${faq.id}`} className="text-sm">Active</Label>
+                              <Label htmlFor={`active-${faq.id}`} className="text-sm">
+                                Active
+                              </Label>
                               <Switch
                                 id={`active-${faq.id}`}
                                 checked={faq.is_active}
@@ -374,3 +308,5 @@ export default function FAQsPage() {
     </div>
   );
 }
+
+export default FAQ;

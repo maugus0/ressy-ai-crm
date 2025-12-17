@@ -3,7 +3,7 @@
  * View all callers and mark spam/fraud
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,75 +23,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Users, Search, Phone, AlertTriangle, ShieldX, MoreHorizontal, CheckCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api/client";
-import { ENDPOINTS } from "@/lib/api/endpoints";
-import { toast } from "sonner";
+import {
+  Users,
+  Search,
+  Phone,
+  AlertTriangle,
+  ShieldX,
+  MoreHorizontal,
+  CheckCircle,
+} from "lucide-react";
+import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Caller } from "@/types/api.types";
 
-export default function CallersPage() {
-  const { restaurantId } = useAuth();
+export function Callers() {
   const [callers, setCallers] = useState<Caller[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    fetchCallers();
-  }, [restaurantId]);
-
-  async function fetchCallers() {
-    if (!restaurantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get<Caller[]>(ENDPOINTS.CALLERS.LIST(restaurantId));
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setCallers(response.data);
-      }
-    } catch (err) {
-      setError("Failed to load callers");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const handleMarkSpam = async (caller: Caller) => {
-    try {
-      const response = await api.post(ENDPOINTS.CALLERS.MARK_SPAM(caller.id), {
-        is_spam: !caller.is_spam,
-      });
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success(caller.is_spam ? "Removed from spam" : "Marked as spam");
-        fetchCallers();
-      }
-    } catch (err) {
-      toast.error("Failed to update caller");
-    }
-  };
-
-  const handleMarkFraud = async (caller: Caller) => {
-    try {
-      const response = await api.post(ENDPOINTS.CALLERS.MARK_FRAUD(caller.id), {
-        is_fraud: !caller.is_fraud,
-      });
-      if (response.error) {
-        toast.error(response.error);
-      } else {
-        toast.success(caller.is_fraud ? "Removed fraud flag" : "Marked as fraud");
-        fetchCallers();
-      }
-    } catch (err) {
-      toast.error("Failed to update caller");
-    }
-  };
+  // UI-only: no backend integration yet
+  const handleMarkSpam = async (_caller: Caller) => undefined;
+  const handleMarkFraud = async (_caller: Caller) => undefined;
 
   const filteredCallers = callers.filter((caller) => {
     const query = searchQuery.toLowerCase();
@@ -109,6 +61,7 @@ export default function CallersPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <UiOnlyNotice />
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Callers</h2>
@@ -143,9 +96,7 @@ export default function CallersPage() {
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {callers.filter((c) => c.is_spam).length}
-            </div>
+            <div className="text-2xl font-bold">{callers.filter((c) => c.is_spam).length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -154,9 +105,7 @@ export default function CallersPage() {
             <ShieldX className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {callers.filter((c) => c.is_fraud).length}
-            </div>
+            <div className="text-2xl font-bold">{callers.filter((c) => c.is_fraud).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -222,15 +171,19 @@ export default function CallersPage() {
                       <TableCell>
                         <div className="flex gap-1">
                           {caller.is_spam && (
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                            <Badge
+                              variant="outline"
+                              className="bg-yellow-50 text-yellow-700 border-yellow-200"
+                            >
                               Spam
                             </Badge>
                           )}
-                          {caller.is_fraud && (
-                            <Badge variant="destructive">Fraud</Badge>
-                          )}
+                          {caller.is_fraud && <Badge variant="destructive">Fraud</Badge>}
                           {!caller.is_spam && !caller.is_fraud && (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 border-green-200"
+                            >
                               Legitimate
                             </Badge>
                           )}
@@ -269,3 +222,5 @@ export default function CallersPage() {
     </div>
   );
 }
+
+export default Callers;
