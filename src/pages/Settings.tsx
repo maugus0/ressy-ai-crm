@@ -8,16 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import {
-  Settings as SettingsIcon,
-  Building,
-  Clock,
-  CalendarDays,
-  Save,
-  Loader2,
-} from "lucide-react";
+import { Building, Clock, CalendarDays, Save, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { RestaurantSettings, OpeningHours } from "@/types/api.types";
@@ -33,9 +25,7 @@ const DEFAULT_HOURS: OpeningHours[] = DAYS_OF_WEEK.map((day) => ({
 
 export function Settings() {
   const { restaurantName } = useAuth();
-  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error] = useState<string | null>(null);
   const [settings, setSettings] = useState<RestaurantSettings>({
     name: restaurantName || "",
     address: "",

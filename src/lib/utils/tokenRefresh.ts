@@ -21,7 +21,11 @@ const getStoredAuthData = (): StoredAuthData | null => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : null;
-  } catch {
+  } catch (error) {
+    // Helpful during development; avoids swallowing JSON parse/storage errors silently.
+    if (import.meta.env.DEV) {
+      console.warn("[tokenRefresh] Failed to read stored auth data", error);
+    }
     return null;
   }
 };

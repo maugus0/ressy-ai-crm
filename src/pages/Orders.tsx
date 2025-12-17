@@ -36,7 +36,7 @@ import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Order, OrderStatus } from "@/types/api.types";
 
 export function Orders() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders] = useState<Order[]>([]);
   const [loading] = useState(false);
   const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

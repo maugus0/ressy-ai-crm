@@ -36,14 +36,18 @@ import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Caller } from "@/types/api.types";
 
 export function Callers() {
-  const [callers, setCallers] = useState<Caller[]>([]);
+  const [callers] = useState<Caller[]>([]);
   const [loading] = useState(false);
   const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // UI-only: no backend integration yet
-  const handleMarkSpam = async (_caller: Caller) => undefined;
-  const handleMarkFraud = async (_caller: Caller) => undefined;
+  const handleMarkSpam = async (_caller: Caller) => {
+    // TODO: integrate backend API
+  };
+  const handleMarkFraud = async (_caller: Caller) => {
+    // TODO: integrate backend API
+  };
 
   const filteredCallers = callers.filter((caller) => {
     const query = searchQuery.toLowerCase();

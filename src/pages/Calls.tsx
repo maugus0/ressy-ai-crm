@@ -29,7 +29,7 @@ import { UiOnlyNotice } from "@/components/UiOnlyNotice";
 import type { Call, CallTranscriptSegment } from "@/types/api.types";
 
 export function Calls() {
-  const [calls, setCalls] = useState<Call[]>([]);
+  const [calls] = useState<Call[]>([]);
   const [loading] = useState(false);
   const [error] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
