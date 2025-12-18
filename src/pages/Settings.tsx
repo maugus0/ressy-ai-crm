@@ -159,11 +159,11 @@ export function Settings() {
     }
 
     // Forward/backward minutes validation
-    if (formData.forward_minutes < 0 || formData.forward_minutes > 1440) {
-      errors.forward_minutes = "Must be between 0 and 1440 minutes";
+    if (formData.forward_minutes < 1 || formData.forward_minutes > 1440) {
+      errors.forward_minutes = "Must be between 1 and 1440 minutes";
     }
-    if (formData.backward_minutes < 0 || formData.backward_minutes > 1440) {
-      errors.backward_minutes = "Must be between 0 and 1440 minutes";
+    if (formData.backward_minutes < 1 || formData.backward_minutes > 1440) {
+      errors.backward_minutes = "Must be between 1 and 1440 minutes";
     }
 
     setFormErrors(errors);

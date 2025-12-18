@@ -230,6 +230,12 @@ jobs:
         run: npm run build:gh-pages
         env:
           GITHUB_PAGES: true
+          # VITE_API_BASE_URL should be set in:
+          # 1. Repository Secrets (Settings > Secrets and variables > Actions > Secrets)
+          # 2. Environment variables (Settings > Environments > github-pages > Environment variables)
+          # Repository secrets take precedence, then environment variables
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || 'v1' }}
 
       - name: Record current gh-pages HEAD (for rollback)
         shell: bash
@@ -348,6 +354,9 @@ jobs:
           fi
           echo "Rolling back gh-pages to $PREV_GHPAGES_SHA"
           git fetch --prune origin gh-pages
+          # Stash or discard any local changes before switching branches
+          git reset --hard HEAD || true
+          git clean -fd || true
           if git show-ref --verify --quiet refs/heads/gh-pages; then
             git checkout gh-pages
           else

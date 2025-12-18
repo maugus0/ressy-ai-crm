@@ -299,6 +299,7 @@ export function FAQ() {
 
   const openCreateDialog = () => {
     resetForm();
+    setSelectedFAQ(null);
     setIsCreateDialogOpen(true);
   };
 
@@ -419,7 +420,7 @@ export function FAQ() {
     }
 
     // Validate file size
-    if (!validateCSVFileSize(file, MAX_CSV_FILE_SIZE)) {
+    if (!validateCSVFileSize(file)) {
       toast.error(`File size must be less than ${MAX_CSV_FILE_SIZE / (1024 * 1024)}MB`);
       event.target.value = "";
       return;

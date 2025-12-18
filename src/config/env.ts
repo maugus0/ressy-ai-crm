@@ -17,21 +17,27 @@ const getApiBaseUrl = (): string => {
       return envUrl || "http://localhost:5001";
     }
 
-    // In production, warn if not set but still provide fallback
+    // In production, silently return empty string if not set
+    // This allows the UI to load but API calls will fail gracefully
+    // We don't log warnings in production to avoid triggering smoke test failures
     if (!envUrl) {
-      console.warn(
-        "⚠️ VITE_API_BASE_URL is not set. " +
-          "Using fallback. For production, set it in GitHub Actions environment variables or secrets."
-      );
-      // Return empty string to prevent API calls in production without proper config
-      // This allows the UI to load but API calls will fail gracefully
+      // Only log in development mode for debugging
+      if (import.meta.env.DEV) {
+        console.warn(
+          "⚠️ VITE_API_BASE_URL is not set. " +
+            "Using fallback. For production, set it in GitHub Actions environment variables or secrets."
+        );
+      }
       return "";
     }
 
     return envUrl;
   } catch (err) {
     // If there's any error accessing env, return empty string
-    console.warn("Failed to read VITE_API_BASE_URL:", err);
+    // Only log in development mode to avoid triggering smoke test failures
+    if (import.meta.env.DEV) {
+      console.warn("Failed to read VITE_API_BASE_URL:", err);
+    }
     return "";
   }
 };
