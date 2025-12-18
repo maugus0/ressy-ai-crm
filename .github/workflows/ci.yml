@@ -76,6 +76,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full git history needed for SonarCloud blame information
+
+      - name: Fetch all branches for SonarCloud
+        run: |
+          git fetch --unshallow || true
+          git fetch origin main:main || true
+          git fetch origin +refs/heads/*:refs/remotes/origin/* || true
 
       - name: Download coverage artifact
         uses: actions/download-artifact@v4
@@ -88,6 +96,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true  # Don't fail the entire pipeline on SonarCloud transient errors
 
   security-scan:
     name: Security Scan (Snyk OSS)
@@ -230,6 +239,12 @@ jobs:
         run: npm run build:gh-pages
         env:
           GITHUB_PAGES: true
+          # VITE_API_BASE_URL should be set in:
+          # 1. Repository Secrets (Settings > Secrets and variables > Actions > Secrets)
+          # 2. Environment variables (Settings > Environments > github-pages > Environment variables)
+          # Repository secrets take precedence, then environment variables
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || 'v1' }}
 
       - name: Record current gh-pages HEAD (for rollback)
         shell: bash
@@ -348,6 +363,9 @@ jobs:
           fi
           echo "Rolling back gh-pages to $PREV_GHPAGES_SHA"
           git fetch --prune origin gh-pages
+          # Stash or discard any local changes before switching branches
+          git reset --hard HEAD || true
+          git clean -fd || true
           if git show-ref --verify --quiet refs/heads/gh-pages; then
             git checkout gh-pages
           else

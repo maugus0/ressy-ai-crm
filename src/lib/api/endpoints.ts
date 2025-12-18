@@ -37,28 +37,44 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Menu (per restaurant)
+  // Menu (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   MENU: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu`,
-    CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu`,
-    CATEGORIES: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu/categories`,
+    /** POST /api/v1/client/menu - Create menu item */
+    CREATE: "/client/menu",
+    /** GET /api/v1/client/menu - List menu items with filters */
+    LIST: "/client/menu",
+    /** GET /api/v1/client/menu/categories - Get categories and sub-categories */
+    CATEGORIES: "/client/menu/categories",
+    /** GET /api/v1/client/menu/{menu_id} - Get menu item details */
     GET: (menuId: number) => `/client/menu/${menuId}`,
+    /** PUT /api/v1/client/menu/{menu_id} - Update menu item */
     UPDATE: (menuId: number) => `/client/menu/${menuId}`,
+    /** DELETE /api/v1/client/menu/{menu_id} - Delete menu item */
     DELETE: (menuId: number) => `/client/menu/${menuId}`,
+    /** PATCH /api/v1/client/menu/{menu_id}/availability - Toggle availability */
     TOGGLE_AVAILABILITY: (menuId: number) => `/client/menu/${menuId}/availability`,
+    /** PATCH /api/v1/client/menu/{menu_id}/special - Toggle special status */
     TOGGLE_SPECIAL: (menuId: number) => `/client/menu/${menuId}/special`,
+    /** PATCH /api/v1/client/menu/bulk-availability - Bulk update availability */
+    BULK_AVAILABILITY: "/client/menu/bulk-availability",
   },
 
   // ============================================================================
-  // FAQ (per restaurant)
+  // FAQ (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   FAQ: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs`,
-    CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs`,
-    BULK_CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs/bulk`,
+    /** POST /api/v1/client/faqs - Create FAQ */
+    CREATE: "/client/faqs",
+    /** GET /api/v1/client/faqs - List FAQs with pagination and search */
+    LIST: "/client/faqs",
+    /** POST /api/v1/client/faqs/bulk - Bulk create FAQs */
+    BULK_CREATE: "/client/faqs/bulk",
+    /** GET /api/v1/client/faqs/{faq_id} - Get FAQ by ID */
     GET: (faqId: number) => `/client/faqs/${faqId}`,
+    /** PUT /api/v1/client/faqs/{faq_id} - Update FAQ */
     UPDATE: (faqId: number) => `/client/faqs/${faqId}`,
+    /** DELETE /api/v1/client/faqs/{faq_id} - Delete FAQ */
     DELETE: (faqId: number) => `/client/faqs/${faqId}`,
   },
 
@@ -94,7 +110,17 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Settings (per restaurant)
+  // Restaurant (client-scoped - auto-scoped to authenticated restaurant)
+  // ============================================================================
+  RESTAURANT: {
+    /** GET /api/v1/client/restaurant - Get authenticated restaurant details */
+    GET: "/client/restaurant",
+    /** PUT /api/v1/client/restaurant - Update authenticated restaurant */
+    UPDATE: "/client/restaurant",
+  },
+
+  // ============================================================================
+  // Settings (legacy - per restaurant)
   // ============================================================================
   SETTINGS: {
     GET: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings`,

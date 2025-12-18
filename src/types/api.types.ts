@@ -37,6 +37,48 @@ export interface Restaurant {
   updated_at?: string;
 }
 
+/**
+ * Client Restaurant - Response from GET /api/v1/client/restaurant
+ * This is the authenticated restaurant's full details
+ */
+export interface ClientRestaurant {
+  id: number;
+  name: string;
+  address: string;
+  phone_number: string;
+  twilio_phone_number: string | null;
+  /** Forward minutes for reservation booking window */
+  forward_minutes: number;
+  /** Backward minutes for cancellation window */
+  backward_minutes: number;
+  /** Whether credit card is required for reservations */
+  is_credit_card_required_for_reservation: boolean;
+  /** Opening time in HH:MM:SS format */
+  opening_time: string | null;
+  /** Closing time in HH:MM:SS format */
+  closing_time: string | null;
+  created_at: string;
+  updated_at: string;
+  // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
+  // as they should not be exposed to client dashboard users
+}
+
+/**
+ * Client Restaurant Update Request - PUT /api/v1/client/restaurant
+ * All fields are optional; server-side validation still applies
+ */
+export interface ClientRestaurantUpdateRequest {
+  name?: string;
+  address?: string;
+  phone_number?: string;
+  forward_minutes?: number;
+  backward_minutes?: number;
+  is_credit_card_required_for_reservation?: boolean;
+  opening_time?: string;
+  closing_time?: string;
+  // Note: twilio_phone_number is read-only and cannot be updated by client
+}
+
 // ============================================================================
 // Reservation Types
 // ============================================================================
@@ -80,9 +122,132 @@ export interface UpdateReservationRequest {
 }
 
 // ============================================================================
-// Menu Types
+// Menu Types (Client Dashboard)
 // ============================================================================
 
+/**
+ * Menu Item - Response from GET /api/v1/client/menu and /api/v1/client/menu/{menu_id}
+ */
+export interface ClientMenuItem {
+  id: number;
+  restaurant_id: number;
+  restaurant_name: string | null;
+  category: string;
+  sub_category: string | null;
+  item_name: string;
+  item_desc: string | null;
+  /** Price as string from API (e.g., "15.99") */
+  price: string;
+  /** Average prep time in minutes */
+  avg_prep_time: number;
+  suggested_items: number[];
+  is_available: boolean;
+  is_special: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Menu Item Create Request - POST /api/v1/client/menu
+ */
+export interface ClientMenuItemCreateRequest {
+  item_name: string;
+  price: number;
+  category: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+/**
+ * Menu Item Update Request - PUT /api/v1/client/menu/{menu_id}
+ */
+export interface ClientMenuItemUpdateRequest {
+  item_name?: string;
+  price?: number;
+  category?: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+/**
+ * Menu Availability Toggle Request - PATCH /api/v1/client/menu/{menu_id}/availability
+ */
+export interface MenuAvailabilityRequest {
+  is_available: boolean;
+}
+
+/**
+ * Menu Special Toggle Request - PATCH /api/v1/client/menu/{menu_id}/special
+ */
+export interface MenuSpecialRequest {
+  is_special: boolean;
+}
+
+/**
+ * Bulk Availability Update Request - PATCH /api/v1/client/menu/bulk-availability
+ */
+export interface MenuBulkAvailabilityRequest {
+  menu_item_ids: number[];
+  is_available: boolean;
+}
+
+/**
+ * Bulk Availability Update Response
+ */
+export interface MenuBulkAvailabilityResponse {
+  updated_count: number;
+  menu_item_ids: number[];
+}
+
+/**
+ * Menu Categories Response - GET /api/v1/client/menu/categories
+ * Returns categories as keys with arrays of sub-categories as values
+ */
+export interface MenuCategoriesResponse {
+  categories: Record<string, string[]>;
+}
+
+/**
+ * Menu List Response with Pagination
+ */
+export interface ClientMenuListResponse {
+  items: ClientMenuItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+/**
+ * Menu List Query Parameters
+ */
+export interface MenuListParams {
+  page?: number;
+  limit?: number;
+  category?: string;
+  sub_category?: string;
+  is_available?: boolean;
+  is_special?: boolean;
+  search?: string;
+}
+
+/**
+ * Menu Delete Response
+ */
+export interface MenuDeleteResponse {
+  message: string;
+  menu_id: number;
+}
+
+// Legacy MenuItem interface (for backwards compatibility)
 export interface MenuItem {
   id: number;
   name: string;
@@ -120,9 +285,85 @@ export interface UpdateMenuItemRequest {
 }
 
 // ============================================================================
-// FAQ Types
+// FAQ Types (Client Dashboard)
 // ============================================================================
 
+/**
+ * FAQ - Response from GET /api/v1/client/faqs and /api/v1/client/faqs/{faq_id}
+ */
+export interface ClientFAQ {
+  id: number;
+  restaurant_id: number;
+  restaurant_name?: string;
+  question: string;
+  answer: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * FAQ Create Request - POST /api/v1/client/faqs
+ */
+export interface ClientFAQCreateRequest {
+  question: string;
+  answer: string;
+}
+
+/**
+ * FAQ Update Request - PUT /api/v1/client/faqs/{faq_id}
+ */
+export interface ClientFAQUpdateRequest {
+  question?: string;
+  answer?: string;
+}
+
+/**
+ * Bulk FAQ Create Request - POST /api/v1/client/faqs/bulk
+ */
+export interface ClientBulkFAQCreateRequest {
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+/**
+ * Bulk FAQ Create Response
+ */
+export interface ClientBulkFAQCreateResponse {
+  items: ClientFAQ[];
+}
+
+/**
+ * FAQ List Response with Pagination
+ */
+export interface ClientFAQListResponse {
+  items: ClientFAQ[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+/**
+ * FAQ List Query Parameters
+ */
+export interface FAQListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+/**
+ * FAQ Delete Response
+ */
+export interface FAQDeleteResponse {
+  message: string;
+}
+
+// Legacy FAQ types (for backwards compatibility)
 export interface FAQ {
   id: number;
   question: string;
