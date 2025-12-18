@@ -285,9 +285,85 @@ export interface UpdateMenuItemRequest {
 }
 
 // ============================================================================
-// FAQ Types
+// FAQ Types (Client Dashboard)
 // ============================================================================
 
+/**
+ * FAQ - Response from GET /api/v1/client/faqs and /api/v1/client/faqs/{faq_id}
+ */
+export interface ClientFAQ {
+  id: number;
+  restaurant_id: number;
+  restaurant_name?: string;
+  question: string;
+  answer: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * FAQ Create Request - POST /api/v1/client/faqs
+ */
+export interface ClientFAQCreateRequest {
+  question: string;
+  answer: string;
+}
+
+/**
+ * FAQ Update Request - PUT /api/v1/client/faqs/{faq_id}
+ */
+export interface ClientFAQUpdateRequest {
+  question?: string;
+  answer?: string;
+}
+
+/**
+ * Bulk FAQ Create Request - POST /api/v1/client/faqs/bulk
+ */
+export interface ClientBulkFAQCreateRequest {
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+/**
+ * Bulk FAQ Create Response
+ */
+export interface ClientBulkFAQCreateResponse {
+  items: ClientFAQ[];
+}
+
+/**
+ * FAQ List Response with Pagination
+ */
+export interface ClientFAQListResponse {
+  items: ClientFAQ[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+/**
+ * FAQ List Query Parameters
+ */
+export interface FAQListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+/**
+ * FAQ Delete Response
+ */
+export interface FAQDeleteResponse {
+  message: string;
+}
+
+// Legacy FAQ types (for backwards compatibility)
 export interface FAQ {
   id: number;
   question: string;

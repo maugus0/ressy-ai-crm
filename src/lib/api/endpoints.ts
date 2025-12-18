@@ -61,14 +61,20 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // FAQ (per restaurant)
+  // FAQ (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   FAQ: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs`,
-    CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs`,
-    BULK_CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/faqs/bulk`,
+    /** POST /api/v1/client/faqs - Create FAQ */
+    CREATE: "/client/faqs",
+    /** GET /api/v1/client/faqs - List FAQs with pagination and search */
+    LIST: "/client/faqs",
+    /** POST /api/v1/client/faqs/bulk - Bulk create FAQs */
+    BULK_CREATE: "/client/faqs/bulk",
+    /** GET /api/v1/client/faqs/{faq_id} - Get FAQ by ID */
     GET: (faqId: number) => `/client/faqs/${faqId}`,
+    /** PUT /api/v1/client/faqs/{faq_id} - Update FAQ */
     UPDATE: (faqId: number) => `/client/faqs/${faqId}`,
+    /** DELETE /api/v1/client/faqs/{faq_id} - Delete FAQ */
     DELETE: (faqId: number) => `/client/faqs/${faqId}`,
   },
 
