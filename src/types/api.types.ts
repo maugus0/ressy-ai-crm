@@ -122,9 +122,132 @@ export interface UpdateReservationRequest {
 }
 
 // ============================================================================
-// Menu Types
+// Menu Types (Client Dashboard)
 // ============================================================================
 
+/**
+ * Menu Item - Response from GET /api/v1/client/menu and /api/v1/client/menu/{menu_id}
+ */
+export interface ClientMenuItem {
+  id: number;
+  restaurant_id: number;
+  restaurant_name: string | null;
+  category: string;
+  sub_category: string | null;
+  item_name: string;
+  item_desc: string | null;
+  /** Price as string from API (e.g., "15.99") */
+  price: string;
+  /** Average prep time in minutes */
+  avg_prep_time: number;
+  suggested_items: number[];
+  is_available: boolean;
+  is_special: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Menu Item Create Request - POST /api/v1/client/menu
+ */
+export interface ClientMenuItemCreateRequest {
+  item_name: string;
+  price: number;
+  category: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+/**
+ * Menu Item Update Request - PUT /api/v1/client/menu/{menu_id}
+ */
+export interface ClientMenuItemUpdateRequest {
+  item_name?: string;
+  price?: number;
+  category?: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+/**
+ * Menu Availability Toggle Request - PATCH /api/v1/client/menu/{menu_id}/availability
+ */
+export interface MenuAvailabilityRequest {
+  is_available: boolean;
+}
+
+/**
+ * Menu Special Toggle Request - PATCH /api/v1/client/menu/{menu_id}/special
+ */
+export interface MenuSpecialRequest {
+  is_special: boolean;
+}
+
+/**
+ * Bulk Availability Update Request - PATCH /api/v1/client/menu/bulk-availability
+ */
+export interface MenuBulkAvailabilityRequest {
+  menu_item_ids: number[];
+  is_available: boolean;
+}
+
+/**
+ * Bulk Availability Update Response
+ */
+export interface MenuBulkAvailabilityResponse {
+  updated_count: number;
+  menu_item_ids: number[];
+}
+
+/**
+ * Menu Categories Response - GET /api/v1/client/menu/categories
+ * Returns categories as keys with arrays of sub-categories as values
+ */
+export interface MenuCategoriesResponse {
+  categories: Record<string, string[]>;
+}
+
+/**
+ * Menu List Response with Pagination
+ */
+export interface ClientMenuListResponse {
+  items: ClientMenuItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+/**
+ * Menu List Query Parameters
+ */
+export interface MenuListParams {
+  page?: number;
+  limit?: number;
+  category?: string;
+  sub_category?: string;
+  is_available?: boolean;
+  is_special?: boolean;
+  search?: string;
+}
+
+/**
+ * Menu Delete Response
+ */
+export interface MenuDeleteResponse {
+  message: string;
+  menu_id: number;
+}
+
+// Legacy MenuItem interface (for backwards compatibility)
 export interface MenuItem {
   id: number;
   name: string;

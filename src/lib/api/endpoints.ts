@@ -37,17 +37,27 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Menu (per restaurant)
+  // Menu (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   MENU: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu`,
-    CREATE: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu`,
-    CATEGORIES: (restaurantId: number) => `/client/restaurants/${restaurantId}/menu/categories`,
+    /** POST /api/v1/client/menu - Create menu item */
+    CREATE: "/client/menu",
+    /** GET /api/v1/client/menu - List menu items with filters */
+    LIST: "/client/menu",
+    /** GET /api/v1/client/menu/categories - Get categories and sub-categories */
+    CATEGORIES: "/client/menu/categories",
+    /** GET /api/v1/client/menu/{menu_id} - Get menu item details */
     GET: (menuId: number) => `/client/menu/${menuId}`,
+    /** PUT /api/v1/client/menu/{menu_id} - Update menu item */
     UPDATE: (menuId: number) => `/client/menu/${menuId}`,
+    /** DELETE /api/v1/client/menu/{menu_id} - Delete menu item */
     DELETE: (menuId: number) => `/client/menu/${menuId}`,
+    /** PATCH /api/v1/client/menu/{menu_id}/availability - Toggle availability */
     TOGGLE_AVAILABILITY: (menuId: number) => `/client/menu/${menuId}/availability`,
+    /** PATCH /api/v1/client/menu/{menu_id}/special - Toggle special status */
     TOGGLE_SPECIAL: (menuId: number) => `/client/menu/${menuId}/special`,
+    /** PATCH /api/v1/client/menu/bulk-availability - Bulk update availability */
+    BULK_AVAILABILITY: "/client/menu/bulk-availability",
   },
 
   // ============================================================================
