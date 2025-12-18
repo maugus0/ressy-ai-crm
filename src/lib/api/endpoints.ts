@@ -94,7 +94,17 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Settings (per restaurant)
+  // Restaurant (client-scoped - auto-scoped to authenticated restaurant)
+  // ============================================================================
+  RESTAURANT: {
+    /** GET /api/v1/client/restaurant - Get authenticated restaurant details */
+    GET: "/client/restaurant",
+    /** PUT /api/v1/client/restaurant - Update authenticated restaurant */
+    UPDATE: "/client/restaurant",
+  },
+
+  // ============================================================================
+  // Settings (legacy - per restaurant)
   // ============================================================================
   SETTINGS: {
     GET: (restaurantId: number) => `/client/restaurants/${restaurantId}/settings`,

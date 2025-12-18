@@ -9,30 +9,41 @@
 
 // Validate that API_BASE_URL is set (except in development where localhost is acceptable)
 const getApiBaseUrl = (): string => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  try {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
 
-  // In development, localhost fallback is acceptable
-  if (import.meta.env.DEV) {
-    return envUrl || "http://localhost:5001";
+    // In development, localhost fallback is acceptable
+    if (import.meta.env.DEV) {
+      return envUrl || "http://localhost:5001";
+    }
+
+    // In production, warn if not set but still provide fallback
+    if (!envUrl) {
+      console.warn(
+        "⚠️ VITE_API_BASE_URL is not set. " +
+          "Using fallback. For production, set it in GitHub Actions environment variables or secrets."
+      );
+      // Return empty string to prevent API calls in production without proper config
+      // This allows the UI to load but API calls will fail gracefully
+      return "";
+    }
+
+    return envUrl;
+  } catch (err) {
+    // If there's any error accessing env, return empty string
+    console.warn("Failed to read VITE_API_BASE_URL:", err);
+    return "";
   }
-
-  // In production, require environment variable
-  if (!envUrl) {
-    console.error(
-      "❌ VITE_API_BASE_URL is not set! " +
-        "Please set it in GitHub Actions environment variables or secrets for production builds."
-    );
-    // Still return localhost as fallback, but log error
-    return "http://localhost:5001";
-  }
-
-  return envUrl;
 };
 
 // Get base path for GitHub Pages or other custom deployments
 const getBasePath = (): string => {
-  if (typeof window !== "undefined" && window.location.pathname.startsWith("/ressy-ai-crm")) {
-    return "/ressy-ai-crm";
+  try {
+    if (typeof window !== "undefined" && window.location?.pathname?.startsWith("/ressy-ai-crm")) {
+      return "/ressy-ai-crm";
+    }
+  } catch {
+    // Fallback if window access fails during SSR or initialization
   }
   return "";
 };

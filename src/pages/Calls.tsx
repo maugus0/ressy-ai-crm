@@ -48,7 +48,7 @@ export function Calls() {
       } else {
         setTranscript([]);
       }
-    } catch (err) {
+    } catch {
       // Use the call's transcript if available
       if (call.transcript) {
         setTranscript([{ speaker: "transcript", text: call.transcript }]);

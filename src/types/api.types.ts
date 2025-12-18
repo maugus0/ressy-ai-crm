@@ -37,6 +37,48 @@ export interface Restaurant {
   updated_at?: string;
 }
 
+/**
+ * Client Restaurant - Response from GET /api/v1/client/restaurant
+ * This is the authenticated restaurant's full details
+ */
+export interface ClientRestaurant {
+  id: number;
+  name: string;
+  address: string;
+  phone_number: string;
+  twilio_phone_number: string | null;
+  /** Forward minutes for reservation booking window */
+  forward_minutes: number;
+  /** Backward minutes for cancellation window */
+  backward_minutes: number;
+  /** Whether credit card is required for reservations */
+  is_credit_card_required_for_reservation: boolean;
+  /** Opening time in HH:MM:SS format */
+  opening_time: string | null;
+  /** Closing time in HH:MM:SS format */
+  closing_time: string | null;
+  created_at: string;
+  updated_at: string;
+  // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
+  // as they should not be exposed to client dashboard users
+}
+
+/**
+ * Client Restaurant Update Request - PUT /api/v1/client/restaurant
+ * All fields are optional; server-side validation still applies
+ */
+export interface ClientRestaurantUpdateRequest {
+  name?: string;
+  address?: string;
+  phone_number?: string;
+  forward_minutes?: number;
+  backward_minutes?: number;
+  is_credit_card_required_for_reservation?: boolean;
+  opening_time?: string;
+  closing_time?: string;
+  // Note: twilio_phone_number is read-only and cannot be updated by client
+}
+
 // ============================================================================
 // Reservation Types
 // ============================================================================
