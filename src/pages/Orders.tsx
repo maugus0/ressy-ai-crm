@@ -326,11 +326,14 @@ export function Orders() {
     try {
       setIsLoadingMenu(true);
       // Fetch menu items with pagination
+      // Note: Safety limit of 10 pages (1000 items) - restaurants with more items
+      // will only load the first 1000. This is sufficient for order creation.
       const allMenuItems: ClientMenuItem[] = [];
       let page = 1;
       let hasMore = true;
+      const MAX_PAGES = 10; // Safety limit: max 1000 menu items
 
-      while (hasMore) {
+      while (hasMore && page <= MAX_PAGES) {
         const menuData = await getMenuItems({
           page,
           limit: 100,
@@ -339,8 +342,12 @@ export function Orders() {
         allMenuItems.push(...menuData.items);
         hasMore = menuData.items.length === 100;
         page++;
-        // Safety limit to prevent infinite loops
-        if (page > 10) break;
+      }
+
+      if (page > MAX_PAGES && hasMore) {
+        console.warn(
+          `Menu has more than ${MAX_PAGES * 100} items. Only the first ${MAX_PAGES * 100} items are loaded for order creation.`
+        );
       }
 
       const categoriesData = await getMenuCategories();
@@ -359,16 +366,15 @@ export function Orders() {
   // ============================================================================
 
   useEffect(() => {
-    if (restaurantId && !hasFetched.current) {
-      hasFetched.current = true;
-      fetchOrders();
-    }
-  }, [fetchOrders, restaurantId]);
+    if (!restaurantId) return;
 
-  useEffect(() => {
-    if (hasFetched.current && restaurantId) {
-      fetchOrders();
+    // Initial fetch on mount or restaurantId change
+    if (!hasFetched.current) {
+      hasFetched.current = true;
     }
+
+    // Fetch orders whenever restaurantId or filters change
+    fetchOrders();
   }, [fetchOrders, restaurantId, statusFilter, startDate, endDate, includeDeleted, offset]);
 
   useEffect(() => {
@@ -663,10 +669,9 @@ export function Orders() {
 
       const customization: DashboardOrderCustomization = {};
       if (formData.delivery) customization.delivery = true;
-      {
-        const tableNumber = Number(formData.table_number.trim());
-        if (Number.isInteger(tableNumber) && tableNumber > 0)
-          customization.table_number = tableNumber;
+      const tableNumber = Number(formData.table_number.trim());
+      if (Number.isInteger(tableNumber) && tableNumber > 0) {
+        customization.table_number = tableNumber;
       }
       if (formData.notes.trim()) customization.notes = formData.notes.trim();
 
@@ -1059,15 +1064,22 @@ export function Orders() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="customer_phone">
-              Phone{" "}
-              <span className="text-destructive" aria-hidden="true">
-                *
-              </span>
+              Phone
+              {!isEditMode && (
+                <>
+                  {" "}
+                  <span className="text-destructive" aria-hidden="true">
+                    *
+                  </span>
+                  <span className="sr-only"> (required)</span>
+                </>
+              )}
             </Label>
             <Input
               id="customer_phone"
               placeholder="+1234567890"
               value={formData.customer_phone}
+              required={!isEditMode}
               onChange={(e) => {
                 setFormData({ ...formData, customer_phone: e.target.value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });

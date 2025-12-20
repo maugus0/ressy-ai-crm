@@ -169,6 +169,8 @@ export function Reservations() {
         offset: number;
       } = {
         // When searching, fetch more results to enable client-side filtering
+        // Note: API doesn't support server-side search, so we fetch up to 1000 records
+        // for client-side filtering. This is a temporary limitation until server-side search is implemented.
         limit: debouncedSearchQuery.trim() ? 1000 : limit,
         offset: debouncedSearchQuery.trim() ? 0 : offset,
       };
@@ -378,15 +380,10 @@ export function Reservations() {
       if (!formData.phone_number.trim()) {
         errors.phone_number = "Phone number is required";
       } else {
-        let cleanedPhone = formData.phone_number.trim();
-        if (cleanedPhone.startsWith("+")) {
-          cleanedPhone = "+" + cleanedPhone.slice(1).replace(/\D/g, "");
-        } else {
-          cleanedPhone = cleanedPhone.replace(/\D/g, "");
-        }
-        const digitCount = cleanedPhone.startsWith("+")
-          ? cleanedPhone.length - 1
-          : cleanedPhone.length;
+        // Normalize phone number: extract digits only for validation
+        const rawPhone = formData.phone_number.trim();
+        const digitsOnly = rawPhone.replace(/\D/g, "");
+        const digitCount = digitsOnly.length;
         if (digitCount < 10 || digitCount > 15) {
           errors.phone_number = "Please enter a valid phone number (10-15 digits)";
         }

@@ -26,27 +26,45 @@
           try {
             var decodedPath = decodeURIComponent(p);
             var currentPath = window.location.pathname;
-            var currentSearch = window.location.search;
             var currentHash = window.location.hash;
             
             // Check if decoded path contains nested ?p= parameters (redirect loop detection)
-            if (decodedPath.includes("?p=") || decodedPath.includes("%3Fp%3D")) {
-              // We're in a loop, extract the innermost path
-              var match = decodedPath.match(/[?&]p=([^&]*)/);
-              if (match) {
-                decodedPath = decodeURIComponent(match[1]);
-              } else {
-                // Fallback: use current pathname
-                decodedPath = currentPath;
+            // Iteratively resolve nested ?p= parameters to get the innermost path
+            var maxRedirectDepth = 5;
+            var depth = 0;
+            while (depth < maxRedirectDepth && (decodedPath.includes("?p=") || decodedPath.includes("%3Fp%3D"))) {
+              var queryStart = decodedPath.indexOf("?");
+              if (queryStart === -1) {
+                break;
               }
+              var queryEnd = decodedPath.indexOf("#", queryStart);
+              var queryString = queryEnd === -1
+                ? decodedPath.substring(queryStart + 1)
+                : decodedPath.substring(queryStart + 1, queryEnd);
+              var innerParams = new URLSearchParams(queryString);
+              var innerP = innerParams.get("p");
+              if (!innerP) {
+                break;
+              }
+              decodedPath = decodeURIComponent(innerP);
+              depth++;
+            }
+            
+            // If we still have a query string after resolving, use just the path
+            if (decodedPath.includes("?")) {
+              decodedPath = decodedPath.split("?")[0];
             }
             
             // Extract path, query, and hash from decoded path
             var pathOnly = decodedPath.split("?")[0].split("#")[0];
             var hashOnly = decodedPath.includes("#") ? decodedPath.substring(decodedPath.indexOf("#")) : "";
             
-            // Build the final URL
-            var basePath = currentPath.startsWith("/ressy-ai-crm") ? "/ressy-ai-crm" : "";
+            // Extract repository name from pathname dynamically
+            var pathSegments = currentPath.split("/").filter(function(segment) {
+              return segment.length > 0;
+            });
+            var repoName = pathSegments.length > 0 ? pathSegments[0] : "";
+            var basePath = repoName ? "/" + repoName : "";
             var newUrl = basePath + pathOnly + hashOnly;
             
             // Only replace if different to avoid unnecessary history entries

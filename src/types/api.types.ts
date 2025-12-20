@@ -137,13 +137,14 @@ export interface ReservationListParams {
 /**
  * Create Reservation Request
  * POST /api/v1/dashboard/restaurants/{restaurant_id}/reservations
+ * Note: API uses 'email_address' in requests but returns 'email' in responses
  */
 export interface ReservationCreateRequest {
   date_time: string;
   party_size: number;
   name: string;
   phone_number: string;
-  email_address?: string;
+  email_address?: string; // API request field name (different from response 'email' field)
   special_request?: string;
   notes?: string;
 }
