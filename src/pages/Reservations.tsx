@@ -63,6 +63,7 @@ import {
   Filter,
   X,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -759,10 +760,20 @@ export function Reservations() {
           <h2 className="text-2xl font-bold tracking-tight">Reservations</h2>
           <p className="text-muted-foreground">Manage your restaurant's reservations</p>
         </div>
-        <Button onClick={openCreateDialog} disabled={!restaurantId}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Reservation
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchReservations}
+            disabled={isLoading || !restaurantId}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
+          <Button onClick={openCreateDialog} disabled={!restaurantId}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Reservation
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}

@@ -806,7 +806,7 @@ export function Orders() {
           {menuItems.length > 0 && (
             <>
               {/* Menu Filters */}
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -817,7 +817,7 @@ export function Orders() {
                   />
                 </div>
                 <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-full sm:w-[160px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -962,9 +962,9 @@ export function Orders() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {!item.item_id && (
-                      <div className="col-span-4 space-y-1.5">
+                      <div className="col-span-2 sm:col-span-4 space-y-1.5">
                         <Label className="text-xs font-medium">Item Name *</Label>
                         <Input
                           placeholder="Custom item name"
@@ -1051,7 +1051,13 @@ export function Orders() {
       {/* Customer Info */}
       <div className="space-y-4">
         <Label className="text-base font-semibold">Customer Information</Label>
-        <div className="grid grid-cols-2 gap-4">
+        {isEditMode && (
+          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+            Customer information cannot be modified after order creation. View the order details to
+            see customer information.
+          </p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="customer_name">Name</Label>
             <Input
@@ -1059,6 +1065,8 @@ export function Orders() {
               placeholder="John Smith"
               value={formData.customer_name}
               onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+              disabled={isEditMode}
+              className={isEditMode ? "bg-muted cursor-not-allowed" : ""}
             />
           </div>
           <div className="space-y-2">
@@ -1083,7 +1091,8 @@ export function Orders() {
                 setFormData({ ...formData, customer_phone: e.target.value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
               }}
-              className={formErrors.customer_phone ? "border-destructive" : ""}
+              className={`${formErrors.customer_phone ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+              disabled={isEditMode}
             />
             {formErrors.customer_phone && (
               <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
@@ -1101,7 +1110,8 @@ export function Orders() {
               setFormData({ ...formData, customer_email: e.target.value });
               if (formErrors.customer_email) setFormErrors({ ...formErrors, customer_email: "" });
             }}
-            className={formErrors.customer_email ? "border-destructive" : ""}
+            className={`${formErrors.customer_email ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+            disabled={isEditMode}
           />
           {formErrors.customer_email && (
             <p className="text-sm text-destructive">{formErrors.customer_email}</p>
@@ -1112,7 +1122,7 @@ export function Orders() {
       {/* Order Options */}
       <div className="space-y-4">
         <Label className="text-base font-semibold">Order Options</Label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="delivery" className="flex items-center gap-2">
@@ -1194,9 +1204,11 @@ export function Orders() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Page Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
-        <p className="text-muted-foreground">Manage orders for your restaurant</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
+          <p className="text-muted-foreground">Manage orders for your restaurant</p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1280,18 +1292,36 @@ export function Orders() {
             </div>
           </div>
 
-          {/* Status Tabs */}
-          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-            <TabsList className="flex-wrap">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-              <TabsTrigger value="preparing">Preparing</TabsTrigger>
-              <TabsTrigger value="ready">Ready</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Status Tabs - Desktop / Dropdown - Mobile */}
+          <div className="sm:hidden">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="preparing">Preparing</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="hidden sm:block">
+            <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+              <TabsList className="flex-wrap w-full justify-start">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="pending">Pending</TabsTrigger>
+                <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+                <TabsTrigger value="preparing">Preparing</TabsTrigger>
+                <TabsTrigger value="ready">Ready</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
           {/* Filter Row */}
           <div className="flex flex-wrap items-center gap-2">
@@ -1384,7 +1414,7 @@ export function Orders() {
             <>
               <div className="overflow-x-auto border rounded-lg">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Order ID</TableHead>
@@ -1393,7 +1423,9 @@ export function Orders() {
                           Items
                         </TableHead>
                         <TableHead className="font-semibold text-right">Total</TableHead>
-                        <TableHead className="font-semibold text-center">Status</TableHead>
+                        <TableHead className="font-semibold text-center min-w-[110px] whitespace-nowrap">
+                          Status
+                        </TableHead>
                         <TableHead className="font-semibold hidden lg:table-cell">
                           Created
                         </TableHead>
@@ -1412,8 +1444,8 @@ export function Orders() {
                             }`}
                           >
                             <TableCell className="font-mono text-sm">
-                              <div className="flex items-center gap-2">
-                                #{order.id}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="whitespace-nowrap">#{order.id}</span>
                                 {isDeleted && (
                                   <Badge variant="destructive" className="text-xs">
                                     <Trash2 className="h-3 w-3 mr-1" />
@@ -1423,19 +1455,19 @@ export function Orders() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="min-w-[140px]">
+                              <div className="min-w-0 max-w-[200px] sm:max-w-none">
                                 {order.customer_name ? (
-                                  <p className="font-medium flex items-center gap-1">
-                                    <User className="h-3 w-3 text-muted-foreground" />
-                                    {order.customer_name}
+                                  <p className="font-medium flex items-center gap-1 truncate">
+                                    <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    <span className="truncate">{order.customer_name}</span>
                                   </p>
                                 ) : (
                                   <p className="text-muted-foreground italic">No name</p>
                                 )}
                                 {order.customer_phone && (
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                    <Phone className="h-3 w-3" />
-                                    {order.customer_phone}
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                                    <Phone className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{order.customer_phone}</span>
                                   </p>
                                 )}
                               </div>
@@ -1447,43 +1479,47 @@ export function Orders() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md whitespace-nowrap text-xs sm:text-sm">
                                 {formatCurrency(order.total_amount)}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    className="h-auto p-0 hover:bg-transparent"
-                                    disabled={isDeleted}
-                                  >
-                                    <span
-                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize ${getStatusStyles(order.status)}`}
+                            <TableCell className="text-center min-w-[110px]">
+                              <div className="flex justify-center">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="h-auto p-0 hover:bg-transparent"
+                                      disabled={isDeleted}
                                     >
-                                      {getStatusIcon(order.status)}
-                                      {order.status}
-                                    </span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="center">
-                                  <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  {STATUS_OPTIONS.filter((s) => s !== order.status).map(
-                                    (status) => (
-                                      <DropdownMenuItem
-                                        key={status}
-                                        onClick={() => handleStatusUpdate(order.id, status)}
-                                        className="capitalize"
+                                      <span
+                                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
                                       >
-                                        {getStatusIcon(status)}
-                                        <span className="ml-2">{status}</span>
-                                      </DropdownMenuItem>
-                                    )
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                        <span className="flex-shrink-0">
+                                          {getStatusIcon(order.status)}
+                                        </span>
+                                        <span className="whitespace-nowrap">{order.status}</span>
+                                      </span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="center">
+                                    <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {STATUS_OPTIONS.filter((s) => s !== order.status).map(
+                                      (status) => (
+                                        <DropdownMenuItem
+                                          key={status}
+                                          onClick={() => handleStatusUpdate(order.id, status)}
+                                          className="capitalize"
+                                        >
+                                          {getStatusIcon(status)}
+                                          <span className="ml-2">{status}</span>
+                                        </DropdownMenuItem>
+                                      )
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </TableCell>
                             <TableCell className="hidden lg:table-cell">
                               <div className="flex flex-col gap-0.5">
@@ -1621,7 +1657,7 @@ export function Orders() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Create Order</DialogTitle>
             <DialogDescription>Create a new order for your restaurant</DialogDescription>
@@ -1640,7 +1676,7 @@ export function Orders() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit Order</DialogTitle>
             <DialogDescription>Update order #{selectedOrderForEdit?.id}</DialogDescription>
@@ -1659,7 +1695,7 @@ export function Orders() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5" />
@@ -1696,7 +1732,7 @@ export function Orders() {
               {/* Customer Info */}
               <div className="border rounded-lg p-4 bg-muted/30">
                 <Label className="text-sm font-medium mb-3 block">Customer Information</Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
                     <p className="font-medium flex items-center gap-1">
@@ -1765,7 +1801,7 @@ export function Orders() {
                 Object.keys(selectedOrder.customization).length > 0 && (
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <Label className="text-sm font-medium mb-3 block">Order Options</Label>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       {selectedOrder.customization.delivery !== undefined && (
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-muted-foreground" />
@@ -1795,7 +1831,7 @@ export function Orders() {
                 )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>

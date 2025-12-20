@@ -17,11 +17,19 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Dashboard (Stats & Analytics)
+  // Analytics (Client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
-  DASHBOARD: {
-    STATS: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/stats`,
-    ANALYTICS: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/analytics`,
+  ANALYTICS: {
+    /** GET /api/v1/client/analytics - Get comprehensive restaurant analytics */
+    OVERVIEW: "/client/analytics",
+    /** GET /api/v1/client/analytics/calls - Get call analytics */
+    CALLS: "/client/analytics/calls",
+    /** GET /api/v1/client/analytics/reservations - Get reservation analytics */
+    RESERVATIONS: "/client/analytics/reservations",
+    /** GET /api/v1/client/analytics/orders - Get order analytics */
+    ORDERS: "/client/analytics/orders",
+    /** GET /api/v1/client/analytics/menu - Get menu analytics */
+    MENU: "/client/analytics/menu",
   },
 
   // ============================================================================
@@ -79,23 +87,33 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Calls (per restaurant)
+  // Calls (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   CALLS: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/calls`,
-    GET: (callId: number) => `/client/calls/${callId}`,
-    TRANSCRIPT: (callId: number) => `/client/calls/${callId}/transcript`,
+    /** GET /api/v1/client/calls - Get own calls with filtering and pagination */
+    LIST: "/client/calls",
+    /** GET /api/v1/client/calls/analytics - Get call analytics for date range */
+    ANALYTICS: "/client/calls/analytics",
+    /** GET /api/v1/client/calls/search - Search calls by phone or transcript */
+    SEARCH: "/client/calls/search",
+    /** GET /api/v1/client/calls/export - Export calls as CSV */
+    EXPORT: "/client/calls/export",
+    /** GET /api/v1/client/calls/{call_id} - Get call details with transcript */
+    GET: (callId: string) => `/client/calls/${callId}`,
   },
 
   // ============================================================================
-  // Callers (per restaurant)
+  // Dashboard Users (Callers/Customers - per restaurant)
   // ============================================================================
-  CALLERS: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/callers`,
-    GET: (callerId: number) => `/client/callers/${callerId}`,
-    UPDATE: (callerId: number) => `/client/callers/${callerId}`,
-    MARK_SPAM: (callerId: number) => `/client/callers/${callerId}/spam`,
-    MARK_FRAUD: (callerId: number) => `/client/callers/${callerId}/fraud`,
+  USERS: {
+    /** GET /api/v1/dashboard/restaurants/{restaurant_id}/users - List users */
+    LIST: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/users`,
+    /** POST /api/v1/dashboard/restaurants/{restaurant_id}/users - Create user */
+    CREATE: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/users`,
+    /** GET /api/v1/dashboard/users/{user_id} - Get user by ID */
+    GET: (userId: number) => `/dashboard/users/${userId}`,
+    /** PUT /api/v1/dashboard/users/{user_id} - Update user */
+    UPDATE: (userId: number) => `/dashboard/users/${userId}`,
   },
 
   // ============================================================================

@@ -503,10 +503,16 @@ export interface UpdateFAQRequest {
 }
 
 // ============================================================================
-// Call Types
+// Call Types (Legacy)
 // ============================================================================
 
-export type CallStatus = "completed" | "missed" | "voicemail" | "in_progress";
+export type CallStatus =
+  | "completed"
+  | "missed"
+  | "voicemail"
+  | "in_progress"
+  | "failed"
+  | "abandoned";
 export type CallOutcome = "booking" | "inquiry" | "cancelled" | "other";
 export type CallSentiment = "positive" | "neutral" | "negative";
 
@@ -534,6 +540,132 @@ export interface CallTranscriptSegment {
 }
 
 // ============================================================================
+// Client Calls Types (New API)
+// ============================================================================
+
+/**
+ * Call list item from GET /api/v1/client/calls
+ */
+export interface ClientCallListItem {
+  call_id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  caller_phone: string;
+  duration_seconds: number;
+  status: string;
+  started_at: string;
+  has_transcript: boolean;
+  summary?: string | null;
+}
+
+/**
+ * Call list response from GET /api/v1/client/calls
+ */
+export interface ClientCallListResponse {
+  items: ClientCallListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Call list query parameters
+ */
+export interface ClientCallListParams {
+  date_from?: string;
+  date_to?: string;
+  status?: string;
+  duration_min?: number;
+  duration_max?: number;
+  caller_phone?: string;
+  page?: number;
+  limit?: number;
+  sort_by?: "created_at" | "duration";
+  sort_order?: "asc" | "desc";
+}
+
+/**
+ * Transcript entry from call details
+ */
+export interface ClientCallTranscriptEntry {
+  sequence: number;
+  role: "assistant" | "user";
+  content: string;
+  timestamp: string;
+}
+
+/**
+ * Call details from GET /api/v1/client/calls/{call_id}
+ */
+export interface ClientCallDetails {
+  call_id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  caller_phone: string;
+  status: string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_seconds: number;
+  cost?: number | null;
+  call_direction: "inbound" | "outbound";
+  has_transcript: boolean;
+  transcript?: ClientCallTranscriptEntry[] | null;
+  order_id?: string | null;
+  reservation_id?: string | null;
+  summary?: string | null;
+}
+
+/**
+ * Call search parameters
+ */
+export interface ClientCallSearchParams {
+  q: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+  sort_by?: "created_at" | "duration";
+  sort_order?: "asc" | "desc";
+}
+
+/**
+ * Conversion rates from call analytics
+ */
+export interface ClientCallConversionRates {
+  orders: number;
+  reservations: number;
+  rate: number;
+}
+
+/**
+ * Call analytics response from GET /api/v1/client/calls/analytics
+ */
+export interface ClientCallAnalyticsResponse {
+  total_calls: number;
+  average_call_duration: number;
+  status_breakdown: Record<string, number>;
+  time_of_day_distribution: CallTimeDistribution[];
+  calls_by_day_of_week: CallDayOfWeekDistribution[];
+  conversion_rates: ClientCallConversionRates;
+}
+
+/**
+ * Call export parameters
+ */
+export interface ClientCallExportParams {
+  date_from?: string;
+  date_to?: string;
+  status?: string;
+  duration_min?: number;
+  duration_max?: number;
+  caller_phone?: string;
+  sort_by?: "created_at" | "duration";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
+// ============================================================================
 // Caller Types
 // ============================================================================
 
@@ -557,6 +689,121 @@ export interface UpdateCallerRequest {
   is_spam?: boolean;
   is_fraud?: boolean;
   notes?: string;
+}
+
+// ============================================================================
+// Dashboard User Types (Callers/Customers)
+// ============================================================================
+
+/**
+ * User statistics for a specific restaurant
+ */
+export interface DashboardUserStatistics {
+  total_calls: number;
+  total_orders: number;
+  total_reservations: number;
+}
+
+/**
+ * Dashboard User - Response from dashboard user endpoints
+ * GET /api/v1/dashboard/restaurants/{restaurant_id}/users
+ */
+export interface DashboardUser {
+  id: number;
+  name: string;
+  phone_number: string;
+  email: string | null;
+  address: string | null;
+  is_spam: number | boolean;
+  credit_card: string | null;
+  created_at: string;
+  updated_at: string;
+  statistics?: DashboardUserStatistics;
+}
+
+/**
+ * Dashboard User Details Response
+ * GET /api/v1/dashboard/users/{user_id}
+ */
+export interface DashboardUserDetailsResponse {
+  id: number;
+  name: string;
+  phone_number: string;
+  email: string | null;
+  address: string | null;
+  is_spam: number | boolean;
+  credit_card: string | null;
+  created_at: string;
+  updated_at: string;
+  restaurant_ids: number[];
+  statistics?: DashboardUserStatistics;
+}
+
+/**
+ * Dashboard User List Response
+ * GET /api/v1/dashboard/restaurants/{restaurant_id}/users
+ */
+export interface DashboardUserListResponse {
+  restaurant_id: number;
+  users: DashboardUser[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+/**
+ * Dashboard User List Query Parameters
+ */
+export interface DashboardUserListParams {
+  search?: string;
+  is_spam?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Dashboard User Create Request
+ * POST /api/v1/dashboard/restaurants/{restaurant_id}/users
+ */
+export interface DashboardUserCreateRequest {
+  name: string;
+  phone_number: string;
+  email?: string;
+  address?: string;
+  is_spam?: boolean;
+  credit_card?: string;
+}
+
+/**
+ * Dashboard User Create Response
+ */
+export interface DashboardUserCreateResponse {
+  message: string;
+  user_id: number;
+  user: DashboardUser;
+  is_new_user: boolean;
+}
+
+/**
+ * Dashboard User Update Request
+ * PUT /api/v1/dashboard/users/{user_id}
+ */
+export interface DashboardUserUpdateRequest {
+  name?: string;
+  phone_number?: string;
+  email?: string;
+  address?: string;
+  is_spam?: boolean;
+  credit_card?: string;
+}
+
+/**
+ * Dashboard User Update Response
+ */
+export interface DashboardUserUpdateResponse {
+  message: string;
+  user: DashboardUser;
 }
 
 // ============================================================================
@@ -772,9 +1019,156 @@ export interface DashboardOrderRestoreResponse {
 }
 
 // ============================================================================
-// Analytics Types
+// Client Analytics Types
 // ============================================================================
 
+/**
+ * Recent Activity Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsRecentActivity {
+  id: number;
+  type: "call" | "reservation" | "order";
+  description: string;
+  status: string;
+  timestamp: string;
+}
+
+/**
+ * Today's Schedule Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsTodaySchedule {
+  id: number;
+  time: string;
+  party_size: number;
+  customer_name: string;
+  status: string;
+  special_request?: string;
+}
+
+/**
+ * Pending Order Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsPendingOrder {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  total: number;
+  status: string;
+  timestamp: string;
+}
+
+/**
+ * Restaurant Analytics Overview
+ * GET /api/v1/client/analytics
+ */
+export interface AnalyticsOverview {
+  // Call stats
+  total_calls: number;
+  calls_today: number;
+  average_call_duration: number;
+  // Reservation stats
+  total_reservations: number;
+  reservations_today: number;
+  confirmed_reservations: number;
+  pending_reservations: number;
+  // Order stats
+  total_orders: number;
+  orders_today: number;
+  total_revenue: number;
+  revenue_today: number;
+  pending_orders_count: number;
+  // Menu stats
+  total_menu_items: number;
+  available_menu_items: number;
+  special_items: number;
+  menu_categories: string[];
+  // FAQ & Customers
+  total_faqs: number;
+  total_customers: number;
+  // Recent activity
+  recent_activity: AnalyticsRecentActivity[];
+  todays_schedule: AnalyticsTodaySchedule[];
+  pending_orders: AnalyticsPendingOrder[];
+}
+
+/**
+ * Time of Day Distribution
+ * Part of call analytics response
+ */
+export interface CallTimeDistribution {
+  hour_bucket: number;
+  count: number;
+}
+
+/**
+ * Calls by Day of Week
+ * Part of call analytics response
+ */
+export interface CallDayOfWeekDistribution {
+  day_of_week: number;
+  count: number;
+}
+
+/**
+ * Call Analytics
+ * GET /api/v1/client/analytics/calls
+ */
+export interface CallAnalytics {
+  total_calls: number;
+  calls_today: number;
+  average_call_duration: number;
+  status_breakdown: Record<string, number>;
+  time_of_day_distribution: CallTimeDistribution[];
+  calls_by_day_of_week: CallDayOfWeekDistribution[];
+}
+
+/**
+ * Reservation Analytics
+ * GET /api/v1/client/analytics/reservations
+ */
+export interface ReservationAnalytics {
+  total_reservations: number;
+  reservations_today: number;
+  confirmed_reservations: number;
+  pending_reservations: number;
+  cancelled_reservations: number;
+  completed_reservations: number;
+  no_show_reservations: number;
+}
+
+/**
+ * Order Analytics
+ * GET /api/v1/client/analytics/orders
+ */
+export interface OrderAnalytics {
+  total_orders: number;
+  orders_today: number;
+  total_revenue: number;
+  revenue_today: number;
+  pending_orders: number;
+  confirmed_orders: number;
+  preparing_orders: number;
+  completed_orders: number;
+  cancelled_orders: number;
+}
+
+/**
+ * Menu Analytics
+ * GET /api/v1/client/analytics/menu
+ */
+export interface MenuAnalytics {
+  total_menu_items: number;
+  available_menu_items: number;
+  unavailable_menu_items: number;
+  special_items: number;
+  categories: string[];
+  category_count: number;
+}
+
+// Legacy types for backwards compatibility
 export interface DashboardStats {
   total_calls: number;
   total_reservations: number;
