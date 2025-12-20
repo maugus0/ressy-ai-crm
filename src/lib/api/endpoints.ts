@@ -17,11 +17,19 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Dashboard (Stats & Analytics)
+  // Analytics (Client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
-  DASHBOARD: {
-    STATS: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/stats`,
-    ANALYTICS: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/analytics`,
+  ANALYTICS: {
+    /** GET /api/v1/client/analytics - Get comprehensive restaurant analytics */
+    OVERVIEW: "/client/analytics",
+    /** GET /api/v1/client/analytics/calls - Get call analytics */
+    CALLS: "/client/analytics/calls",
+    /** GET /api/v1/client/analytics/reservations - Get reservation analytics */
+    RESERVATIONS: "/client/analytics/reservations",
+    /** GET /api/v1/client/analytics/orders - Get order analytics */
+    ORDERS: "/client/analytics/orders",
+    /** GET /api/v1/client/analytics/menu - Get menu analytics */
+    MENU: "/client/analytics/menu",
   },
 
   // ============================================================================

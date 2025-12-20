@@ -772,9 +772,156 @@ export interface DashboardOrderRestoreResponse {
 }
 
 // ============================================================================
-// Analytics Types
+// Client Analytics Types
 // ============================================================================
 
+/**
+ * Recent Activity Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsRecentActivity {
+  id: number;
+  type: "call" | "reservation" | "order";
+  description: string;
+  status: string;
+  timestamp: string;
+}
+
+/**
+ * Today's Schedule Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsTodaySchedule {
+  id: number;
+  time: string;
+  party_size: number;
+  customer_name: string;
+  status: string;
+  special_request?: string;
+}
+
+/**
+ * Pending Order Item
+ * Part of the analytics overview response
+ */
+export interface AnalyticsPendingOrder {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  total: number;
+  status: string;
+  timestamp: string;
+}
+
+/**
+ * Restaurant Analytics Overview
+ * GET /api/v1/client/analytics
+ */
+export interface AnalyticsOverview {
+  // Call stats
+  total_calls: number;
+  calls_today: number;
+  average_call_duration: number;
+  // Reservation stats
+  total_reservations: number;
+  reservations_today: number;
+  confirmed_reservations: number;
+  pending_reservations: number;
+  // Order stats
+  total_orders: number;
+  orders_today: number;
+  total_revenue: number;
+  revenue_today: number;
+  pending_orders_count: number;
+  // Menu stats
+  total_menu_items: number;
+  available_menu_items: number;
+  special_items: number;
+  menu_categories: string[];
+  // FAQ & Customers
+  total_faqs: number;
+  total_customers: number;
+  // Recent activity
+  recent_activity: AnalyticsRecentActivity[];
+  todays_schedule: AnalyticsTodaySchedule[];
+  pending_orders: AnalyticsPendingOrder[];
+}
+
+/**
+ * Time of Day Distribution
+ * Part of call analytics response
+ */
+export interface CallTimeDistribution {
+  hour_bucket: number;
+  count: number;
+}
+
+/**
+ * Calls by Day of Week
+ * Part of call analytics response
+ */
+export interface CallDayOfWeekDistribution {
+  day_of_week: number;
+  count: number;
+}
+
+/**
+ * Call Analytics
+ * GET /api/v1/client/analytics/calls
+ */
+export interface CallAnalytics {
+  total_calls: number;
+  calls_today: number;
+  average_call_duration: number;
+  status_breakdown: Record<string, number>;
+  time_of_day_distribution: CallTimeDistribution[];
+  calls_by_day_of_week: CallDayOfWeekDistribution[];
+}
+
+/**
+ * Reservation Analytics
+ * GET /api/v1/client/analytics/reservations
+ */
+export interface ReservationAnalytics {
+  total_reservations: number;
+  reservations_today: number;
+  confirmed_reservations: number;
+  pending_reservations: number;
+  cancelled_reservations: number;
+  completed_reservations: number;
+  no_show_reservations: number;
+}
+
+/**
+ * Order Analytics
+ * GET /api/v1/client/analytics/orders
+ */
+export interface OrderAnalytics {
+  total_orders: number;
+  orders_today: number;
+  total_revenue: number;
+  revenue_today: number;
+  pending_orders: number;
+  confirmed_orders: number;
+  preparing_orders: number;
+  completed_orders: number;
+  cancelled_orders: number;
+}
+
+/**
+ * Menu Analytics
+ * GET /api/v1/client/analytics/menu
+ */
+export interface MenuAnalytics {
+  total_menu_items: number;
+  available_menu_items: number;
+  unavailable_menu_items: number;
+  special_items: number;
+  categories: string[];
+  category_count: number;
+}
+
+// Legacy types for backwards compatibility
 export interface DashboardStats {
   total_calls: number;
   total_reservations: number;
