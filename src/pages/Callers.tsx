@@ -286,6 +286,8 @@ export function Callers() {
     }
 
     // Phone validation
+    // Note: This validates digit count (10-15) which covers most international formats
+    // For stricter validation (country codes, format), consider using a library like libphonenumber-js
     if (!formData.phone_number.trim()) {
       errors.phone_number = "Phone number is required";
     } else {
@@ -462,15 +464,23 @@ export function Callers() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="credit_card">Credit Card (masked)</Label>
+        <Label htmlFor="credit_card">Card Last 4 Digits (non-sensitive)</Label>
         <Input
           id="credit_card"
-          placeholder="****1234"
+          placeholder="1234"
+          inputMode="numeric"
+          maxLength={4}
           value={formData.credit_card}
-          onChange={(e) => setFormData({ ...formData, credit_card: e.target.value })}
+          onChange={(e) => {
+            // Only allow digits
+            const digitsOnly = e.target.value.replace(/\D/g, "");
+            if (digitsOnly.length <= 4) {
+              setFormData({ ...formData, credit_card: digitsOnly });
+            }
+          }}
         />
         <p className="text-xs text-muted-foreground">
-          Store only masked card info (e.g., ****1234)
+          Store only the last 4 digits of the card number. Do not enter full credit card details.
         </p>
       </div>
 

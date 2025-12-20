@@ -41,7 +41,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
   AreaChart,
   Area,
 } from "recharts";
@@ -244,7 +243,8 @@ export function Dashboard() {
   const [callStats, setCallStats] = useState<CallAnalytics | null>(null);
   const [reservationStats, setReservationStats] = useState<ReservationAnalytics | null>(null);
   const [orderStats, setOrderStats] = useState<OrderAnalytics | null>(null);
-  const [menuStats, setMenuStats] = useState<MenuAnalytics | null>(null);
+  // Note: menuStats is fetched but not currently displayed in the UI
+  const [, setMenuStats] = useState<MenuAnalytics | null>(null);
 
   // Loading states
   const [loading, setLoading] = useState(true);

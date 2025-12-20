@@ -115,15 +115,23 @@ const getStatusColor = (status: string) => {
   }
 };
 
+/**
+ * Get day name from day of week number
+ *
+ * Note: The API returns day_of_week in ISO format (1-7 where 1=Monday, 7=Sunday)
+ * This function handles both ISO format (1-7) and JS/Python-style (0-6) for robustness
+ *
+ * @param dayOfWeek - Day of week number (ISO: 1-7, or JS-style: 0-6)
+ * @returns Day name string (e.g., "Monday", "Tuesday")
+ */
 const getDayName = (dayOfWeek: number): string => {
-  // Backend day_of_week can be either:
-  // - ISO: 1..7 (Mon..Sun)
-  // - JS/Python-style: 0..6 (Sun..Sat)
+  // ISO format: 1..7 (Mon..Sun) - this is what the API returns
   if (dayOfWeek >= 1 && dayOfWeek <= 7) {
     const isoDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     return isoDays[dayOfWeek - 1] || `Day ${dayOfWeek}`;
   }
 
+  // Fallback for JS/Python-style: 0..6 (Sun..Sat) - for edge cases
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return days[dayOfWeek] || `Day ${dayOfWeek}`;
 };
@@ -507,7 +515,18 @@ export function Calls() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
-                {((analytics?.conversion_rates?.rate ?? 0) * 100).toFixed(1)}%
+                {(() => {
+                  const rawRate = analytics?.conversion_rates?.rate;
+                  if (
+                    typeof rawRate !== "number" ||
+                    !Number.isFinite(rawRate) ||
+                    rawRate < 0 ||
+                    rawRate > 1
+                  ) {
+                    return "N/A";
+                  }
+                  return `${(rawRate * 100).toFixed(1)}%`;
+                })()}
               </div>
             )}
             <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
