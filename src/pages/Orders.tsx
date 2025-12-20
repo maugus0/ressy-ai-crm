@@ -1,14 +1,26 @@
 /**
  * Orders Page
- * Manage takeout orders
+ * Manage orders for the authenticated restaurant
+ * Full API integration with Dashboard Order endpoints
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,101 +33,1159 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ShoppingBag, Search, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
-import { UiOnlyNotice } from "@/components/UiOnlyNotice";
-import type { Order, OrderStatus } from "@/types/api.types";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  ShoppingBag,
+  Clock,
+  Search,
+  Filter,
+  X,
+  Eye,
+  Pencil,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Package,
+  Truck,
+  UtensilsCrossed,
+  RotateCcw,
+  Phone,
+  Mail,
+  User,
+  AlertTriangle,
+  StickyNote,
+  DollarSign,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  getOrders,
+  getOrderDetails,
+  createOrder,
+  updateOrder,
+  updateOrderStatus,
+  cancelOrder,
+  deleteOrder,
+  restoreOrder,
+} from "@/services/orders";
+import { getMenuItems, getMenuCategories } from "@/services/menu";
+import type {
+  DashboardOrder,
+  DashboardOrderStatus,
+  DashboardOrderCreateRequest,
+  DashboardOrderUpdateRequest,
+  DashboardOrderCreateItem,
+  DashboardOrderCustomization,
+  ClientMenuItem,
+  MenuCategoriesResponse,
+} from "@/types/api.types";
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+const formatDateTime = (dateTime: string) => {
+  const date = new Date(dateTime);
+  return {
+    date: date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    time: date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+};
+
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+};
+
+const getStatusStyles = (status: DashboardOrderStatus): string => {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    case "confirmed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+    case "preparing":
+      return "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 border-violet-200 dark:border-violet-800";
+    case "ready":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+    case "completed":
+      return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-200 dark:border-red-800";
+    default:
+      return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300 border-gray-200 dark:border-gray-800";
+  }
+};
+
+const getStatusIcon = (status: DashboardOrderStatus) => {
+  switch (status) {
+    case "pending":
+      return <Clock className="h-3 w-3" />;
+    case "confirmed":
+      return <CheckCircle className="h-3 w-3" />;
+    case "preparing":
+      return <UtensilsCrossed className="h-3 w-3" />;
+    case "ready":
+      return <Package className="h-3 w-3" />;
+    case "completed":
+      return <CheckCircle className="h-3 w-3" />;
+    case "cancelled":
+      return <XCircle className="h-3 w-3" />;
+    default:
+      return null;
+  }
+};
+
+const STATUS_OPTIONS: DashboardOrderStatus[] = [
+  "pending",
+  "confirmed",
+  "preparing",
+  "ready",
+  "completed",
+  "cancelled",
+];
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface OrderItemFormData {
+  item_id?: number;
+  name: string;
+  quantity: number;
+  price: number;
+  instructions: string;
+}
+
+interface OrderFormData {
+  items: OrderItemFormData[];
+  total_amount: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  delivery: boolean;
+  table_number: string;
+  notes: string;
+  status: DashboardOrderStatus;
+}
+
+const defaultItemFormData: OrderItemFormData = {
+  name: "",
+  quantity: 1,
+  price: 0,
+  instructions: "",
+};
+
+const defaultFormData: OrderFormData = {
+  items: [{ ...defaultItemFormData }],
+  total_amount: "0",
+  customer_name: "",
+  customer_phone: "",
+  customer_email: "",
+  delivery: false,
+  table_number: "",
+  notes: "",
+  status: "pending",
+};
+
+// ============================================================================
+// Component
+// ============================================================================
 
 export function Orders() {
-  const [orders] = useState<Order[]>([]);
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { restaurantId } = useAuth();
+
+  // Orders state
+  const [orders, setOrders] = useState<DashboardOrder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Prevent double fetch on mount
+  const hasFetched = useRef(false);
+
+  // Filter state
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
-    // UI-only: no backend yet. Update local state for demo purposes.
-    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: newStatus });
+  // Pagination state
+  const [limit] = useState(50);
+  const [offset, setOffset] = useState(0);
+
+  // Dialog state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<DashboardOrder | null>(null);
+  const [formData, setFormData] = useState<OrderFormData>(defaultFormData);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Menu state for order creation
+  const [menuItems, setMenuItems] = useState<ClientMenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<MenuCategoriesResponse>({ categories: {} });
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>("all");
+  const [menuSearchQuery, setMenuSearchQuery] = useState("");
+
+  // ============================================================================
+  // Fetch Functions
+  // ============================================================================
+
+  const fetchOrders = useCallback(async () => {
+    if (!restaurantId) return;
+
+    try {
+      setIsLoadingOrders(true);
+      setError(null);
+
+      const params: {
+        status?: DashboardOrderStatus;
+        start_date?: string;
+        end_date?: string;
+        include_deleted: boolean;
+        limit: number;
+        offset: number;
+      } = {
+        include_deleted: includeDeleted,
+        limit,
+        offset,
+      };
+
+      if (statusFilter !== "all") {
+        params.status = statusFilter as DashboardOrderStatus;
+      }
+      if (startDate) {
+        params.start_date = new Date(startDate).toISOString();
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        params.end_date = end.toISOString();
+      }
+
+      const data = await getOrders(restaurantId, params);
+      setOrders(data.orders);
+      setTotal(data.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load orders");
+      setOrders([]);
+      setTotal(0);
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  }, [restaurantId, statusFilter, startDate, endDate, includeDeleted, limit, offset]);
+
+  const fetchMenu = useCallback(async () => {
+    if (!restaurantId) return;
+
+    try {
+      setIsLoadingMenu(true);
+      // Fetch menu items with pagination
+      const allMenuItems: ClientMenuItem[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const menuData = await getMenuItems({
+          page,
+          limit: 100,
+          is_available: true,
+        });
+        allMenuItems.push(...menuData.items);
+        hasMore = menuData.items.length === 100;
+        page++;
+        // Safety limit to prevent infinite loops
+        if (page > 10) break;
+      }
+
+      const categoriesData = await getMenuCategories();
+      setMenuItems(allMenuItems);
+      setMenuCategories(categoriesData);
+    } catch (err) {
+      console.error("Failed to load menu:", err);
+      toast.error("Failed to load menu items");
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  }, [restaurantId]);
+
+  // ============================================================================
+  // Effects
+  // ============================================================================
+
+  useEffect(() => {
+    if (restaurantId && !hasFetched.current) {
+      hasFetched.current = true;
+      fetchOrders();
+    }
+  }, [fetchOrders, restaurantId]);
+
+  useEffect(() => {
+    if (hasFetched.current && restaurantId) {
+      fetchOrders();
+    }
+  }, [fetchOrders, restaurantId, statusFilter, startDate, endDate, includeDeleted, offset]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [statusFilter, startDate, endDate, includeDeleted]);
+
+  // ============================================================================
+  // Handlers
+  // ============================================================================
+
+  const handleClearFilters = () => {
+    setStatusFilter("all");
+    setStartDate("");
+    setEndDate("");
+    setIncludeDeleted(false);
+    setSearchQuery("");
+    setOffset(0);
+    setError(null);
   };
 
-  const handleFinalizeOrder = async (order: Order) => {
-    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: "completed" });
+  const calculateTotal = (items: OrderItemFormData[]): number => {
+    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
-  const handleCancelOrder = async (order: Order) => {
-    if (!confirm("Cancel this order?")) return;
-    if (selectedOrder?.id === order.id) setSelectedOrder({ ...order, status: "cancelled" });
+  const openCreateDialog = () => {
+    setFormData(defaultFormData);
+    setFormErrors({});
+    setSelectedMenuCategory("all");
+    setMenuSearchQuery("");
+    setIsCreateDialogOpen(true);
+    fetchMenu();
   };
 
-  const filteredOrders = orders.filter((order) => {
+  const openEditDialog = (order: DashboardOrder) => {
+    setSelectedOrderForEdit(order);
+    const items: OrderItemFormData[] = order.order_details.map((item) => ({
+      item_id: item.item_id,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      instructions: item.instructions || "",
+    }));
+    if (items.length === 0) {
+      items.push({ ...defaultItemFormData });
+    }
+    setFormData({
+      items,
+      total_amount: String(order.total_amount),
+      customer_name: order.customer_name || "",
+      customer_phone: order.customer_phone || "",
+      customer_email: order.customer_email || "",
+      delivery: order.customization?.delivery || false,
+      table_number: order.customization?.table_number?.toString() || "",
+      notes: order.customization?.notes || "",
+      status: order.status,
+    });
+    setFormErrors({});
+    setIsEditDialogOpen(true);
+  };
+
+  const openDetailsDialog = async (order: DashboardOrder) => {
+    try {
+      setIsLoadingDetails(true);
+      setIsDetailsDialogOpen(true);
+      const details = await getOrderDetails(order.id);
+      setSelectedOrder(details);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load order details");
+      setIsDetailsDialogOpen(false);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const openCancelDialog = (order: DashboardOrder) => {
+    setSelectedOrder(order);
+    setIsCancelDialogOpen(true);
+  };
+
+  const openDeleteDialog = (order: DashboardOrder) => {
+    setSelectedOrder(order);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const openRestoreDialog = (order: DashboardOrder) => {
+    setSelectedOrder(order);
+    setIsRestoreDialogOpen(true);
+  };
+
+  // Form item management
+  const addItem = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { ...defaultItemFormData }],
+    });
+  };
+
+  const removeItem = (index: number) => {
+    if (formData.items.length === 1) return;
+    const newItems = formData.items.filter((_, i) => i !== index);
+    const total = calculateTotal(newItems);
+    setFormData({
+      ...formData,
+      items: newItems,
+      total_amount: total.toFixed(2),
+    });
+  };
+
+  const updateItem = (index: number, field: keyof OrderItemFormData, value: string | number) => {
+    const newItems = [...formData.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    const total = calculateTotal(newItems);
+    setFormData({
+      ...formData,
+      items: newItems,
+      total_amount: total.toFixed(2),
+    });
+  };
+
+  // Add menu item to order
+  const addMenuItemToOrder = (menuItem: ClientMenuItem) => {
+    const newItem: OrderItemFormData = {
+      item_id: menuItem.id,
+      name: menuItem.item_name,
+      quantity: 1,
+      price: parseFloat(menuItem.price),
+      instructions: "",
+    };
+    // Check if item already exists in order
+    const existingIndex = formData.items.findIndex(
+      (item) => item.item_id === menuItem.id && !item.instructions
+    );
+    if (existingIndex >= 0) {
+      // Increment quantity
+      const newItems = [...formData.items];
+      newItems[existingIndex].quantity += 1;
+      const total = calculateTotal(newItems);
+      setFormData({
+        ...formData,
+        items: newItems,
+        total_amount: total.toFixed(2),
+      });
+      toast.success(`Added another ${menuItem.item_name}`);
+    } else {
+      // Add new item (replace empty first item if exists)
+      let newItems: OrderItemFormData[];
+      if (formData.items.length === 1 && !formData.items[0].name) {
+        newItems = [newItem];
+      } else {
+        newItems = [...formData.items, newItem];
+      }
+      const total = calculateTotal(newItems);
+      setFormData({
+        ...formData,
+        items: newItems,
+        total_amount: total.toFixed(2),
+      });
+      toast.success(`Added ${menuItem.item_name} to order`);
+    }
+  };
+
+  // Filter menu items based on category and search
+  const filteredMenuItems = menuItems.filter((item) => {
+    const matchesCategory =
+      selectedMenuCategory === "all" || item.category === selectedMenuCategory;
     const matchesSearch =
-      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer_phone.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      !menuSearchQuery ||
+      item.item_name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
+      item.item_desc?.toLowerCase().includes(menuSearchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "—";
-    return new Date(dateString).toLocaleString();
+  // Group filtered menu items by category
+  const groupedMenuItems = filteredMenuItems.reduce(
+    (acc, item) => {
+      if (!acc[item.category]) {
+        acc[item.category] = [];
+      }
+      acc[item.category].push(item);
+      return acc;
+    },
+    {} as Record<string, ClientMenuItem[]>
+  );
+
+  // Form validation
+  const validateForm = (opts?: { requireCustomerPhone?: boolean }): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Validate items
+    if (formData.items.length === 0) {
+      errors.items = "At least one item is required";
+    } else {
+      formData.items.forEach((item, index) => {
+        if (!item.name.trim()) {
+          errors[`item_${index}_name`] = "Item name is required";
+        }
+        if (item.quantity < 1) {
+          errors[`item_${index}_quantity`] = "Quantity must be at least 1";
+        }
+        if (item.price < 0) {
+          errors[`item_${index}_price`] = "Price cannot be negative";
+        }
+      });
+    }
+
+    // Validate total
+    const total = parseFloat(formData.total_amount);
+    if (isNaN(total) || total < 0) {
+      errors.total_amount = "Invalid total amount";
+    }
+
+    // Validate email if provided
+    if (formData.customer_email && formData.customer_email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.customer_email.trim())) {
+        errors.customer_email = "Invalid email address";
+      }
+    }
+
+    // Customer phone (required for create)
+    if (opts?.requireCustomerPhone) {
+      if (!formData.customer_phone.trim()) {
+        errors.customer_phone = "Customer phone number is required";
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+  const handleCreate = async () => {
+    if (!restaurantId) return;
+    if (!validateForm({ requireCustomerPhone: true })) return;
+
+    try {
+      setIsSubmitting(true);
+      const orderDetails: DashboardOrderCreateItem[] = formData.items.map((item) => ({
+        item_id: item.item_id,
+        name: item.name.trim(),
+        quantity: item.quantity,
+        price: item.price,
+        ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
+      }));
+
+      const customization: DashboardOrderCustomization = {};
+      if (formData.delivery) customization.delivery = true;
+      {
+        const tableNumber = Number(formData.table_number.trim());
+        if (Number.isInteger(tableNumber) && tableNumber > 0)
+          customization.table_number = tableNumber;
+      }
+      if (formData.notes.trim()) customization.notes = formData.notes.trim();
+
+      const payload: DashboardOrderCreateRequest = {
+        order_details: orderDetails,
+        total_amount: parseFloat(formData.total_amount),
+        ...(formData.customer_name.trim() ? { customer_name: formData.customer_name.trim() } : {}),
+        ...(formData.customer_phone.trim()
+          ? { customer_phone: formData.customer_phone.trim() }
+          : {}),
+        ...(formData.customer_email.trim()
+          ? { customer_email: formData.customer_email.trim() }
+          : {}),
+        ...(Object.keys(customization).length > 0 ? { customization } : {}),
+        status: formData.status,
+      };
+
+      await createOrder(restaurantId, payload);
+      toast.success("Order created successfully");
+      setIsCreateDialogOpen(false);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create order");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getStatusBadge = (status: OrderStatus) => {
-    const variants: Record<
-      OrderStatus,
-      { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }
-    > = {
-      pending: { variant: "outline", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-      confirmed: { variant: "outline", className: "bg-blue-50 text-blue-700 border-blue-200" },
-      preparing: {
-        variant: "outline",
-        className: "bg-purple-50 text-purple-700 border-purple-200",
-      },
-      ready: { variant: "outline", className: "bg-green-50 text-green-700 border-green-200" },
-      completed: { variant: "default" },
-      cancelled: { variant: "destructive" },
-    };
-    const config = variants[status] || { variant: "default" };
+  const handleUpdate = async () => {
+    if (!selectedOrderForEdit) return;
+    if (!validateForm()) return;
+
+    try {
+      setIsSubmitting(true);
+      const orderDetails: DashboardOrderCreateItem[] = formData.items.map((item) => ({
+        item_id: item.item_id,
+        name: item.name.trim(),
+        quantity: item.quantity,
+        price: item.price,
+        ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
+      }));
+
+      const customization: DashboardOrderCustomization = {};
+      if (formData.delivery) customization.delivery = true;
+      {
+        const tableNumber = Number(formData.table_number.trim());
+        if (Number.isInteger(tableNumber) && tableNumber > 0)
+          customization.table_number = tableNumber;
+      }
+      if (formData.notes.trim()) customization.notes = formData.notes.trim();
+
+      const payload: DashboardOrderUpdateRequest = {
+        status: formData.status,
+        total_amount: parseFloat(formData.total_amount),
+        order_details: orderDetails,
+        ...(Object.keys(customization).length > 0 ? { customization } : {}),
+      };
+
+      await updateOrder(selectedOrderForEdit.id, payload);
+      toast.success("Order updated successfully");
+      setIsEditDialogOpen(false);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId: number, status: DashboardOrderStatus) => {
+    try {
+      await updateOrderStatus(orderId, { status });
+      toast.success(`Order status updated to '${status}'`);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setIsSubmitting(true);
+      await cancelOrder(selectedOrder.id);
+      toast.success("Order cancelled successfully");
+      setIsCancelDialogOpen(false);
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setIsSubmitting(true);
+      await deleteOrder(selectedOrder.id);
+      toast.success("Order deleted successfully");
+      setIsDeleteDialogOpen(false);
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setIsSubmitting(true);
+      await restoreOrder(selectedOrder.id);
+      toast.success("Order restored successfully");
+      setIsRestoreDialogOpen(false);
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ============================================================================
+  // Computed Values
+  // ============================================================================
+
+  // Client-side search filtering
+  const filteredOrders = orders.filter((order) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
+      order.id.toString().includes(q) ||
+      order.customer_name?.toLowerCase().includes(q) ||
+      order.customer_phone?.toLowerCase().includes(q) ||
+      order.customer_email?.toLowerCase().includes(q)
     );
-  };
+  });
 
-  const getOrderTypeBadge = (type: string) => {
+  const totalPages = Math.ceil(total / limit);
+  const currentPage = Math.floor(offset / limit) + 1;
+  const hasActiveFilters =
+    statusFilter !== "all" || startDate || endDate || includeDeleted || searchQuery;
+
+  // Stats
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const inProgressCount = orders.filter((o) =>
+    ["confirmed", "preparing", "ready"].includes(o.status)
+  ).length;
+  const completedCount = orders.filter((o) => o.status === "completed").length;
+  const totalRevenue = orders
+    .filter((o) => o.status === "completed")
+    .reduce((sum, o) => sum + o.total_amount, 0);
+
+  // ============================================================================
+  // Render Form
+  // ============================================================================
+
+  const renderForm = (isEditMode: boolean = false) => (
+    <div className="space-y-6">
+      {/* Menu Browser - Only show for create mode */}
+      {!isEditMode && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold flex items-center gap-2">
+              <UtensilsCrossed className="h-4 w-4" />
+              Select from Menu
+            </Label>
+            {isLoadingMenu && (
+              <span className="text-xs text-muted-foreground">Loading menu...</span>
+            )}
+          </div>
+
+          {menuItems.length > 0 && (
+            <>
+              {/* Menu Filters */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search menu items..."
+                    className="pl-9"
+                    value={menuSearchQuery}
+                    onChange={(e) => setMenuSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {Object.keys(menuCategories.categories || {}).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Menu Items Grid */}
+              <div className="border rounded-lg bg-muted/20">
+                <ScrollArea className="h-[200px] w-full">
+                  <div className="p-3 space-y-3">
+                    {Object.entries(groupedMenuItems).map(([category, items]) => (
+                      <div key={category}>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                          {category}
+                        </h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {items.map((menuItem) => (
+                            <div
+                              key={menuItem.id}
+                              className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-accent/50 cursor-pointer transition-colors group"
+                              onClick={() => addMenuItemToOrder(menuItem)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{menuItem.item_name}</p>
+                                {menuItem.item_desc && (
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                    {menuItem.item_desc}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  ${parseFloat(menuItem.price).toFixed(2)}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addMenuItemToOrder(menuItem);
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {filteredMenuItems.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No menu items found</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </>
+          )}
+
+          {!isLoadingMenu && menuItems.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+              <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No menu items available</p>
+              <p className="text-xs">You can still add custom items below</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Order Items */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">
+            {isEditMode ? "Order Items *" : "Order Items"}
+            {formData.items.length > 0 && formData.items[0].name && (
+              <Badge variant="secondary" className="ml-2">
+                {formData.items.reduce((sum, item) => sum + item.quantity, 0)} items
+              </Badge>
+            )}
+          </Label>
+          <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            <Plus className="h-4 w-4 mr-1" />
+            Custom Item
+          </Button>
+        </div>
+        {formErrors.items && <p className="text-sm text-destructive">{formErrors.items}</p>}
+
+        <div className="border rounded-lg bg-muted/20">
+          <ScrollArea className="h-[300px] w-full">
+            <div className="p-4 space-y-3">
+              {formData.items.map((item, index) => (
+                <div
+                  key={index}
+                  className={`p-4 border rounded-lg space-y-3 bg-background ${
+                    item.item_id
+                      ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-medium truncate">
+                        {item.item_id ? (
+                          <span className="flex items-center gap-1.5">
+                            <UtensilsCrossed className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                            <span className="truncate">{item.name}</span>
+                          </span>
+                        ) : (
+                          `Item ${index + 1}`
+                        )}
+                      </span>
+                      {item.item_id && (
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          From Menu
+                        </Badge>
+                      )}
+                    </div>
+                    {(formData.items.length > 1 || item.name) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem(index);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {!item.item_id && (
+                      <div className="col-span-4 space-y-1.5">
+                        <Label className="text-xs font-medium">Item Name *</Label>
+                        <Input
+                          placeholder="Custom item name"
+                          value={item.name}
+                          onChange={(e) => updateItem(index, "name", e.target.value)}
+                          className={`h-9 ${formErrors[`item_${index}_name`] ? "border-destructive" : ""}`}
+                        />
+                        {formErrors[`item_${index}_name`] && (
+                          <p className="text-xs text-destructive">
+                            {formErrors[`item_${index}_name`]}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Quantity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateItem(index, "quantity", parseInt(e.target.value) || 1)
+                        }
+                        className={`h-9 text-center ${formErrors[`item_${index}_quantity`] ? "border-destructive" : ""}`}
+                      />
+                      {formErrors[`item_${index}_quantity`] && (
+                        <p className="text-xs text-destructive">
+                          {formErrors[`item_${index}_quantity`]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Price</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(e) =>
+                          updateItem(index, "price", parseFloat(e.target.value) || 0)
+                        }
+                        className={`h-9 ${formErrors[`item_${index}_price`] ? "border-destructive" : ""}`}
+                        disabled={!!item.item_id}
+                      />
+                      {formErrors[`item_${index}_price`] && (
+                        <p className="text-xs text-destructive">
+                          {formErrors[`item_${index}_price`]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="col-span-2 space-y-1.5">
+                      <Label className="text-xs font-medium">Instructions</Label>
+                      <Input
+                        placeholder="Special requests..."
+                        value={item.instructions}
+                        onChange={(e) => updateItem(index, "instructions", e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {formData.items.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No items added yet</p>
+                  <p className="text-xs mt-1">
+                    Select items from the menu above or add custom items
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50">
+          <span className="font-medium text-emerald-700 dark:text-emerald-300">Total Amount:</span>
+          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+            {formatCurrency(parseFloat(formData.total_amount) || 0)}
+          </span>
+        </div>
+      </div>
+
+      {/* Customer Info */}
+      <div className="space-y-4">
+        <Label className="text-base font-semibold">Customer Information</Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="customer_name">Name</Label>
+            <Input
+              id="customer_name"
+              placeholder="John Smith"
+              value={formData.customer_name}
+              onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customer_phone">
+              Phone{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
+            <Input
+              id="customer_phone"
+              placeholder="+1234567890"
+              value={formData.customer_phone}
+              onChange={(e) => {
+                setFormData({ ...formData, customer_phone: e.target.value });
+                if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
+              }}
+              className={formErrors.customer_phone ? "border-destructive" : ""}
+            />
+            {formErrors.customer_phone && (
+              <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
+            )}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="customer_email">Email</Label>
+          <Input
+            id="customer_email"
+            type="email"
+            placeholder="john@example.com"
+            value={formData.customer_email}
+            onChange={(e) => {
+              setFormData({ ...formData, customer_email: e.target.value });
+              if (formErrors.customer_email) setFormErrors({ ...formErrors, customer_email: "" });
+            }}
+            className={formErrors.customer_email ? "border-destructive" : ""}
+          />
+          {formErrors.customer_email && (
+            <p className="text-sm text-destructive">{formErrors.customer_email}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Order Options */}
+      <div className="space-y-4">
+        <Label className="text-base font-semibold">Order Options</Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="delivery" className="flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Delivery
+              </Label>
+            </div>
+            <Switch
+              id="delivery"
+              checked={formData.delivery}
+              onCheckedChange={(checked) => setFormData({ ...formData, delivery: checked })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="table_number">Table Number</Label>
+            <Input
+              id="table_number"
+              type="number"
+              min="1"
+              placeholder="5"
+              value={formData.table_number}
+              onChange={(e) => setFormData({ ...formData, table_number: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="notes">Notes</Label>
+          <Input
+            id="notes"
+            placeholder="Ring doorbell twice, dietary restrictions..."
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Status */}
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select
+          value={formData.status}
+          onValueChange={(value) =>
+            setFormData({ ...formData, status: value as DashboardOrderStatus })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status} value={status} className="capitalize">
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  // ============================================================================
+  // Main Render
+  // ============================================================================
+
+  if (!restaurantId) {
     return (
-      <Badge variant="secondary" className="text-xs">
-        {type.replace("_", " ").toUpperCase()}
-      </Badge>
+      <div className="p-4 md:p-6 flex items-center justify-center h-[60vh]">
+        <div className="text-center">
+          <ShoppingBag className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p className="text-lg font-semibold mb-2">No Restaurant Selected</p>
+          <p className="text-sm text-muted-foreground">
+            Please log in with a restaurant account to view orders.
+          </p>
+        </div>
+      </div>
     );
-  };
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <UiOnlyNotice />
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
-        <p className="text-muted-foreground">Manage takeout and delivery orders</p>
+        <p className="text-muted-foreground">Manage orders for your restaurant</p>
       </div>
 
       {/* Stats Cards */}
@@ -126,55 +1196,53 @@ export function Orders() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{orders.length}</div>
+            <div className="text-2xl font-bold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
+            <Clock className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {orders.filter((o) => o.status === "pending").length}
-            </div>
+            <div className="text-2xl font-bold">{pendingCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-blue-600" />
+            <Package className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {orders.filter((o) => ["confirmed", "preparing", "ready"].includes(o.status)).length}
-            </div>
+            <div className="text-2xl font-bold">{inProgressCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {orders.filter((o) => o.status === "completed").length}
-            </div>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">{completedCount} completed</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Orders Table */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <CardHeader className="space-y-4">
+          {/* Header Row */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
             <div>
               <CardTitle>Order History</CardTitle>
-              <CardDescription>All orders for your restaurant</CardDescription>
+              <CardDescription>View and manage all orders</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Search */}
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search orders..."
                   value={searchQuery}
@@ -182,225 +1250,649 @@ export function Orders() {
                   className="pl-9"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="preparing">Preparing</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Create Order */}
+              <Button onClick={openCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">New Order</span>
+              </Button>
+
+              {/* Refresh */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={fetchOrders}
+                disabled={isLoadingOrders}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoadingOrders ? "animate-spin" : ""}`} />
+              </Button>
             </div>
           </div>
+
+          {/* Status Tabs */}
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList className="flex-wrap">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+              <TabsTrigger value="preparing">Preparing</TabsTrigger>
+              <TabsTrigger value="ready">Ready</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Filter Row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* More Filters Toggle */}
+            <Button
+              variant={showFilters ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4 mr-1" />
+              Filters
+            </Button>
+
+            {/* Include Deleted Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="include_deleted"
+                checked={includeDeleted}
+                onCheckedChange={setIncludeDeleted}
+              />
+              <Label htmlFor="include_deleted" className="text-sm cursor-pointer">
+                Show Deleted
+              </Label>
+            </div>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearFilters}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+
+          {/* Additional Filters */}
+          {showFilters && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg border">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Start Date</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={endDate || undefined}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">End Date</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
+                />
+              </div>
+            </div>
+          )}
         </CardHeader>
+
         <CardContent>
-          {loading ? (
+          {error && (
+            <div className="flex items-center gap-3 p-4 mb-4 text-sm bg-destructive/10 border border-destructive/20 rounded-lg">
+              <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-destructive">{error}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                onClick={() => setError(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {isLoadingOrders ? (
             <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : error ? (
-            <div className="text-center py-8 text-destructive">{error}</div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No orders found</p>
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Pickup Time</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono font-medium">{order.order_number}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{order.customer_name}</p>
-                          <p className="text-sm text-muted-foreground">{order.customer_phone}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getOrderTypeBadge(order.order_type)}</TableCell>
-                      <TableCell>{order.items.length} items</TableCell>
-                      <TableCell>{formatCurrency(order.total)}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell>{formatDate(order.pickup_time)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {order.status === "pending" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdateStatus(order, "confirmed")}
-                              className="text-green-600"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {!["completed", "cancelled"].includes(order.status) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCancelOrder(order)}
-                              className="text-destructive"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <>
+              <div className="overflow-x-auto border rounded-lg">
+                <TooltipProvider>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">Order ID</TableHead>
+                        <TableHead className="font-semibold">Customer</TableHead>
+                        <TableHead className="font-semibold text-center hidden md:table-cell">
+                          Items
+                        </TableHead>
+                        <TableHead className="font-semibold text-right">Total</TableHead>
+                        <TableHead className="font-semibold text-center">Status</TableHead>
+                        <TableHead className="font-semibold hidden lg:table-cell">
+                          Created
+                        </TableHead>
+                        <TableHead className="font-semibold text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredOrders.map((order) => {
+                        const { date, time } = formatDateTime(order.created_at);
+                        const isDeleted = !!order.deleted_at;
+                        return (
+                          <TableRow
+                            key={order.id}
+                            className={`group hover:bg-muted/30 transition-colors ${
+                              isDeleted ? "opacity-60 bg-red-50/30 dark:bg-red-950/10" : ""
+                            }`}
+                          >
+                            <TableCell className="font-mono text-sm">
+                              <div className="flex items-center gap-2">
+                                #{order.id}
+                                {isDeleted && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Deleted
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="min-w-[140px]">
+                                {order.customer_name ? (
+                                  <p className="font-medium flex items-center gap-1">
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    {order.customer_name}
+                                  </p>
+                                ) : (
+                                  <p className="text-muted-foreground italic">No name</p>
+                                )}
+                                {order.customer_phone && (
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <Phone className="h-3 w-3" />
+                                    {order.customer_phone}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center hidden md:table-cell">
+                              <Badge variant="outline" className="gap-1">
+                                <Package className="h-3 w-3" />
+                                {order.order_details.length}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                                {formatCurrency(order.total_amount)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="h-auto p-0 hover:bg-transparent"
+                                    disabled={isDeleted}
+                                  >
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize ${getStatusStyles(order.status)}`}
+                                    >
+                                      {getStatusIcon(order.status)}
+                                      {order.status}
+                                    </span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="center">
+                                  <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  {STATUS_OPTIONS.filter((s) => s !== order.status).map(
+                                    (status) => (
+                                      <DropdownMenuItem
+                                        key={status}
+                                        onClick={() => handleStatusUpdate(order.id, status)}
+                                        className="capitalize"
+                                      >
+                                        {getStatusIcon(status)}
+                                        <span className="ml-2">{status}</span>
+                                      </DropdownMenuItem>
+                                    )
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm">{date}</span>
+                                <span className="text-xs text-muted-foreground">{time}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openDetailsDialog(order)}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    {!isDeleted && (
+                                      <>
+                                        <DropdownMenuItem
+                                          onClick={() => openEditDialog(order)}
+                                          disabled={order.status === "cancelled"}
+                                        >
+                                          <Pencil className="h-4 w-4 mr-2" />
+                                          Edit Order
+                                        </DropdownMenuItem>
+                                        {order.status !== "cancelled" &&
+                                          order.status !== "completed" && (
+                                            <DropdownMenuItem
+                                              onClick={() => openCancelDialog(order)}
+                                              className="text-amber-600"
+                                            >
+                                              <XCircle className="h-4 w-4 mr-2" />
+                                              Cancel Order
+                                            </DropdownMenuItem>
+                                          )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => openDeleteDialog(order)}
+                                          className="text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Delete Order
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {isDeleted && (
+                                      <DropdownMenuItem
+                                        onClick={() => openRestoreDialog(order)}
+                                        className="text-green-600"
+                                      >
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Restore Order
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TooltipProvider>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
+                    Showing {filteredOrders.length > 0 ? offset + 1 : 0} to{" "}
+                    {Math.min(offset + filteredOrders.length, total)} of {total} orders
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOffset((o) => Math.max(0, o - limit))}
+                      disabled={offset === 0 || isLoadingOrders}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-1">Previous</span>
+                    </Button>
+                    <div className="flex items-center gap-1 px-2">
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOffset((o) => o + limit)}
+                      disabled={offset + limit >= total || isLoadingOrders}
+                    >
+                      <span className="hidden sm:inline mr-1">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {!isLoadingOrders && !error && filteredOrders.length === 0 && (
+            <div className="text-center py-16 px-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-semibold mb-2">No orders found</p>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                {hasActiveFilters
+                  ? "Try adjusting your filters to see more results."
+                  : "Create your first order for this restaurant."}
+              </p>
+              {!hasActiveFilters && (
+                <Button onClick={openCreateDialog} size="lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Order
+                </Button>
+              )}
+              {hasActiveFilters && (
+                <Button variant="outline" onClick={handleClearFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Clear All Filters
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Order Detail Dialog */}
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl">
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order #{selectedOrder?.order_number}</DialogTitle>
+            <DialogTitle>Create Order</DialogTitle>
+            <DialogDescription>Create a new order for your restaurant</DialogDescription>
+          </DialogHeader>
+          {renderForm()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Order</DialogTitle>
+            <DialogDescription>Update order #{selectedOrderForEdit?.id}</DialogDescription>
+          </DialogHeader>
+          {renderForm(true)}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5" />
+              Order Details
+            </DialogTitle>
             <DialogDescription>
-              {selectedOrder && formatDate(selectedOrder.created_at)}
+              {selectedOrder ? `Order #${selectedOrder.id}` : "Loading..."}
             </DialogDescription>
           </DialogHeader>
-          {selectedOrder && (
-            <div className="space-y-6 mt-4">
+
+          {isLoadingDetails ? (
+            <div className="space-y-4 py-4">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : selectedOrder ? (
+            <div className="space-y-6">
+              {/* Status & Deleted Badge */}
+              <div className="flex items-center justify-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border capitalize ${getStatusStyles(selectedOrder.status)}`}
+                >
+                  {getStatusIcon(selectedOrder.status)}
+                  {selectedOrder.status}
+                </span>
+                {selectedOrder.deleted_at && (
+                  <Badge variant="destructive" className="gap-1 text-sm px-3 py-1">
+                    <Trash2 className="h-3 w-3" />
+                    Deleted
+                  </Badge>
+                )}
+              </div>
+
               {/* Customer Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Customer</p>
-                  <p className="font-medium">{selectedOrder.customer_name}</p>
-                  <p className="text-sm">{selectedOrder.customer_phone}</p>
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <Label className="text-sm font-medium mb-3 block">Customer Information</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Name</p>
+                    <p className="font-medium flex items-center gap-1">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      {selectedOrder.customer_name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="font-medium flex items-center gap-1">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      {selectedOrder.customer_phone || "N/A"}
+                    </p>
+                  </div>
                   {selectedOrder.customer_email && (
-                    <p className="text-sm">{selectedOrder.customer_email}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Order Type</p>
-                  <p className="font-medium capitalize">
-                    {selectedOrder.order_type.replace("_", " ")}
-                  </p>
-                  {selectedOrder.pickup_time && (
-                    <>
-                      <p className="text-sm font-medium text-muted-foreground mt-2">Pickup Time</p>
-                      <p className="text-sm">{formatDate(selectedOrder.pickup_time)}</p>
-                    </>
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="font-medium flex items-center gap-1">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        {selectedOrder.customer_email}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Order Items */}
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Items</p>
-                <div className="border rounded-lg divide-y">
-                  {selectedOrder.items.map((item, index) => (
-                    <div key={index} className="p-3 flex justify-between">
-                      <div>
+              <div className="border rounded-lg">
+                <div className="px-4 py-3 border-b bg-muted/30">
+                  <Label className="font-medium">
+                    Order Items ({selectedOrder.order_details.length})
+                  </Label>
+                </div>
+                <div className="p-4 space-y-3">
+                  {selectedOrder.order_details.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start justify-between py-2 border-b last:border-0"
+                    >
+                      <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                        {item.special_instructions && (
-                          <p className="text-sm text-muted-foreground italic">
-                            "{item.special_instructions}"
+                        {item.instructions && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <StickyNote className="h-3 w-3" />
+                            {item.instructions}
                           </p>
                         )}
                       </div>
-                      <p className="font-medium">{formatCurrency(item.price * item.quantity)}</p>
+                      <div className="text-right">
+                        <p className="text-sm">x{item.quantity}</p>
+                        <p className="font-medium">{formatCurrency(item.price * item.quantity)}</p>
+                      </div>
                     </div>
                   ))}
+                  <div className="flex items-center justify-between pt-3 border-t font-bold">
+                    <span>Total</span>
+                    <span className="text-lg text-green-600">
+                      {formatCurrency(selectedOrder.total_amount)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Order Total */}
-              <div className="border-t pt-4 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(selectedOrder.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Tax</span>
-                  <span>{formatCurrency(selectedOrder.tax)}</span>
-                </div>
-                <div className="flex justify-between font-medium text-lg">
-                  <span>Total</span>
-                  <span>{formatCurrency(selectedOrder.total)}</span>
-                </div>
-              </div>
+              {/* Customization */}
+              {selectedOrder.customization &&
+                Object.keys(selectedOrder.customization).length > 0 && (
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <Label className="text-sm font-medium mb-3 block">Order Options</Label>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {selectedOrder.customization.delivery !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-muted-foreground" />
+                          <span>Delivery:</span>
+                          <span className="font-medium">
+                            {selectedOrder.customization.delivery ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      )}
+                      {selectedOrder.customization.table_number && (
+                        <div className="flex items-center gap-2">
+                          <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />
+                          <span>Table:</span>
+                          <span className="font-medium">
+                            {selectedOrder.customization.table_number}
+                          </span>
+                        </div>
+                      )}
+                      {selectedOrder.customization.notes && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                          <p className="font-medium">{selectedOrder.customization.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              {/* Special Instructions */}
-              {selectedOrder.special_instructions && (
+              {/* Timestamps */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Special Instructions
-                  </p>
-                  <p className="text-sm bg-muted p-3 rounded-lg">
-                    {selectedOrder.special_instructions}
+                  <Label className="text-muted-foreground text-xs">Created</Label>
+                  <p>
+                    {formatDateTime(selectedOrder.created_at).date}{" "}
+                    {formatDateTime(selectedOrder.created_at).time}
                   </p>
                 </div>
-              )}
-
-              {/* Actions */}
-              {!["completed", "cancelled"].includes(selectedOrder.status) && (
-                <div className="flex gap-2 justify-end pt-4 border-t">
-                  {selectedOrder.status === "pending" && (
-                    <Button onClick={() => handleUpdateStatus(selectedOrder, "confirmed")}>
-                      Confirm Order
-                    </Button>
-                  )}
-                  {selectedOrder.status === "confirmed" && (
-                    <Button onClick={() => handleUpdateStatus(selectedOrder, "preparing")}>
-                      Start Preparing
-                    </Button>
-                  )}
-                  {selectedOrder.status === "preparing" && (
-                    <Button onClick={() => handleUpdateStatus(selectedOrder, "ready")}>
-                      Mark Ready
-                    </Button>
-                  )}
-                  {selectedOrder.status === "ready" && (
-                    <Button onClick={() => handleFinalizeOrder(selectedOrder)}>
-                      Complete Order
-                    </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      handleCancelOrder(selectedOrder);
-                      setSelectedOrder(null);
-                    }}
-                  >
-                    Cancel Order
-                  </Button>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Updated</Label>
+                  <p>
+                    {formatDateTime(selectedOrder.updated_at).date}{" "}
+                    {formatDateTime(selectedOrder.updated_at).time}
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
-          )}
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedOrder && !selectedOrder.deleted_at && selectedOrder.status !== "cancelled" && (
+              <Button
+                onClick={() => {
+                  setIsDetailsDialogOpen(false);
+                  openEditDialog(selectedOrder);
+                }}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Order
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Dialog */}
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Cancel Order
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel Order #{selectedOrder?.id}? This will change the
+              status to "cancelled".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancel}
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete Order #{selectedOrder?.id}? The order will be
+              soft-deleted and can be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Deleting..." : "Delete Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Dialog */}
+      <AlertDialog open={isRestoreDialogOpen} onOpenChange={setIsRestoreDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to restore Order #{selectedOrder?.id}? The order will become
+              visible again and can be processed normally.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestore}
+              className="bg-green-600 hover:bg-green-700"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Restoring..." : "Restore Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

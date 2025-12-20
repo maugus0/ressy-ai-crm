@@ -99,14 +99,25 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Orders (per restaurant)
+  // Orders (Dashboard API - per restaurant)
   // ============================================================================
   ORDERS: {
-    LIST: (restaurantId: number) => `/client/restaurants/${restaurantId}/orders`,
-    GET: (orderId: number) => `/client/orders/${orderId}`,
-    UPDATE: (orderId: number) => `/client/orders/${orderId}`,
-    FINALIZE: (orderId: number) => `/client/orders/${orderId}/finalize`,
-    CANCEL: (orderId: number) => `/client/orders/${orderId}/cancel`,
+    /** GET /api/v1/dashboard/restaurants/{restaurant_id}/orders - List orders */
+    LIST: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/orders`,
+    /** POST /api/v1/dashboard/restaurants/{restaurant_id}/orders - Create order */
+    CREATE: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/orders`,
+    /** GET /api/v1/dashboard/orders/{order_id} - Get order by ID */
+    GET: (orderId: number) => `/dashboard/orders/${orderId}`,
+    /** PUT /api/v1/dashboard/orders/{order_id} - Update order */
+    UPDATE: (orderId: number) => `/dashboard/orders/${orderId}`,
+    /** DELETE /api/v1/dashboard/orders/{order_id} - Soft delete order */
+    DELETE: (orderId: number) => `/dashboard/orders/${orderId}`,
+    /** PUT /api/v1/dashboard/orders/{order_id}/status - Update status only */
+    UPDATE_STATUS: (orderId: number) => `/dashboard/orders/${orderId}/status`,
+    /** PUT /api/v1/dashboard/orders/{order_id}/cancel - Cancel order */
+    CANCEL: (orderId: number) => `/dashboard/orders/${orderId}/cancel`,
+    /** PUT /api/v1/dashboard/orders/{order_id}/restore - Restore deleted order */
+    RESTORE: (orderId: number) => `/dashboard/orders/${orderId}/restore`,
   },
 
   // ============================================================================
