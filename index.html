@@ -23,7 +23,49 @@
         var params = new URLSearchParams(window.location.search);
         var p = params.get("p");
         if (p) {
-          window.history.replaceState(null, "", decodeURIComponent(p));
+          try {
+            var decodedPath = decodeURIComponent(p);
+            var currentPath = window.location.pathname;
+            var currentSearch = window.location.search;
+            var currentHash = window.location.hash;
+            
+            // Check if decoded path contains nested ?p= parameters (redirect loop detection)
+            if (decodedPath.includes("?p=") || decodedPath.includes("%3Fp%3D")) {
+              // We're in a loop, extract the innermost path
+              var match = decodedPath.match(/[?&]p=([^&]*)/);
+              if (match) {
+                decodedPath = decodeURIComponent(match[1]);
+              } else {
+                // Fallback: use current pathname
+                decodedPath = currentPath;
+              }
+            }
+            
+            // Extract path, query, and hash from decoded path
+            var pathOnly = decodedPath.split("?")[0].split("#")[0];
+            var hashOnly = decodedPath.includes("#") ? decodedPath.substring(decodedPath.indexOf("#")) : "";
+            
+            // Build the final URL
+            var basePath = currentPath.startsWith("/ressy-ai-crm") ? "/ressy-ai-crm" : "";
+            var newUrl = basePath + pathOnly + hashOnly;
+            
+            // Only replace if different to avoid unnecessary history entries
+            if (newUrl !== (currentPath + currentHash)) {
+              window.history.replaceState(null, "", newUrl);
+            } else {
+              // If already at correct path, just clean up the ?p parameter
+              params.delete("p");
+              var newSearch = params.toString();
+              var finalUrl = currentPath + (newSearch ? "?" + newSearch : "") + currentHash;
+              window.history.replaceState(null, "", finalUrl);
+            }
+          } catch (e) {
+            // If decoding fails, just remove the ?p parameter to prevent loops
+            params.delete("p");
+            var newSearch = params.toString();
+            var newUrl = window.location.pathname + (newSearch ? "?" + newSearch : "") + window.location.hash;
+            window.history.replaceState(null, "", newUrl);
+          }
         }
       })();
     </script>

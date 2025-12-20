@@ -11,13 +11,57 @@
       // Inspired by https://github.com/rafgraph/spa-github-pages
       (function () {
         var l = window.location;
+        
+        // Prevent infinite redirect loops - check if we already have a 'p' parameter
+        var params = new URLSearchParams(l.search);
+        if (params.has("p")) {
+          // If we already have 'p', we're in a redirect loop
+          // Extract the original path from 'p' and redirect to index at base path
+          try {
+            var originalPath = decodeURIComponent(params.get("p"));
+            // Find the base path (first segment, typically repo name)
+            var pathParts = originalPath.split("/").filter(function(p) { return p; });
+            var basePath = pathParts.length > 0 && pathParts[0] === "ressy-ai-crm" ? "/ressy-ai-crm" : "";
+            
+            // Redirect to index.html at base path with the original path
+            window.location.replace(
+              l.protocol + "//" + l.host + basePath + "/?p=" + encodeURIComponent(originalPath)
+            );
+          } catch (e) {
+            // If decoding fails, redirect to root
+            var basePath = l.pathname.startsWith("/ressy-ai-crm") ? "/ressy-ai-crm" : "";
+            window.location.replace(l.protocol + "//" + l.host + basePath + "/");
+          }
+          return;
+        }
+        
+        // Calculate the base path (e.g., /ressy-ai-crm or /)
+        var pathSegments = l.pathname.split("/").filter(function(segment) {
+          return segment.length > 0;
+        });
+        var basePath = "";
+        if (pathSegments.length > 0 && pathSegments[0] === "ressy-ai-crm") {
+          basePath = "/ressy-ai-crm";
+        }
+        
+        // Extract the actual route (everything after base path)
+        var route = l.pathname;
+        if (basePath && route.startsWith(basePath)) {
+          route = route.substring(basePath.length) || "/";
+        }
+        
+        // Preserve hash if present
+        var hash = l.hash || "";
+        
+        // Build redirect URL: base/?p=/actual/route#hash
         var redirect =
           l.protocol +
           "//" +
           l.host +
-          l.pathname.replace(/\/[^\/]*$/, "/") +
-          "?p=" +
-          encodeURIComponent(l.pathname + l.search + l.hash);
+          basePath +
+          "/?p=" +
+          encodeURIComponent(route + hash);
+        
         window.location.replace(redirect);
       })();
     </script>
