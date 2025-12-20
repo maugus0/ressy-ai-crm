@@ -621,10 +621,9 @@ export function Orders() {
 
       const customization: DashboardOrderCustomization = {};
       if (formData.delivery) customization.delivery = true;
-      {
-        const tableNumber = Number(formData.table_number.trim());
-        if (Number.isInteger(tableNumber) && tableNumber > 0)
-          customization.table_number = tableNumber;
+      const tableNumber = Number(formData.table_number.trim());
+      if (Number.isInteger(tableNumber) && tableNumber > 0) {
+        customization.table_number = tableNumber;
       }
       if (formData.notes.trim()) customization.notes = formData.notes.trim();
 
