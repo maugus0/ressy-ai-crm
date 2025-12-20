@@ -72,9 +72,19 @@ interface StatCardProps {
   trend?: { value: number; isPositive: boolean };
   loading?: boolean;
   className?: string;
+  variant?: "default" | "primary" | "secondary";
 }
 
-function StatCard({ title, value, description, icon, trend, loading, className }: StatCardProps) {
+function StatCard({
+  title,
+  value,
+  description,
+  icon,
+  trend,
+  loading,
+  className,
+  variant = "default",
+}: StatCardProps) {
   if (loading) {
     return (
       <Card className={className}>
@@ -90,11 +100,19 @@ function StatCard({ title, value, description, icon, trend, loading, className }
     );
   }
 
+  const variantStyles = {
+    default: "",
+    primary: "border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10",
+    secondary: "border-secondary/20 bg-gradient-to-br from-secondary/5 to-secondary/10",
+  };
+
   return (
-    <Card className={className}>
+    <Card className={`${variantStyles[variant]} ${className}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="text-muted-foreground">{icon}</div>
+        <div className={`text-muted-foreground ${variant === "primary" ? "text-primary" : ""}`}>
+          {icon}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
@@ -183,6 +201,34 @@ function StatusIcon({ status }: { status: string }) {
     default:
       return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
   }
+}
+
+// ============================================================================
+// Empty State Component
+// ============================================================================
+
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  className = "",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col items-center justify-center py-12 px-4 ${className}`}>
+      <div className="rounded-full bg-muted p-4 mb-4">
+        <Icon className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-foreground mb-1">{title}</p>
+      {description && (
+        <p className="text-xs text-muted-foreground text-center max-w-xs">{description}</p>
+      )}
+    </div>
+  );
 }
 
 // ============================================================================
@@ -329,33 +375,40 @@ export function Dashboard() {
       ].filter((d) => d.value > 0)
     : [];
 
-  // Prepare chart data for calls by hour
-  const callsByHourData =
-    callStats?.time_of_day_distribution?.map((item) => ({
-      hour: `${item.hour_bucket}:00`,
-      count: item.count,
-    })) || [];
+  // Prepare chart data for calls by hour - fill in missing hours with 0
+  const allHours = Array.from({ length: 24 }, (_, i) => i);
+  const callsByHourData = allHours.map((hour) => {
+    const existing = callStats?.time_of_day_distribution?.find((item) => item.hour_bucket === hour);
+    return {
+      hour: `${hour.toString().padStart(2, "0")}:00`,
+      count: existing?.count || 0,
+    };
+  });
 
-  // Prepare chart data for calls by day of week
-  const callsByDayData =
-    callStats?.calls_by_day_of_week?.map((item) => ({
-      day: dayNames[item.day_of_week] || `Day ${item.day_of_week}`,
-      count: item.count,
-    })) || [];
+  // Prepare chart data for calls by day of week - fill in missing days with 0
+  const allDays = Array.from({ length: 7 }, (_, i) => i);
+  const callsByDayData = allDays.map((dayIndex) => {
+    const existing = callStats?.calls_by_day_of_week?.find((item) => item.day_of_week === dayIndex);
+    return {
+      day: dayNames[dayIndex],
+      count: existing?.count || 0,
+    };
+  });
 
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">Overview of your restaurant's performance</p>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground mt-1">Overview of your restaurant's performance</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => fetchAnalytics(true)}
           disabled={refreshing}
+          className="shrink-0"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
@@ -368,29 +421,33 @@ export function Dashboard() {
           title="Total Calls"
           value={overview?.total_calls ?? 0}
           description={`${overview?.calls_today ?? 0} calls today`}
-          icon={<Phone className="h-4 w-4" />}
+          icon={<Phone className="h-5 w-5" />}
           loading={loading}
+          variant="primary"
         />
         <StatCard
           title="Reservations"
           value={overview?.total_reservations ?? 0}
           description={`${overview?.reservations_today ?? 0} today`}
-          icon={<CalendarDays className="h-4 w-4" />}
+          icon={<CalendarDays className="h-5 w-5" />}
           loading={loading}
+          variant="primary"
         />
         <StatCard
           title="Orders"
           value={overview?.total_orders ?? 0}
           description={`${overview?.orders_today ?? 0} today`}
-          icon={<ShoppingBag className="h-4 w-4" />}
+          icon={<ShoppingBag className="h-5 w-5" />}
           loading={loading}
+          variant="primary"
         />
         <StatCard
           title="Revenue"
           value={formatCurrency(overview?.total_revenue ?? 0)}
           description={`${formatCurrency(overview?.revenue_today ?? 0)} today`}
-          icon={<DollarSign className="h-4 w-4" />}
+          icon={<DollarSign className="h-5 w-5" />}
           loading={loading}
+          variant="primary"
         />
       </div>
 
@@ -402,21 +459,18 @@ export function Dashboard() {
           description={`${overview?.available_menu_items ?? 0} available`}
           icon={<Utensils className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
         <StatCard
           title="Avg Call Time"
           value={formatDuration(overview?.average_call_duration ?? 0)}
           icon={<Clock className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
         <StatCard
           title="Pending Orders"
           value={overview?.pending_orders_count ?? 0}
           icon={<AlertCircle className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
         <StatCard
           title="Confirmed"
@@ -424,40 +478,45 @@ export function Dashboard() {
           description="Reservations"
           icon={<CheckCircle className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
         <StatCard
           title="Customers"
           value={overview?.total_customers ?? 0}
           icon={<Users className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
         <StatCard
           title="FAQs"
           value={overview?.total_faqs ?? 0}
           icon={<HelpCircle className="h-4 w-4" />}
           loading={loading}
-          className="col-span-1"
         />
       </div>
 
       {/* Analytics Charts - Tabbed View */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="calls">Calls</TabsTrigger>
-          <TabsTrigger value="reservations">Reservations</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1">
+          <TabsTrigger value="overview" className="py-2.5">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="calls" className="py-2.5">
+            Calls
+          </TabsTrigger>
+          <TabsTrigger value="reservations" className="py-2.5">
+            Reservations
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="py-2.5">
+            Orders
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Recent Activity */}
             <Card className="md:col-span-1 lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
                 <CardDescription>Latest calls, reservations, and orders</CardDescription>
               </CardHeader>
               <CardContent>
@@ -467,25 +526,25 @@ export function Dashboard() {
                       <div key={i} className="flex items-center gap-3">
                         <Skeleton className="h-8 w-16" />
                         <Skeleton className="h-4 flex-1" />
-                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-4 w-16" />
                       </div>
                     ))}
                   </div>
                 ) : overview?.recent_activity && overview.recent_activity.length > 0 ? (
-                  <ScrollArea className="h-[280px]">
-                    <div className="space-y-3 pr-4">
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2 pr-4">
                       {overview.recent_activity.map((activity, index) => (
                         <div
                           key={`${activity.type}-${activity.id}-${index}`}
-                          className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                          className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <ActivityBadge type={activity.type} status={activity.status} />
-                            <p className="text-sm truncate">{activity.description}</p>
+                            <p className="text-sm font-medium truncate">{activity.description}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <StatusIcon status={activity.status} />
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatTimestamp(activity.timestamp)}
                             </span>
                           </div>
@@ -494,47 +553,48 @@ export function Dashboard() {
                     </div>
                   </ScrollArea>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No recent activity</p>
-                  </div>
+                  <EmptyState
+                    icon={Users}
+                    title="No recent activity"
+                    description="Activity will appear here as your restaurant receives calls, reservations, and orders"
+                  />
                 )}
               </CardContent>
             </Card>
 
             {/* Today's Schedule */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Today's Schedule</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
                 <CardDescription>Upcoming reservations</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
+                      <Skeleton key={i} className="h-20 w-full" />
                     ))}
                   </div>
                 ) : overview?.todays_schedule && overview.todays_schedule.length > 0 ? (
-                  <ScrollArea className="h-[280px]">
-                    <div className="space-y-3 pr-4">
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2 pr-4">
                       {overview.todays_schedule.map((reservation, index) => (
                         <div
                           key={`schedule-${reservation.id}-${index}`}
-                          className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                          className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-sm">{reservation.time}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-sm">{reservation.time}</span>
                             <Badge variant="outline" className="text-xs">
                               {reservation.party_size} guests
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground truncate">
+                          <p className="text-sm text-muted-foreground truncate font-medium">
                             {reservation.customer_name}
                           </p>
                           {reservation.special_request && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate">
-                              Note: {reservation.special_request}
+                            <p className="text-xs text-muted-foreground mt-1.5 truncate">
+                              {reservation.special_request}
                             </p>
                           )}
                         </div>
@@ -542,10 +602,11 @@ export function Dashboard() {
                     </div>
                   </ScrollArea>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No reservations today</p>
-                  </div>
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="No reservations today"
+                    description="Reservations scheduled for today will appear here"
+                  />
                 )}
               </CardContent>
             </Card>
@@ -553,33 +614,37 @@ export function Dashboard() {
 
           {/* Pending Orders */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Pending Orders</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold">Pending Orders</CardTitle>
               <CardDescription>Orders awaiting confirmation</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-20 w-full" />
+                    <Skeleton key={i} className="h-24 w-full" />
                   ))}
                 </div>
               ) : overview?.pending_orders && overview.pending_orders.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {overview.pending_orders.map((order, index) => (
                     <div
                       key={`pending-${order.id}-${index}`}
-                      className="p-4 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors"
+                      className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono font-bold">{order.order_number}</span>
-                        <Badge variant="secondary">{order.status}</Badge>
+                        <span className="font-mono font-bold text-sm">{order.order_number}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {order.status}
+                        </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate mb-1">
+                      <p className="text-sm text-muted-foreground truncate mb-2 font-medium">
                         {order.customer_name || "Guest"}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{formatCurrency(order.total)}</span>
+                        <span className="font-semibold text-base">
+                          {formatCurrency(order.total)}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {formatTimestamp(order.timestamp)}
                         </span>
@@ -588,10 +653,11 @@ export function Dashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No pending orders</p>
-                </div>
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="No pending orders"
+                  description="Orders awaiting confirmation will appear here"
+                />
               )}
             </CardContent>
           </Card>
@@ -599,8 +665,8 @@ export function Dashboard() {
           {/* Menu Categories */}
           {overview?.menu_categories && overview.menu_categories.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Menu Categories</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Menu Categories</CardTitle>
                 <CardDescription>
                   {overview.menu_categories.length} categories with {overview.total_menu_items}{" "}
                   items
@@ -609,7 +675,7 @@ export function Dashboard() {
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {overview.menu_categories.map((category, index) => (
-                    <Badge key={`cat-${index}`} variant="outline">
+                    <Badge key={`cat-${index}`} variant="outline" className="text-xs py-1 px-2.5">
                       {category}
                     </Badge>
                   ))}
@@ -620,63 +686,84 @@ export function Dashboard() {
         </TabsContent>
 
         {/* Calls Tab */}
-        <TabsContent value="calls" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <TabsContent value="calls" className="space-y-6 mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {/* Call Status Breakdown */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Call Status</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Call Status</CardTitle>
                 <CardDescription>Breakdown by status</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[200px] w-full" />
+                  <Skeleton className="h-[250px] w-full" />
                 ) : callStats?.status_breakdown &&
                   Object.keys(callStats.status_breakdown).length > 0 ? (
                   <div className="space-y-3">
                     {Object.entries(callStats.status_breakdown).map(([status, count]) => (
-                      <div key={status} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div
+                        key={status}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                      >
+                        <div className="flex items-center gap-3">
                           <StatusIcon status={status} />
-                          <span className="text-sm capitalize">{status.replace(/_/g, " ")}</span>
+                          <span className="text-sm font-medium capitalize">
+                            {status.replace(/_/g, " ")}
+                          </span>
                         </div>
-                        <span className="font-medium">{count}</span>
+                        <span className="font-bold text-lg">{count}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No call data available</p>
-                  </div>
+                  <EmptyState
+                    icon={Phone}
+                    title="No call data available"
+                    description="Call statistics will appear here once calls are received"
+                  />
                 )}
               </CardContent>
             </Card>
 
             {/* Calls by Day of Week */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Calls by Day</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Calls by Day</CardTitle>
                 <CardDescription>Weekly distribution</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[200px] w-full" />
-                ) : callsByDayData.length > 0 ? (
-                  <ChartContainer config={callTimeChartConfig} className="h-[200px]">
-                    <BarChart data={callsByDayData}>
+                  <Skeleton className="h-[250px] w-full" />
+                ) : callStats && callStats.total_calls > 0 ? (
+                  <ChartContainer config={callTimeChartConfig} className="h-[250px] w-full">
+                    <BarChart
+                      data={callsByDayData}
+                      margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                      <XAxis
+                        dataKey="day"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis fontSize={11} tickLine={false} axisLine={false} tickMargin={8} />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="count"
+                        fill="var(--color-count)"
+                        radius={[4, 4, 0, 0]}
+                        className="fill-primary"
+                      />
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No call data available</p>
-                  </div>
+                  <EmptyState
+                    icon={Phone}
+                    title="No call data available"
+                    description="Call distribution will appear here once calls are received"
+                  />
                 )}
               </CardContent>
             </Card>
@@ -684,19 +771,29 @@ export function Dashboard() {
 
           {/* Calls by Hour */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Calls by Hour</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold">Calls by Hour</CardTitle>
               <CardDescription>Time of day distribution</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <Skeleton className="h-[250px] w-full" />
-              ) : callsByHourData.length > 0 ? (
-                <ChartContainer config={callTimeChartConfig} className="h-[250px]">
-                  <AreaChart data={callsByHourData}>
+                <Skeleton className="h-[300px] w-full" />
+              ) : callStats && callStats.total_calls > 0 ? (
+                <ChartContainer config={callTimeChartConfig} className="h-[300px] w-full">
+                  <AreaChart
+                    data={callsByHourData}
+                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="hour" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <XAxis
+                      dataKey="hour"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      interval={2}
+                    />
+                    <YAxis fontSize={11} tickLine={false} axisLine={false} tickMargin={8} />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Area
                       type="monotone"
@@ -704,33 +801,35 @@ export function Dashboard() {
                       stroke="var(--color-count)"
                       fill="var(--color-count)"
                       fillOpacity={0.3}
+                      className="fill-primary"
                     />
                   </AreaChart>
                 </ChartContainer>
               ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No time distribution data available</p>
-                </div>
+                <EmptyState
+                  icon={Clock}
+                  title="No time distribution data available"
+                  description="Hourly call distribution will appear here once calls are received"
+                />
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Reservations Tab */}
-        <TabsContent value="reservations" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <TabsContent value="reservations" className="space-y-6 mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {/* Reservation Status Pie Chart */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Reservation Status</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Reservation Status</CardTitle>
                 <CardDescription>Distribution by status</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[250px] w-full" />
+                  <Skeleton className="h-[300px] w-full rounded-lg" />
                 ) : reservationStatusData.length > 0 ? (
-                  <ChartContainer config={reservationChartConfig} className="h-[250px]">
+                  <ChartContainer config={reservationChartConfig} className="h-[300px] w-full">
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Pie
@@ -739,9 +838,9 @@ export function Dashboard() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={2}
+                        innerRadius={70}
+                        outerRadius={100}
+                        paddingAngle={3}
                       >
                         {reservationStatusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -750,65 +849,75 @@ export function Dashboard() {
                     </PieChart>
                   </ChartContainer>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No reservation data available</p>
-                  </div>
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="No reservation data available"
+                    description="Reservation statistics will appear here once reservations are made"
+                  />
                 )}
               </CardContent>
             </Card>
 
             {/* Reservation Stats */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Reservation Stats</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Reservation Stats</CardTitle>
                 <CardDescription>Detailed breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <div className="space-y-3">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
+                      <Skeleton key={i} className="h-12 w-full" />
                     ))}
                   </div>
                 ) : reservationStats ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <span className="text-sm">Total Reservations</span>
-                      <span className="font-bold text-lg">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <span className="text-sm font-medium">Total Reservations</span>
+                      <span className="font-bold text-xl">
                         {reservationStats.total_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" /> Confirmed
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" /> Confirmed
                       </span>
-                      <span className="font-medium">{reservationStats.confirmed_reservations}</span>
+                      <span className="font-semibold text-lg">
+                        {reservationStats.confirmed_reservations}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-yellow-500" /> Pending
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-yellow-600" /> Pending
                       </span>
-                      <span className="font-medium">{reservationStats.pending_reservations}</span>
+                      <span className="font-semibold text-lg">
+                        {reservationStats.pending_reservations}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-blue-500" /> Completed
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-blue-600" /> Completed
                       </span>
-                      <span className="font-medium">{reservationStats.completed_reservations}</span>
+                      <span className="font-semibold text-lg">
+                        {reservationStats.completed_reservations}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-red-500" /> Cancelled
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-red-50 dark:bg-red-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-600" /> Cancelled
                       </span>
-                      <span className="font-medium">{reservationStats.cancelled_reservations}</span>
+                      <span className="font-semibold text-lg">
+                        {reservationStats.cancelled_reservations}
+                      </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No reservation data available</p>
-                  </div>
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="No reservation data available"
+                    description="Reservation statistics will appear here once reservations are made"
+                  />
                 )}
               </CardContent>
             </Card>
@@ -816,19 +925,19 @@ export function Dashboard() {
         </TabsContent>
 
         {/* Orders Tab */}
-        <TabsContent value="orders" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <TabsContent value="orders" className="space-y-6 mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {/* Order Status Pie Chart */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Order Status</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Order Status</CardTitle>
                 <CardDescription>Distribution by status</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[250px] w-full" />
+                  <Skeleton className="h-[300px] w-full rounded-lg" />
                 ) : orderStatusData.length > 0 ? (
-                  <ChartContainer config={orderChartConfig} className="h-[250px]">
+                  <ChartContainer config={orderChartConfig} className="h-[300px] w-full">
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Pie
@@ -837,9 +946,9 @@ export function Dashboard() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={2}
+                        innerRadius={70}
+                        outerRadius={100}
+                        paddingAngle={3}
                       >
                         {orderStatusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -848,63 +957,65 @@ export function Dashboard() {
                     </PieChart>
                   </ChartContainer>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No order data available</p>
-                  </div>
+                  <EmptyState
+                    icon={ShoppingBag}
+                    title="No order data available"
+                    description="Order statistics will appear here once orders are placed"
+                  />
                 )}
               </CardContent>
             </Card>
 
             {/* Order Stats */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Order Stats</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">Order Stats</CardTitle>
                 <CardDescription>Detailed breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <div className="space-y-3">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
+                      <Skeleton key={i} className="h-12 w-full" />
                     ))}
                   </div>
                 ) : orderStats ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <span className="text-sm">Total Orders</span>
-                      <span className="font-bold text-lg">{orderStats.total_orders}</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <span className="text-sm font-medium">Total Orders</span>
+                      <span className="font-bold text-xl">{orderStats.total_orders}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <span className="text-sm">Total Revenue</span>
-                      <span className="font-bold text-lg">
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <span className="text-sm font-medium">Total Revenue</span>
+                      <span className="font-bold text-xl">
                         {formatCurrency(orderStats.total_revenue)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-yellow-500" /> Pending
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-yellow-600" /> Pending
                       </span>
-                      <span className="font-medium">{orderStats.pending_orders}</span>
+                      <span className="font-semibold text-lg">{orderStats.pending_orders}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <Timer className="h-4 w-4 text-orange-500" /> Preparing
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <Timer className="h-4 w-4 text-orange-600" /> Preparing
                       </span>
-                      <span className="font-medium">{orderStats.preparing_orders}</span>
+                      <span className="font-semibold text-lg">{orderStats.preparing_orders}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                      <span className="text-sm flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" /> Completed
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" /> Completed
                       </span>
-                      <span className="font-medium">{orderStats.completed_orders}</span>
+                      <span className="font-semibold text-lg">{orderStats.completed_orders}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No order data available</p>
-                  </div>
+                  <EmptyState
+                    icon={ShoppingBag}
+                    title="No order data available"
+                    description="Order statistics will appear here once orders are placed"
+                  />
                 )}
               </CardContent>
             </Card>
@@ -912,36 +1023,39 @@ export function Dashboard() {
 
           {/* Revenue Summary */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Revenue Summary</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold">Revenue Summary</CardTitle>
               <CardDescription>Today vs Total</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="grid gap-4 grid-cols-2">
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-24 w-full" />
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-32 w-full" />
                 </div>
               ) : orderStats ? (
-                <div className="grid gap-4 grid-cols-2">
-                  <div className="p-6 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Today's Revenue</p>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div className="p-6 rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
+                    <p className="text-sm text-muted-foreground mb-2 font-medium">
+                      Today's Revenue
+                    </p>
                     <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(orderStats.revenue_today)}
                     </p>
                   </div>
-                  <div className="p-6 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
+                  <div className="p-6 rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
+                    <p className="text-sm text-muted-foreground mb-2 font-medium">Total Revenue</p>
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                       {formatCurrency(orderStats.total_revenue)}
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No revenue data available</p>
-                </div>
+                <EmptyState
+                  icon={DollarSign}
+                  title="No revenue data available"
+                  description="Revenue statistics will appear here once orders are completed"
+                />
               )}
             </CardContent>
           </Card>

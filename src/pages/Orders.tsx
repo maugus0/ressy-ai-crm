@@ -1051,6 +1051,12 @@ export function Orders() {
       {/* Customer Info */}
       <div className="space-y-4">
         <Label className="text-base font-semibold">Customer Information</Label>
+        {isEditMode && (
+          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+            Customer information cannot be modified after order creation. View the order details to
+            see customer information.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="customer_name">Name</Label>
@@ -1059,6 +1065,8 @@ export function Orders() {
               placeholder="John Smith"
               value={formData.customer_name}
               onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+              disabled={isEditMode}
+              className={isEditMode ? "bg-muted cursor-not-allowed" : ""}
             />
           </div>
           <div className="space-y-2">
@@ -1083,7 +1091,8 @@ export function Orders() {
                 setFormData({ ...formData, customer_phone: e.target.value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
               }}
-              className={formErrors.customer_phone ? "border-destructive" : ""}
+              className={`${formErrors.customer_phone ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+              disabled={isEditMode}
             />
             {formErrors.customer_phone && (
               <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
@@ -1101,7 +1110,8 @@ export function Orders() {
               setFormData({ ...formData, customer_email: e.target.value });
               if (formErrors.customer_email) setFormErrors({ ...formErrors, customer_email: "" });
             }}
-            className={formErrors.customer_email ? "border-destructive" : ""}
+            className={`${formErrors.customer_email ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+            disabled={isEditMode}
           />
           {formErrors.customer_email && (
             <p className="text-sm text-destructive">{formErrors.customer_email}</p>
