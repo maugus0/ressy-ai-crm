@@ -115,7 +115,7 @@ function StatCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-xl sm:text-2xl font-bold">{value}</div>
         {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
         {trend && (
           <div
@@ -396,19 +396,21 @@ export function Dashboard() {
   });
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground mt-1">Overview of your restaurant's performance</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
+            Overview of your restaurant's performance
+          </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => fetchAnalytics(true)}
           disabled={refreshing}
-          className="shrink-0"
+          className="shrink-0 w-full sm:w-auto"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
@@ -416,7 +418,7 @@ export function Dashboard() {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Calls"
           value={overview?.total_calls ?? 0}
@@ -452,7 +454,7 @@ export function Dashboard() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           title="Menu Items"
           value={overview?.total_menu_items ?? 0}
@@ -495,29 +497,33 @@ export function Dashboard() {
 
       {/* Analytics Charts - Tabbed View */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1">
-          <TabsTrigger value="overview" className="py-2.5">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 gap-1">
+          <TabsTrigger value="overview" className="py-2 sm:py-2.5 text-xs sm:text-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="calls" className="py-2.5">
+          <TabsTrigger value="calls" className="py-2 sm:py-2.5 text-xs sm:text-sm">
             Calls
           </TabsTrigger>
-          <TabsTrigger value="reservations" className="py-2.5">
+          <TabsTrigger value="reservations" className="py-2 sm:py-2.5 text-xs sm:text-sm">
             Reservations
           </TabsTrigger>
-          <TabsTrigger value="orders" className="py-2.5">
+          <TabsTrigger value="orders" className="py-2 sm:py-2.5 text-xs sm:text-sm">
             Orders
           </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6 mt-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {/* Recent Activity */}
             <Card className="md:col-span-1 lg:col-span-2">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
-                <CardDescription>Latest calls, reservations, and orders</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">
+                  Recent Activity
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Latest calls, reservations, and orders
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -531,16 +537,18 @@ export function Dashboard() {
                     ))}
                   </div>
                 ) : overview?.recent_activity && overview.recent_activity.length > 0 ? (
-                  <ScrollArea className="h-[300px]">
-                    <div className="space-y-2 pr-4">
+                  <ScrollArea className="h-[250px] sm:h-[300px]">
+                    <div className="space-y-2 pr-2 sm:pr-4">
                       {overview.recent_activity.map((activity, index) => (
                         <div
                           key={`${activity.type}-${activity.id}-${index}`}
-                          className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <ActivityBadge type={activity.type} status={activity.status} />
-                            <p className="text-sm font-medium truncate">{activity.description}</p>
+                            <p className="text-xs sm:text-sm font-medium truncate">
+                              {activity.description}
+                            </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <StatusIcon status={activity.status} />
@@ -565,8 +573,12 @@ export function Dashboard() {
             {/* Today's Schedule */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
-                <CardDescription>Upcoming reservations</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">
+                  Today's Schedule
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Upcoming reservations
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -576,20 +588,22 @@ export function Dashboard() {
                     ))}
                   </div>
                 ) : overview?.todays_schedule && overview.todays_schedule.length > 0 ? (
-                  <ScrollArea className="h-[300px]">
-                    <div className="space-y-2 pr-4">
+                  <ScrollArea className="h-[250px] sm:h-[300px]">
+                    <div className="space-y-2 pr-2 sm:pr-4">
                       {overview.todays_schedule.map((reservation, index) => (
                         <div
                           key={`schedule-${reservation.id}-${index}`}
-                          className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          className="p-2 sm:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-semibold text-sm">{reservation.time}</span>
-                            <Badge variant="outline" className="text-xs">
+                          <div className="flex items-center justify-between mb-2 gap-2">
+                            <span className="font-semibold text-xs sm:text-sm">
+                              {reservation.time}
+                            </span>
+                            <Badge variant="outline" className="text-xs shrink-0">
                               {reservation.party_size} guests
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground truncate font-medium">
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate font-medium">
                             {reservation.customer_name}
                           </p>
                           {reservation.special_request && (
@@ -615,8 +629,10 @@ export function Dashboard() {
           {/* Pending Orders */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold">Pending Orders</CardTitle>
-              <CardDescription>Orders awaiting confirmation</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-semibold">Pending Orders</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Orders awaiting confirmation
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -626,26 +642,28 @@ export function Dashboard() {
                   ))}
                 </div>
               ) : overview?.pending_orders && overview.pending_orders.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {overview.pending_orders.map((order, index) => (
                     <div
                       key={`pending-${order.id}-${index}`}
-                      className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono font-bold text-sm">{order.order_number}</span>
-                        <Badge variant="secondary" className="text-xs">
+                      <div className="flex items-center justify-between mb-2 gap-2">
+                        <span className="font-mono font-bold text-xs sm:text-sm truncate">
+                          {order.order_number}
+                        </span>
+                        <Badge variant="secondary" className="text-xs shrink-0">
                           {order.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate mb-2 font-medium">
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate mb-2 font-medium">
                         {order.customer_name || "Guest"}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-base">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm sm:text-base">
                           {formatCurrency(order.total)}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {formatTimestamp(order.timestamp)}
                         </span>
                       </div>
@@ -666,8 +684,10 @@ export function Dashboard() {
           {overview?.menu_categories && overview.menu_categories.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Menu Categories</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">
+                  Menu Categories
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   {overview.menu_categories.length} categories with {overview.total_menu_items}{" "}
                   items
                 </CardDescription>
@@ -686,32 +706,36 @@ export function Dashboard() {
         </TabsContent>
 
         {/* Calls Tab */}
-        <TabsContent value="calls" className="space-y-6 mt-6">
-          <div className="grid gap-6 md:grid-cols-2">
+        <TabsContent value="calls" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
             {/* Call Status Breakdown */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Call Status</CardTitle>
-                <CardDescription>Breakdown by status</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">Call Status</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Breakdown by status
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <Skeleton className="h-[250px] w-full" />
                 ) : callStats?.status_breakdown &&
                   Object.keys(callStats.status_breakdown).length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {Object.entries(callStats.status_breakdown).map(([status, count]) => (
                       <div
                         key={status}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                        className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg border bg-card"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                           <StatusIcon status={status} />
-                          <span className="text-sm font-medium capitalize">
+                          <span className="text-xs sm:text-sm font-medium capitalize truncate">
                             {status.replace(/_/g, " ")}
                           </span>
                         </div>
-                        <span className="font-bold text-lg">{count}</span>
+                        <span className="font-bold text-base sm:text-lg shrink-0 ml-2">
+                          {count}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -728,14 +752,19 @@ export function Dashboard() {
             {/* Calls by Day of Week */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Calls by Day</CardTitle>
-                <CardDescription>Weekly distribution</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">Calls by Day</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Weekly distribution
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[250px] w-full" />
+                  <Skeleton className="h-[200px] sm:h-[250px] w-full" />
                 ) : callStats && callStats.total_calls > 0 ? (
-                  <ChartContainer config={callTimeChartConfig} className="h-[250px] w-full">
+                  <ChartContainer
+                    config={callTimeChartConfig}
+                    className="h-[200px] sm:h-[250px] w-full"
+                  >
                     <BarChart
                       data={callsByDayData}
                       margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
@@ -743,12 +772,12 @@ export function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis
                         dataKey="day"
-                        fontSize={11}
+                        fontSize={10}
                         tickLine={false}
                         axisLine={false}
-                        tickMargin={8}
+                        tickMargin={6}
                       />
-                      <YAxis fontSize={11} tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis fontSize={10} tickLine={false} axisLine={false} tickMargin={6} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar
                         dataKey="count"
@@ -772,14 +801,19 @@ export function Dashboard() {
           {/* Calls by Hour */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold">Calls by Hour</CardTitle>
-              <CardDescription>Time of day distribution</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-semibold">Calls by Hour</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Time of day distribution
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <Skeleton className="h-[300px] w-full" />
+                <Skeleton className="h-[200px] sm:h-[300px] w-full" />
               ) : callStats && callStats.total_calls > 0 ? (
-                <ChartContainer config={callTimeChartConfig} className="h-[300px] w-full">
+                <ChartContainer
+                  config={callTimeChartConfig}
+                  className="h-[200px] sm:h-[300px] w-full"
+                >
                   <AreaChart
                     data={callsByHourData}
                     margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
@@ -787,13 +821,13 @@ export function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis
                       dataKey="hour"
-                      fontSize={10}
+                      fontSize={9}
                       tickLine={false}
                       axisLine={false}
-                      tickMargin={8}
+                      tickMargin={6}
                       interval={2}
                     />
-                    <YAxis fontSize={11} tickLine={false} axisLine={false} tickMargin={8} />
+                    <YAxis fontSize={9} tickLine={false} axisLine={false} tickMargin={6} />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Area
                       type="monotone"
@@ -817,19 +851,26 @@ export function Dashboard() {
         </TabsContent>
 
         {/* Reservations Tab */}
-        <TabsContent value="reservations" className="space-y-6 mt-6">
-          <div className="grid gap-6 md:grid-cols-2">
+        <TabsContent value="reservations" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
             {/* Reservation Status Pie Chart */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Reservation Status</CardTitle>
-                <CardDescription>Distribution by status</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">
+                  Reservation Status
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Distribution by status
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <Skeleton className="h-[300px] w-full rounded-lg" />
                 ) : reservationStatusData.length > 0 ? (
-                  <ChartContainer config={reservationChartConfig} className="h-[300px] w-full">
+                  <ChartContainer
+                    config={reservationChartConfig}
+                    className="h-[200px] sm:h-[300px] w-full"
+                  >
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Pie
@@ -861,8 +902,10 @@ export function Dashboard() {
             {/* Reservation Stats */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Reservation Stats</CardTitle>
-                <CardDescription>Detailed breakdown</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">
+                  Reservation Stats
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Detailed breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -872,42 +915,46 @@ export function Dashboard() {
                     ))}
                   </div>
                 ) : reservationStats ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                      <span className="text-sm font-medium">Total Reservations</span>
-                      <span className="font-bold text-xl">
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
+                      <span className="text-xs sm:text-sm font-medium">Total Reservations</span>
+                      <span className="font-bold text-lg sm:text-xl">
                         {reservationStats.total_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" /> Confirmed
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />{" "}
+                        <span>Confirmed</span>
                       </span>
-                      <span className="font-semibold text-lg">
+                      <span className="font-semibold text-base sm:text-lg">
                         {reservationStats.confirmed_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-yellow-600" /> Pending
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />{" "}
+                        <span>Pending</span>
                       </span>
-                      <span className="font-semibold text-lg">
+                      <span className="font-semibold text-base sm:text-lg">
                         {reservationStats.pending_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-blue-600" /> Completed
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 shrink-0" />{" "}
+                        <span>Completed</span>
                       </span>
-                      <span className="font-semibold text-lg">
+                      <span className="font-semibold text-base sm:text-lg">
                         {reservationStats.completed_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-red-50 dark:bg-red-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-red-600" /> Cancelled
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-red-50 dark:bg-red-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 shrink-0" />{" "}
+                        <span>Cancelled</span>
                       </span>
-                      <span className="font-semibold text-lg">
+                      <span className="font-semibold text-base sm:text-lg">
                         {reservationStats.cancelled_reservations}
                       </span>
                     </div>
@@ -925,19 +972,24 @@ export function Dashboard() {
         </TabsContent>
 
         {/* Orders Tab */}
-        <TabsContent value="orders" className="space-y-6 mt-6">
-          <div className="grid gap-6 md:grid-cols-2">
+        <TabsContent value="orders" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
             {/* Order Status Pie Chart */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Order Status</CardTitle>
-                <CardDescription>Distribution by status</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">Order Status</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Distribution by status
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <Skeleton className="h-[300px] w-full rounded-lg" />
                 ) : orderStatusData.length > 0 ? (
-                  <ChartContainer config={orderChartConfig} className="h-[300px] w-full">
+                  <ChartContainer
+                    config={orderChartConfig}
+                    className="h-[200px] sm:h-[300px] w-full"
+                  >
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Pie
@@ -969,8 +1021,8 @@ export function Dashboard() {
             {/* Order Stats */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Order Stats</CardTitle>
-                <CardDescription>Detailed breakdown</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold">Order Stats</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Detailed breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -980,34 +1032,45 @@ export function Dashboard() {
                     ))}
                   </div>
                 ) : orderStats ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                      <span className="text-sm font-medium">Total Orders</span>
-                      <span className="font-bold text-xl">{orderStats.total_orders}</span>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
+                      <span className="text-xs sm:text-sm font-medium">Total Orders</span>
+                      <span className="font-bold text-lg sm:text-xl">
+                        {orderStats.total_orders}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                      <span className="text-sm font-medium">Total Revenue</span>
-                      <span className="font-bold text-xl">
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
+                      <span className="text-xs sm:text-sm font-medium">Total Revenue</span>
+                      <span className="font-bold text-lg sm:text-xl">
                         {formatCurrency(orderStats.total_revenue)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-yellow-600" /> Pending
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />{" "}
+                        <span>Pending</span>
                       </span>
-                      <span className="font-semibold text-lg">{orderStats.pending_orders}</span>
+                      <span className="font-semibold text-base sm:text-lg">
+                        {orderStats.pending_orders}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <Timer className="h-4 w-4 text-orange-600" /> Preparing
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <Timer className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600 shrink-0" />{" "}
+                        <span>Preparing</span>
                       </span>
-                      <span className="font-semibold text-lg">{orderStats.preparing_orders}</span>
+                      <span className="font-semibold text-base sm:text-lg">
+                        {orderStats.preparing_orders}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" /> Completed
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
+                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />{" "}
+                        <span>Completed</span>
                       </span>
-                      <span className="font-semibold text-lg">{orderStats.completed_orders}</span>
+                      <span className="font-semibold text-base sm:text-lg">
+                        {orderStats.completed_orders}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -1024,8 +1087,8 @@ export function Dashboard() {
           {/* Revenue Summary */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold">Revenue Summary</CardTitle>
-              <CardDescription>Today vs Total</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-semibold">Revenue Summary</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Today vs Total</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -1034,18 +1097,20 @@ export function Dashboard() {
                   <Skeleton className="h-32 w-full" />
                 </div>
               ) : orderStats ? (
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                  <div className="p-6 rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
-                    <p className="text-sm text-muted-foreground mb-2 font-medium">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div className="p-4 sm:p-6 rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">
                       Today's Revenue
                     </p>
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(orderStats.revenue_today)}
                     </p>
                   </div>
-                  <div className="p-6 rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
-                    <p className="text-sm text-muted-foreground mb-2 font-medium">Total Revenue</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="p-4 sm:p-6 rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">
+                      Total Revenue
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
                       {formatCurrency(orderStats.total_revenue)}
                     </p>
                   </div>
