@@ -7,53 +7,38 @@
   </head>
   <body>
     <script>
-      // SPA redirect for GitHub Pages (BrowserRouter deep links)
+      // SPA redirect for GitHub Pages with custom domain (BrowserRouter deep links)
       // Inspired by https://github.com/rafgraph/spa-github-pages
       (function () {
         var l = window.location;
-        
-        // Extract repository name from pathname (e.g., "ressy-ai-crm" from "/ressy-ai-crm/...")
-        // This allows the code to work with any repository name without hardcoding
-        var pathSegments = l.pathname.split("/").filter(function(segment) {
-          return segment.length > 0;
-        });
-        var repoName = pathSegments.length > 0 ? pathSegments[0] : "";
-        var basePath = repoName ? "/" + repoName : "";
+        var params = new URLSearchParams(l.search);
         
         // Prevent infinite redirect loops - check if we already have a 'p' parameter
-        var params = new URLSearchParams(l.search);
         if (params.has("p")) {
-          // If we already have 'p', we're in a redirect loop
-          // Extract the original path from 'p' and redirect to index at base path
+          // If we already have 'p', extract the original path and redirect to index
           try {
             var originalPath = decodeURIComponent(params.get("p"));
-            
-            // Redirect to index.html at base path with the original path
             window.location.replace(
-              l.protocol + "//" + l.host + basePath + "/?p=" + encodeURIComponent(originalPath)
+              l.protocol + "//" + l.host + "/?p=" + encodeURIComponent(originalPath)
             );
           } catch (e) {
             // If decoding fails, redirect to root
-            window.location.replace(l.protocol + "//" + l.host + basePath + "/");
+            window.location.replace(l.protocol + "//" + l.host + "/");
           }
           return;
         }
         
-        // Extract the actual route (everything after base path)
-        var route = l.pathname;
-        if (basePath && route.startsWith(basePath)) {
-          route = route.substring(basePath.length) || "/";
-        }
+        // Extract the actual route
+        var route = l.pathname || "/";
         
         // Preserve hash if present
         var hash = l.hash || "";
         
-        // Build redirect URL: base/?p=/actual/route#hash
+        // Build redirect URL: /?p=/actual/route#hash
         var redirect =
           l.protocol +
           "//" +
           l.host +
-          basePath +
           "/?p=" +
           encodeURIComponent(route + hash);
         
@@ -62,5 +47,3 @@
     </script>
   </body>
 </html>
-
-
