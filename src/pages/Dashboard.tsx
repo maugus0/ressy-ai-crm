@@ -108,20 +108,30 @@ function StatCard({
   return (
     <Card className={`${variantStyles[variant]} ${className}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className={`text-muted-foreground ${variant === "primary" ? "text-primary" : ""}`}>
+        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate pr-2">
+          {title}
+        </CardTitle>
+        <div
+          className={`text-muted-foreground shrink-0 ${variant === "primary" ? "text-primary" : ""}`}
+        >
           {icon}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-xl sm:text-2xl font-bold">{value}</div>
-        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+        <div className="text-lg sm:text-xl md:text-2xl font-bold truncate">{value}</div>
+        {description && (
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 truncate">
+            {description}
+          </p>
+        )}
         {trend && (
           <div
-            className={`flex items-center text-xs mt-1 ${trend.isPositive ? "text-green-600" : "text-red-600"}`}
+            className={`flex items-center text-[10px] sm:text-xs mt-1 ${trend.isPositive ? "text-green-600" : "text-red-600"}`}
           >
-            <TrendingUp className={`h-3 w-3 mr-1 ${!trend.isPositive && "rotate-180"}`} />
-            {trend.value}% from last week
+            <TrendingUp
+              className={`h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 shrink-0 ${!trend.isPositive && "rotate-180"}`}
+            />
+            <span className="truncate">{trend.value}% from last week</span>
           </div>
         )}
       </CardContent>
@@ -271,11 +281,22 @@ export function Dashboard() {
     try {
       const date = new Date(timestamp);
       const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
+      // Compare dates in Vancouver timezone
+      const dateInVancouver = date.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
+      const nowInVancouver = now.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
+      const isToday = dateInVancouver === nowInVancouver;
       if (isToday) {
-        return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        return date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/Vancouver",
+        });
       }
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/Vancouver",
+      });
     } catch {
       return timestamp;
     }
@@ -418,12 +439,12 @@ export function Dashboard() {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Calls"
           value={overview?.total_calls ?? 0}
           description={`${overview?.calls_today ?? 0} calls today`}
-          icon={<Phone className="h-5 w-5" />}
+          icon={<Phone className="h-4 w-4 sm:h-5 sm:w-5" />}
           loading={loading}
           variant="primary"
         />
@@ -431,7 +452,7 @@ export function Dashboard() {
           title="Reservations"
           value={overview?.total_reservations ?? 0}
           description={`${overview?.reservations_today ?? 0} today`}
-          icon={<CalendarDays className="h-5 w-5" />}
+          icon={<CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />}
           loading={loading}
           variant="primary"
         />
@@ -439,7 +460,7 @@ export function Dashboard() {
           title="Orders"
           value={overview?.total_orders ?? 0}
           description={`${overview?.orders_today ?? 0} today`}
-          icon={<ShoppingBag className="h-5 w-5" />}
+          icon={<ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />}
           loading={loading}
           variant="primary"
         />
@@ -447,67 +468,79 @@ export function Dashboard() {
           title="Revenue"
           value={formatCurrency(overview?.total_revenue ?? 0)}
           description={`${formatCurrency(overview?.revenue_today ?? 0)} today`}
-          icon={<DollarSign className="h-5 w-5" />}
+          icon={<DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />}
           loading={loading}
           variant="primary"
         />
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           title="Menu Items"
           value={overview?.total_menu_items ?? 0}
           description={`${overview?.available_menu_items ?? 0} available`}
-          icon={<Utensils className="h-4 w-4" />}
+          icon={<Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
         <StatCard
           title="Avg Call Time"
           value={formatDuration(overview?.average_call_duration ?? 0)}
-          icon={<Clock className="h-4 w-4" />}
+          icon={<Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
         <StatCard
           title="Pending Orders"
           value={overview?.pending_orders_count ?? 0}
-          icon={<AlertCircle className="h-4 w-4" />}
+          icon={<AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
         <StatCard
           title="Confirmed"
           value={overview?.confirmed_reservations ?? 0}
           description="Reservations"
-          icon={<CheckCircle className="h-4 w-4" />}
+          icon={<CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
         <StatCard
           title="Customers"
           value={overview?.total_customers ?? 0}
-          icon={<Users className="h-4 w-4" />}
+          icon={<Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
         <StatCard
           title="FAQs"
           value={overview?.total_faqs ?? 0}
-          icon={<HelpCircle className="h-4 w-4" />}
+          icon={<HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           loading={loading}
         />
       </div>
 
       {/* Analytics Charts - Tabbed View */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 gap-1">
-          <TabsTrigger value="overview" className="py-2 sm:py-2.5 text-xs sm:text-sm">
+      <Tabs defaultValue="overview" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-0.5 sm:p-1 gap-0.5 sm:gap-1">
+          <TabsTrigger
+            value="overview"
+            className="py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2"
+          >
             Overview
           </TabsTrigger>
-          <TabsTrigger value="calls" className="py-2 sm:py-2.5 text-xs sm:text-sm">
+          <TabsTrigger
+            value="calls"
+            className="py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2"
+          >
             Calls
           </TabsTrigger>
-          <TabsTrigger value="reservations" className="py-2 sm:py-2.5 text-xs sm:text-sm">
+          <TabsTrigger
+            value="reservations"
+            className="py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2"
+          >
             Reservations
           </TabsTrigger>
-          <TabsTrigger value="orders" className="py-2 sm:py-2.5 text-xs sm:text-sm">
+          <TabsTrigger
+            value="orders"
+            className="py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2"
+          >
             Orders
           </TabsTrigger>
         </TabsList>
@@ -542,17 +575,17 @@ export function Dashboard() {
                       {overview.recent_activity.map((activity, index) => (
                         <div
                           key={`${activity.type}-${activity.id}-${index}`}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 p-2 sm:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
                             <ActivityBadge type={activity.type} status={activity.status} />
-                            <p className="text-xs sm:text-sm font-medium truncate">
+                            <p className="text-[11px] sm:text-xs md:text-sm font-medium truncate min-w-0">
                               {activity.description}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             <StatusIcon status={activity.status} />
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
                               {formatTimestamp(activity.timestamp)}
                             </span>
                           </div>
@@ -595,19 +628,19 @@ export function Dashboard() {
                           key={`schedule-${reservation.id}-${index}`}
                           className="p-2 sm:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center justify-between mb-2 gap-2">
-                            <span className="font-semibold text-xs sm:text-sm">
+                          <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1.5 sm:gap-2">
+                            <span className="font-semibold text-[11px] sm:text-xs md:text-sm">
                               {reservation.time}
                             </span>
-                            <Badge variant="outline" className="text-xs shrink-0">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
                               {reservation.party_size} guests
                             </Badge>
                           </div>
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate font-medium">
+                          <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate font-medium">
                             {reservation.customer_name}
                           </p>
                           {reservation.special_request && (
-                            <p className="text-xs text-muted-foreground mt-1.5 truncate">
+                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-1.5 truncate">
                               {reservation.special_request}
                             </p>
                           )}
@@ -648,22 +681,22 @@ export function Dashboard() {
                       key={`pending-${order.id}-${index}`}
                       className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-2 gap-2">
-                        <span className="font-mono font-bold text-xs sm:text-sm truncate">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1.5 sm:gap-2">
+                        <span className="font-mono font-bold text-[11px] sm:text-xs md:text-sm truncate min-w-0">
                           {order.order_number}
                         </span>
-                        <Badge variant="secondary" className="text-xs shrink-0">
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs shrink-0">
                           {order.status}
                         </Badge>
                       </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate mb-2 font-medium">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate mb-1.5 sm:mb-2 font-medium">
                         {order.customer_name || "Guest"}
                       </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-sm sm:text-base">
+                      <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                        <span className="font-semibold text-xs sm:text-sm md:text-base truncate">
                           {formatCurrency(order.total)}
                         </span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap shrink-0">
                           {formatTimestamp(order.timestamp)}
                         </span>
                       </div>
@@ -725,15 +758,15 @@ export function Dashboard() {
                     {Object.entries(callStats.status_breakdown).map(([status, count]) => (
                       <div
                         key={status}
-                        className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg border bg-card"
+                        className="flex items-center justify-between p-2 sm:p-2.5 md:p-3 rounded-lg border bg-card"
                       >
-                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 flex-1">
                           <StatusIcon status={status} />
-                          <span className="text-xs sm:text-sm font-medium capitalize truncate">
+                          <span className="text-[11px] sm:text-xs md:text-sm font-medium capitalize truncate">
                             {status.replace(/_/g, " ")}
                           </span>
                         </div>
-                        <span className="font-bold text-base sm:text-lg shrink-0 ml-2">
+                        <span className="font-bold text-sm sm:text-base md:text-lg shrink-0 ml-1 sm:ml-2">
                           {count}
                         </span>
                       </div>
@@ -772,12 +805,19 @@ export function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis
                         dataKey="day"
-                        fontSize={10}
+                        fontSize={8}
                         tickLine={false}
                         axisLine={false}
-                        tickMargin={6}
+                        tickMargin={4}
+                        className="sm:text-[10px]"
                       />
-                      <YAxis fontSize={10} tickLine={false} axisLine={false} tickMargin={6} />
+                      <YAxis
+                        fontSize={8}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={4}
+                        className="sm:text-[10px]"
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar
                         dataKey="count"
@@ -821,13 +861,20 @@ export function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis
                       dataKey="hour"
-                      fontSize={9}
+                      fontSize={7}
                       tickLine={false}
                       axisLine={false}
-                      tickMargin={6}
-                      interval={2}
+                      tickMargin={4}
+                      interval={3}
+                      className="sm:text-[9px]"
                     />
-                    <YAxis fontSize={9} tickLine={false} axisLine={false} tickMargin={6} />
+                    <YAxis
+                      fontSize={7}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={4}
+                      className="sm:text-[9px]"
+                    />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Area
                       type="monotone"
@@ -916,45 +963,47 @@ export function Dashboard() {
                   </div>
                 ) : reservationStats ? (
                   <div className="space-y-2 sm:space-y-3">
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
-                      <span className="text-xs sm:text-sm font-medium">Total Reservations</span>
-                      <span className="font-bold text-lg sm:text-xl">
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-card">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium">
+                        Total Reservations
+                      </span>
+                      <span className="font-bold text-base sm:text-lg md:text-xl">
                         {reservationStats.total_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-600 shrink-0" />{" "}
                         <span>Confirmed</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {reservationStats.confirmed_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-600 shrink-0" />{" "}
                         <span>Pending</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {reservationStats.pending_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-600 shrink-0" />{" "}
                         <span>Completed</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {reservationStats.completed_reservations}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-red-50 dark:bg-red-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-red-50 dark:bg-red-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-red-600 shrink-0" />{" "}
                         <span>Cancelled</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {reservationStats.cancelled_reservations}
                       </span>
                     </div>
@@ -1033,42 +1082,46 @@ export function Dashboard() {
                   </div>
                 ) : orderStats ? (
                   <div className="space-y-2 sm:space-y-3">
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
-                      <span className="text-xs sm:text-sm font-medium">Total Orders</span>
-                      <span className="font-bold text-lg sm:text-xl">
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-card">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium">
+                        Total Orders
+                      </span>
+                      <span className="font-bold text-base sm:text-lg md:text-xl">
                         {orderStats.total_orders}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-card">
-                      <span className="text-xs sm:text-sm font-medium">Total Revenue</span>
-                      <span className="font-bold text-lg sm:text-xl">
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-card">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium">
+                        Total Revenue
+                      </span>
+                      <span className="font-bold text-base sm:text-lg md:text-xl">
                         {formatCurrency(orderStats.total_revenue)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-600 shrink-0" />{" "}
                         <span>Pending</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {orderStats.pending_orders}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <Timer className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <Timer className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 shrink-0" />{" "}
                         <span>Preparing</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {orderStats.preparing_orders}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
-                      <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2">
-                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />{" "}
+                    <div className="flex items-center justify-between p-2.5 sm:p-3 md:p-4 rounded-lg border bg-green-50 dark:bg-green-950/20">
+                      <span className="text-[11px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-600 shrink-0" />{" "}
                         <span>Completed</span>
                       </span>
-                      <span className="font-semibold text-base sm:text-lg">
+                      <span className="font-semibold text-sm sm:text-base md:text-lg">
                         {orderStats.completed_orders}
                       </span>
                     </div>
@@ -1097,20 +1150,20 @@ export function Dashboard() {
                   <Skeleton className="h-32 w-full" />
                 </div>
               ) : orderStats ? (
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
-                  <div className="p-4 sm:p-6 rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">
+                <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div className="p-3 sm:p-4 md:p-6 rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 text-center">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mb-1.5 sm:mb-2 font-medium">
                       Today's Revenue
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400 break-words">
                       {formatCurrency(orderStats.revenue_today)}
                     </p>
                   </div>
-                  <div className="p-4 sm:p-6 rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">
+                  <div className="p-3 sm:p-4 md:p-6 rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 text-center">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mb-1.5 sm:mb-2 font-medium">
                       Total Revenue
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 break-words">
                       {formatCurrency(orderStats.total_revenue)}
                     </p>
                   </div>

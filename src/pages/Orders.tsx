@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -82,9 +83,12 @@ import {
   AlertTriangle,
   StickyNote,
   DollarSign,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getOrders,
   getOrderDetails,
@@ -98,6 +102,7 @@ import {
 import { getMenuItems, getMenuCategories } from "@/services/menu";
 import type {
   DashboardOrder,
+  DashboardOrderWithHistory,
   DashboardOrderStatus,
   DashboardOrderCreateRequest,
   DashboardOrderUpdateRequest,
@@ -105,6 +110,7 @@ import type {
   DashboardOrderCustomization,
   ClientMenuItem,
   MenuCategoriesResponse,
+  OrderHistoryEntry,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -112,16 +118,19 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -181,6 +190,81 @@ const STATUS_OPTIONS: DashboardOrderStatus[] = [
 ];
 
 // ============================================================================
+// Order History Item Component
+// ============================================================================
+
+interface OrderHistoryItemProps {
+  entry: OrderHistoryEntry;
+  isLast: boolean;
+}
+
+const getHistoryActionIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-3 w-3" />;
+    case "status_changed":
+      return <ArrowRight className="h-3 w-3" />;
+    case "items_updated":
+      return <Package className="h-3 w-3" />;
+    case "cancelled":
+      return <XCircle className="h-3 w-3" />;
+    case "deleted":
+      return <Trash2 className="h-3 w-3" />;
+    case "restored":
+      return <RotateCcw className="h-3 w-3" />;
+    default:
+      return <Clock className="h-3 w-3" />;
+  }
+};
+
+const getHistoryActionColor = (action: string) => {
+  switch (action) {
+    case "created":
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    case "status_changed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    case "deleted":
+      return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400";
+    case "restored":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
+function OrderHistoryItem({ entry, isLast }: OrderHistoryItemProps) {
+  const { date, time } = formatDateTime(entry.created_at);
+
+  return (
+    <div className={`px-3 sm:px-4 py-3 ${!isLast ? "border-b" : ""}`}>
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <div className={`p-1.5 rounded-full flex-shrink-0 ${getHistoryActionColor(entry.action)}`}>
+          {getHistoryActionIcon(entry.action)}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+            <Badge variant="outline" className="w-fit text-[10px] sm:text-xs capitalize">
+              {entry.action.replace(/_/g, " ")}
+            </Badge>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">
+              {date} {time}
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words leading-relaxed">
+            {entry.change_summary}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -188,7 +272,7 @@ interface OrderItemFormData {
   item_id?: number;
   name: string;
   quantity: number;
-  price: number;
+  price: string; // Store as string to handle input properly
   instructions: string;
 }
 
@@ -207,7 +291,7 @@ interface OrderFormData {
 const defaultItemFormData: OrderItemFormData = {
   name: "",
   quantity: 1,
-  price: 0,
+  price: "", // Empty string for input, allows user to type without leading 0
   instructions: "",
 };
 
@@ -258,7 +342,7 @@ export function Orders() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrderWithHistory | null>(null);
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<DashboardOrder | null>(null);
   const [formData, setFormData] = useState<OrderFormData>(defaultFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -381,6 +465,25 @@ export function Orders() {
     setOffset(0);
   }, [statusFilter, startDate, endDate, includeDeleted]);
 
+  // SSE Integration: Auto-refresh on order events
+  const { orderEvents } = useSSE();
+  const lastOrderEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only refresh if we have new order events since last check
+    if (orderEvents.length > 0) {
+      const latestEventId = orderEvents[0].id;
+      if (lastOrderEventRef.current !== latestEventId) {
+        lastOrderEventRef.current = latestEventId;
+        // Skip refresh on initial mount (when we already have data)
+        if (orders.length > 0 || hasFetched.current) {
+          console.log("SSE: Order event received, refreshing orders...");
+          fetchOrders();
+        }
+      }
+    }
+  }, [orderEvents, fetchOrders, orders.length]);
+
   // ============================================================================
   // Handlers
   // ============================================================================
@@ -396,7 +499,10 @@ export function Orders() {
   };
 
   const calculateTotal = (items: OrderItemFormData[]): number => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return items.reduce((sum, item) => {
+      const price = parseFloat(item.price) || 0;
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const openCreateDialog = () => {
@@ -414,7 +520,7 @@ export function Orders() {
       item_id: item.item_id,
       name: item.name,
       quantity: item.quantity,
-      price: item.price,
+      price: String(item.price), // Convert to string for form input
       instructions: item.instructions || "",
     }));
     if (items.length === 0) {
@@ -500,7 +606,7 @@ export function Orders() {
       item_id: menuItem.id,
       name: menuItem.item_name,
       quantity: 1,
-      price: parseFloat(menuItem.price),
+      price: menuItem.price, // Keep as string
       instructions: "",
     };
     // Check if item already exists in order
@@ -574,8 +680,14 @@ export function Orders() {
         if (item.quantity < 1) {
           errors[`item_${index}_quantity`] = "Quantity must be at least 1";
         }
-        if (item.price < 0) {
+        // Price validation (stored as string)
+        const price = parseFloat(item.price);
+        if (item.price === "" || isNaN(price)) {
+          errors[`item_${index}_price`] = "Price is required";
+        } else if (price < 0) {
           errors[`item_${index}_price`] = "Price cannot be negative";
+        } else if (price > 99999.99) {
+          errors[`item_${index}_price`] = "Price is too high";
         }
       });
     }
@@ -615,7 +727,7 @@ export function Orders() {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string price to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -662,7 +774,7 @@ export function Orders() {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string price to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -807,7 +919,7 @@ export function Orders() {
             <>
               {/* Menu Filters */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search menu items..."
@@ -817,7 +929,7 @@ export function Orders() {
                   />
                 </div>
                 <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectTrigger className="w-full sm:w-[160px] flex-shrink-0">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -962,7 +1074,7 @@ export function Orders() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {!item.item_id && (
                       <div className="col-span-2 sm:col-span-4 space-y-1.5">
                         <Label className="text-xs font-medium">Item Name *</Label>
@@ -1002,10 +1114,9 @@ export function Orders() {
                         type="number"
                         min="0"
                         step="0.01"
+                        placeholder="0.00"
                         value={item.price}
-                        onChange={(e) =>
-                          updateItem(index, "price", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(e) => updateItem(index, "price", e.target.value)}
                         className={`h-9 ${formErrors[`item_${index}_price`] ? "border-destructive" : ""}`}
                         disabled={!!item.item_id}
                       />
@@ -1082,17 +1193,21 @@ export function Orders() {
                 </>
               )}
             </Label>
-            <Input
+            <PhoneInput
               id="customer_phone"
-              placeholder="+1234567890"
+              placeholder="1234567890"
               value={formData.customer_phone}
-              required={!isEditMode}
-              onChange={(e) => {
-                setFormData({ ...formData, customer_phone: e.target.value });
+              onChange={(value) => {
+                setFormData({ ...formData, customer_phone: value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
               }}
-              className={`${formErrors.customer_phone ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+              error={!!formErrors.customer_phone}
               disabled={isEditMode}
+              className={
+                isEditMode
+                  ? "[&>button]:bg-muted [&>button]:cursor-not-allowed [&>input]:bg-muted [&>input]:cursor-not-allowed"
+                  : ""
+              }
             />
             {formErrors.customer_phone && (
               <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
@@ -1275,9 +1390,10 @@ export function Orders() {
               </div>
 
               {/* Create Order */}
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button onClick={openCreateDialog} className="flex-shrink-0">
+                <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">New Order</span>
+                <span className="sm:hidden">New</span>
               </Button>
 
               {/* Refresh */}
@@ -1363,7 +1479,7 @@ export function Orders() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg border">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Start Date</Label>
                 <Input
@@ -1412,9 +1528,9 @@ export function Orders() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table className="min-w-[600px]">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Order ID</TableHead>
@@ -1483,7 +1599,7 @@ export function Orders() {
                                 {formatCurrency(order.total_amount)}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center min-w-[110px]">
+                            <TableCell className="text-center">
                               <div className="flex justify-center">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -1493,7 +1609,7 @@ export function Orders() {
                                       disabled={isDeleted}
                                     >
                                       <span
-                                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
+                                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
                                       >
                                         <span className="flex-shrink-0">
                                           {getStatusIcon(order.status)}
@@ -1735,24 +1851,24 @@ export function Orders() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {selectedOrder.customer_name || "N/A"}
+                    <p className="font-medium flex items-center gap-1 break-words">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="break-words">{selectedOrder.customer_name || "N/A"}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Phone</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      {selectedOrder.customer_phone || "N/A"}
+                    <p className="font-medium flex items-center gap-1 break-words">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="break-words">{selectedOrder.customer_phone || "N/A"}</span>
                     </p>
                   </div>
                   {selectedOrder.customer_email && (
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        {selectedOrder.customer_email}
+                      <p className="font-medium flex items-center gap-1 break-words">
+                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="break-words">{selectedOrder.customer_email}</span>
                       </p>
                     </div>
                   )}
@@ -1799,9 +1915,9 @@ export function Orders() {
               {/* Customization */}
               {selectedOrder.customization &&
                 Object.keys(selectedOrder.customization).length > 0 && (
-                  <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="border rounded-lg p-3 sm:p-4 bg-muted/30">
                     <Label className="text-sm font-medium mb-3 block">Order Options</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       {selectedOrder.customization.delivery !== undefined && (
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-muted-foreground" />
@@ -1821,9 +1937,11 @@ export function Orders() {
                         </div>
                       )}
                       {selectedOrder.customization.notes && (
-                        <div className="col-span-2">
+                        <div className="col-span-1 sm:col-span-2">
                           <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                          <p className="font-medium">{selectedOrder.customization.notes}</p>
+                          <p className="font-medium break-words">
+                            {selectedOrder.customization.notes}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1831,7 +1949,7 @@ export function Orders() {
                 )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>
@@ -1847,6 +1965,30 @@ export function Orders() {
                   </p>
                 </div>
               </div>
+
+              {/* Order History */}
+              {selectedOrder.history && selectedOrder.history.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Order History</Label>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedOrder.history.length}
+                    </Badge>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {selectedOrder.history.map((entry, index) => (
+                        <OrderHistoryItem
+                          key={entry.id}
+                          entry={entry}
+                          isLast={index === selectedOrder.history.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 

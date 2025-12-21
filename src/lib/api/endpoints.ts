@@ -158,4 +158,16 @@ export const ENDPOINTS = {
     RESERVATION_SETTINGS: (restaurantId: number) =>
       `/client/restaurants/${restaurantId}/settings/reservations`,
   },
+
+  // ============================================================================
+  // SSE (Server-Sent Events)
+  // ============================================================================
+  SSE: {
+    /** GET /api/v1/sse/events/stream - Subscribe to SSE event stream */
+    STREAM: "/sse/events/stream",
+    /** POST /api/v1/sse/events/escalation/{restaurant_id} - Trigger escalation */
+    ESCALATION: (restaurantId: number) => `/sse/events/escalation/${restaurantId}`,
+    /** GET /api/v1/sse/events/stats - Get SSE connection statistics */
+    STATS: "/sse/events/stats",
+  },
 } as const;

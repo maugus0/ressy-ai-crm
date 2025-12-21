@@ -61,6 +61,9 @@ import {
   AlertCircle,
   Loader2,
   FileText,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getFAQs, getFAQ, createFAQ, updateFAQ, deleteFAQ, bulkCreateFAQs } from "@/services/faq";
@@ -108,10 +111,12 @@ const defaultFormData: FAQFormData = {
 // ============================================================================
 
 const formatDate = (dateStr: string) => {
+  // Format in Vancouver timezone
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "America/Vancouver",
   });
 };
 
@@ -126,6 +131,10 @@ export function FAQ() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<"id" | null>("id");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -229,6 +238,44 @@ export function FAQ() {
   const resetForm = () => {
     setFormData(defaultFormData);
     setFormErrors({});
+  };
+
+  // ============================================================================
+  // Sorting
+  // ============================================================================
+
+  // Sort FAQs based on sortColumn and sortDirection
+  const sortedFAQs = [...faqs].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison = 0;
+    if (sortColumn === "id") {
+      comparison = a.id - b.id;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const handleSort = (column: "id") => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      // Set new column with ascending direction
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: "id") => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
+    );
   };
 
   // ============================================================================
@@ -563,13 +610,15 @@ export function FAQ() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={openBulkDialog}>
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Add
+          <Button variant="outline" onClick={openBulkDialog} className="flex-shrink-0">
+            <Upload className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Bulk Add</span>
+            <span className="sm:hidden">Bulk</span>
           </Button>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add FAQ
+          <Button onClick={openCreateDialog} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add FAQ</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>
@@ -592,13 +641,13 @@ export function FAQ() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {/* Search */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search FAQs..."
-                  className="pl-9 w-[200px] sm:w-[250px]"
+                  className="pl-9 w-full sm:w-[200px] md:w-[250px]"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -620,6 +669,7 @@ export function FAQ() {
                 size="icon"
                 onClick={() => fetchFAQs()}
                 disabled={isLoading}
+                className="flex-shrink-0"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
@@ -647,12 +697,18 @@ export function FAQ() {
           ) : faqs.length > 0 ? (
             <>
               {/* Table View */}
-              <div className="overflow-x-auto border rounded-lg">
-                <Table>
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
+                <Table className="min-w-full">
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="w-[60px] font-semibold hidden sm:table-cell">
-                        ID
+                      <TableHead className="w-[80px] font-semibold hidden sm:table-cell">
+                        <button
+                          onClick={() => handleSort("id")}
+                          className="flex items-center hover:text-primary transition-colors"
+                        >
+                          ID
+                          {getSortIcon("id")}
+                        </button>
                       </TableHead>
                       <TableHead className="font-semibold">Question</TableHead>
                       <TableHead className="font-semibold hidden md:table-cell max-w-[300px]">
@@ -665,7 +721,7 @@ export function FAQ() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {faqs.map((faq) => (
+                    {sortedFAQs.map((faq) => (
                       <TableRow key={faq.id} className="group hover:bg-muted/30">
                         <TableCell className="font-mono text-sm hidden sm:table-cell">
                           #{faq.id}
@@ -686,7 +742,7 @@ export function FAQ() {
                           {formatDate(faq.created_at)}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 sm:gap-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -732,7 +788,7 @@ export function FAQ() {
                 </div>
                 <div className="bg-muted/30 rounded-lg p-6 border">
                   <Accordion type="single" collapsible className="w-full space-y-3">
-                    {faqs.map((faq) => (
+                    {sortedFAQs.map((faq) => (
                       <AccordionItem
                         key={faq.id}
                         value={`faq-${faq.id}`}
@@ -766,8 +822,8 @@ export function FAQ() {
 
               {/* Pagination */}
               {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Page {pagination.page} of {pagination.pages} ({pagination.total} items)
                   </p>
                   <div className="flex gap-2">
@@ -777,8 +833,8 @@ export function FAQ() {
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Previous
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-1">Previous</span>
                     </Button>
                     <Button
                       variant="outline"
@@ -786,8 +842,8 @@ export function FAQ() {
                       onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                       disabled={currentPage === pagination.pages}
                     >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      <span className="hidden sm:inline mr-1">Next</span>
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -802,7 +858,7 @@ export function FAQ() {
                 {searchQuery ? "Try a different search term" : "Add your first FAQ to get started"}
               </p>
               {!searchQuery && (
-                <div className="flex gap-2 justify-center mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 justify-center mt-4">
                   <Button onClick={openCreateDialog}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add FAQ
@@ -820,7 +876,7 @@ export function FAQ() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add FAQ</DialogTitle>
             <DialogDescription>Create a new frequently asked question</DialogDescription>
@@ -849,7 +905,7 @@ export function FAQ() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit FAQ</DialogTitle>
             <DialogDescription>Update the question and answer</DialogDescription>
@@ -902,7 +958,7 @@ export function FAQ() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>FAQ Details</DialogTitle>
             <DialogDescription>ID: #{selectedFAQ?.id}</DialogDescription>
@@ -919,7 +975,7 @@ export function FAQ() {
                 <p className="mt-1 whitespace-pre-wrap">{selectedFAQ.answer}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">{formatDate(selectedFAQ.created_at)}</p>
@@ -951,7 +1007,7 @@ export function FAQ() {
 
       {/* Bulk Create Dialog */}
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />

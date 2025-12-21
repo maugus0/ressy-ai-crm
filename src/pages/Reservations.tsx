@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Table,
   TableBody,
@@ -64,9 +66,18 @@ import {
   X,
   Calendar,
   RefreshCw,
+  History,
+  ArrowRight,
 } from "lucide-react";
+import {
+  vancouverDateTimeToISO,
+  isoToVancouverDateTime,
+  formatVancouverDateTime,
+  isWithinOpeningHours,
+} from "@/lib/utils/timezone";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getReservations,
   getReservation,
@@ -77,9 +88,11 @@ import {
 } from "@/services/reservations";
 import type {
   Reservation,
+  ReservationWithHistory,
   ReservationStatus,
   ReservationCreateRequest,
   ReservationUpdateRequest,
+  ReservationHistoryEntry,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -106,6 +119,86 @@ const defaultFormData: ReservationFormData = {
   special_request: "",
   notes: "",
 };
+
+// ============================================================================
+// Reservation History Item Component
+// ============================================================================
+
+interface ReservationHistoryItemProps {
+  entry: ReservationHistoryEntry;
+  isLast: boolean;
+}
+
+const getReservationHistoryIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-3 w-3" />;
+    case "status_changed":
+      return <ArrowRight className="h-3 w-3" />;
+    case "updated":
+      return <Pencil className="h-3 w-3" />;
+    case "confirmed":
+      return <CheckCircle className="h-3 w-3" />;
+    case "cancelled":
+      return <XCircle className="h-3 w-3" />;
+    case "finalized":
+      return <CheckCircle className="h-3 w-3" />;
+    default:
+      return <Clock className="h-3 w-3" />;
+  }
+};
+
+const getReservationHistoryColor = (action: string) => {
+  switch (action) {
+    case "created":
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    case "status_changed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    case "updated":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    case "confirmed":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    case "finalized":
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
+function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) {
+  const formattedDate = formatVancouverDateTime(entry.created_at, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  return (
+    <div className={`px-3 sm:px-4 py-3 ${!isLast ? "border-b" : ""}`}>
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <div
+          className={`p-1.5 rounded-full flex-shrink-0 ${getReservationHistoryColor(entry.action)}`}
+        >
+          {getReservationHistoryIcon(entry.action)}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+            <Badge variant="outline" className="w-fit text-[10px] sm:text-xs capitalize">
+              {entry.action.replace(/_/g, " ")}
+            </Badge>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">{formattedDate}</span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words leading-relaxed">
+            {entry.change_summary}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================================
 // Component
@@ -141,7 +234,9 @@ export function Reservations() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithHistory | null>(
+    null
+  );
   const [formData, setFormData] = useState<ReservationFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -180,14 +275,14 @@ export function Reservations() {
         params.status = statusFilter as ReservationStatus;
       }
       if (startDate) {
-        const startDateTime = new Date(startDate);
-        startDateTime.setHours(0, 0, 0, 0);
-        params.start_date = startDateTime.toISOString();
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        const startDateTimeLocal = `${startDate}T00:00`;
+        params.start_date = vancouverDateTimeToISO(startDateTimeLocal);
       }
       if (endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        params.end_date = endDateTime.toISOString();
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        const endDateTimeLocal = `${endDate}T23:59`;
+        params.end_date = vancouverDateTimeToISO(endDateTimeLocal);
       }
 
       const data = await getReservations(restaurantId, params);
@@ -268,6 +363,25 @@ export function Reservations() {
     }
   }, [startDate, endDate]);
 
+  // SSE Integration: Auto-refresh on reservation events
+  const { reservationEvents } = useSSE();
+  const lastReservationEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only refresh if we have new reservation events since last check
+    if (reservationEvents.length > 0) {
+      const latestEventId = reservationEvents[0].id;
+      if (lastReservationEventRef.current !== latestEventId) {
+        lastReservationEventRef.current = latestEventId;
+        // Skip refresh on initial mount
+        if (reservations.length > 0) {
+          console.log("SSE: Reservation event received, refreshing reservations...");
+          fetchReservations();
+        }
+      }
+    }
+  }, [reservationEvents, fetchReservations, reservations.length]);
+
   // ============================================================================
   // Handlers
   // ============================================================================
@@ -291,19 +405,10 @@ export function Reservations() {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
-    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
-    let dateTimeLocal = "";
-    if (reservation.date_time) {
-      const date = new Date(reservation.date_time);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
-      }
-    }
+    // Convert ISO date to datetime-local format in Vancouver timezone
+    const dateTimeLocal = reservation.date_time
+      ? isoToVancouverDateTime(reservation.date_time)
+      : "";
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
@@ -344,34 +449,52 @@ export function Reservations() {
 
     // Date/time validation
     if (!formData.date_time) {
-      errors.date_time = "Date and time are required";
+      errors.date_time = "Date and time is required";
     } else {
-      const selectedDate = new Date(formData.date_time);
-      const now = new Date();
-      if (!isEditMode && selectedDate < now) {
-        errors.date_time = "Reservation date cannot be in the past";
-      }
-      if (isNaN(selectedDate.getTime())) {
+      // Parse the datetime-local value
+      const [datePart, timePart] = formData.date_time.split("T");
+      if (!datePart || !timePart) {
         errors.date_time = "Please enter a valid date and time";
+      } else {
+        // Convert Vancouver local time to ISO for proper comparison
+        const isoString = vancouverDateTimeToISO(formData.date_time);
+        const selectedDate = new Date(isoString);
+        const now = new Date();
+
+        if (isNaN(selectedDate.getTime())) {
+          errors.date_time = "Please enter a valid date and time";
+        } else if (!isEditMode && selectedDate < now) {
+          errors.date_time = "Reservation date cannot be in the past";
+        } else {
+          // Check opening hours (optional - can be expanded with restaurant data)
+          // Using typical restaurant hours as fallback: 10:00-22:00
+          const openingTime = "10:00";
+          const closingTime = "22:00";
+          if (!isWithinOpeningHours(timePart, openingTime, closingTime)) {
+            errors.date_time = `Reservations can only be made between ${openingTime} and ${closingTime}`;
+          }
+        }
       }
     }
 
     // Party size validation
-    const partySize = parseInt(formData.party_size, 10);
     if (!formData.party_size) {
       errors.party_size = "Party size is required";
-    } else if (isNaN(partySize)) {
-      errors.party_size = "Please enter a valid number";
-    } else if (partySize < 1) {
-      errors.party_size = "Party size must be at least 1";
-    } else if (partySize > 20) {
-      errors.party_size = "Party size cannot exceed 20";
+    } else {
+      const partySize = parseInt(formData.party_size, 10);
+      if (isNaN(partySize)) {
+        errors.party_size = "Please enter a valid number";
+      } else if (partySize < 1) {
+        errors.party_size = "Party size must be at least 1";
+      } else if (partySize > 20) {
+        errors.party_size = "Party size cannot exceed 20 (contact for larger groups)";
+      }
     }
 
     // Name and phone validation (only for create mode)
     if (!isEditMode) {
       if (!formData.name.trim()) {
-        errors.name = "Name is required";
+        errors.name = "Customer name is required";
       } else if (formData.name.trim().length < 2) {
         errors.name = "Name must be at least 2 characters";
       } else if (formData.name.trim().length > 100) {
@@ -418,8 +541,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
+      // Convert Vancouver local time to ISO string
       const payload: ReservationCreateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
@@ -447,8 +571,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
+      // Convert Vancouver local time to ISO string
       const payload: ReservationUpdateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         ...(formData.special_request.trim()
           ? { special_request: formData.special_request.trim() }
@@ -526,17 +651,22 @@ export function Reservations() {
   };
 
   const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime);
+    // Format in Vancouver timezone
+    const formatted = formatVancouverDateTime(dateTime, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    // Split the formatted string to get date and time parts
+    const parts = formatted.split(", ");
+    if (parts.length >= 2) {
+      return {
+        date: parts[0],
+        time: parts[1],
+      };
+    }
     return {
-      date: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      date: formatted,
+      time: "",
     };
   };
 
@@ -562,7 +692,7 @@ export function Reservations() {
         <>
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Guest Information</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Name</p>
                 <p className="font-medium">{selectedReservation.name}</p>
@@ -603,22 +733,18 @@ export function Reservations() {
         </>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date_time">Date & Time *</Label>
-          <Input
-            id="date_time"
-            type="datetime-local"
+          <DateTimePicker
+            label="Date & Time *"
             value={formData.date_time}
-            onChange={(e) => {
-              setFormData({ ...formData, date_time: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, date_time: value });
               if (formErrors.date_time) setFormErrors({ ...formErrors, date_time: "" });
             }}
-            className={formErrors.date_time ? "border-destructive" : ""}
+            error={formErrors.date_time}
+            minDate={!isEditMode ? new Date() : undefined}
           />
-          {formErrors.date_time && (
-            <p className="text-sm text-destructive">{formErrors.date_time}</p>
-          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="party_size">Party Size *</Label>
@@ -661,15 +787,15 @@ export function Reservations() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone_number">Phone Number *</Label>
-              <Input
+              <PhoneInput
                 id="phone_number"
-                placeholder="+1234567890"
+                placeholder="1234567890"
                 value={formData.phone_number}
-                onChange={(e) => {
-                  setFormData({ ...formData, phone_number: e.target.value });
+                onChange={(value) => {
+                  setFormData({ ...formData, phone_number: value });
                   if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
                 }}
-                className={formErrors.phone_number ? "border-destructive" : ""}
+                error={!!formErrors.phone_number}
               />
               {formErrors.phone_number && (
                 <p className="text-sm text-destructive">{formErrors.phone_number}</p>
@@ -769,15 +895,16 @@ export function Reservations() {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
-          <Button onClick={openCreateDialog} disabled={!restaurantId}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Reservation
+          <Button onClick={openCreateDialog} disabled={!restaurantId} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Reservation</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -851,7 +978,7 @@ export function Reservations() {
 
             <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -888,8 +1015,8 @@ export function Reservations() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg border">
-              <div className="space-y-2 flex-1 min-w-[200px]">
+            <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/50 rounded-lg border">
+              <div className="space-y-2 flex-1 min-w-0">
                 <Label className="text-sm font-medium">Start Date</Label>
                 <Input
                   type="date"
@@ -901,7 +1028,7 @@ export function Reservations() {
                   max={endDate || undefined}
                 />
               </div>
-              <div className="space-y-2 flex-1 min-w-[200px]">
+              <div className="space-y-2 flex-1 min-w-0">
                 <Label className="text-sm font-medium">End Date</Label>
                 <Input
                   type="date"
@@ -951,9 +1078,9 @@ export function Reservations() {
             </div>
           ) : reservations.length > 0 ? (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold hidden sm:table-cell">ID</TableHead>
@@ -1035,16 +1162,16 @@ export function Reservations() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-1 sm:gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                      className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                       onClick={() => openDetailsDialog(reservation)}
                                     >
-                                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
+                                      <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>View Details</TooltipContent>
@@ -1056,10 +1183,10 @@ export function Reservations() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-green-50 dark:hover:bg-green-950"
+                                        className="h-8 w-8 hover:bg-green-50 dark:hover:bg-green-950"
                                         onClick={() => openFinalizeDialog(reservation)}
                                       >
-                                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Confirm Reservation</TooltipContent>
@@ -1074,10 +1201,10 @@ export function Reservations() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-muted"
+                                          className="h-8 w-8 hover:bg-muted"
                                           onClick={() => openEditDialog(reservation)}
                                         >
-                                          <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          <Pencil className="h-4 w-4" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Edit Reservation</TooltipContent>
@@ -1088,10 +1215,10 @@ export function Reservations() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-destructive/10"
+                                          className="h-8 w-8 hover:bg-destructive/10"
                                           onClick={() => openCancelDialog(reservation)}
                                         >
-                                          <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+                                          <XCircle className="h-4 w-4 text-destructive" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Cancel Reservation</TooltipContent>
@@ -1169,7 +1296,7 @@ export function Reservations() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Create Reservation</DialogTitle>
             <DialogDescription>Create a new confirmed reservation</DialogDescription>
@@ -1188,7 +1315,7 @@ export function Reservations() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit Reservation</DialogTitle>
             <DialogDescription>
@@ -1209,14 +1336,14 @@ export function Reservations() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reservation Details</DialogTitle>
             <DialogDescription>{selectedReservation?.confirmation_number}</DialogDescription>
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Guest Name</Label>
                   <p className="font-medium">{selectedReservation.name}</p>
@@ -1227,7 +1354,7 @@ export function Reservations() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Phone</Label>
                   <p className="font-medium">{selectedReservation.phone_number}</p>
@@ -1262,7 +1389,7 @@ export function Reservations() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
                   <div className="mt-1">
@@ -1280,20 +1407,50 @@ export function Reservations() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.created_at).toLocaleString()}
+                    {formatVancouverDateTime(selectedReservation.created_at, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.updated_at).toLocaleString()}
+                    {formatVancouverDateTime(selectedReservation.updated_at, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
               </div>
+
+              {/* Reservation History */}
+              {selectedReservation.history && selectedReservation.history.length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Reservation History</Label>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedReservation.history.length}
+                    </Badge>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {selectedReservation.history.map((entry, index) => (
+                        <ReservationHistoryItem
+                          key={entry.id}
+                          entry={entry}
+                          isLast={index === selectedReservation.history.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

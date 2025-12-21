@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -59,6 +60,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getUsers,
   getUserDetails,
@@ -75,16 +77,19 @@ import {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -176,9 +181,13 @@ export function Callers() {
       if (debouncedSearchQuery.trim()) {
         params.search = debouncedSearchQuery.trim();
       }
-      if (spamFilter !== "all") {
-        params.is_spam = spamFilter === "spam";
+      // Apply spam filter: "regular" = false (active), "spam" = true (blocked), "all" = undefined (both)
+      if (spamFilter === "regular") {
+        params.is_spam = false;
+      } else if (spamFilter === "spam") {
+        params.is_spam = true;
       }
+      // If spamFilter is "all", don't set is_spam param to show both
 
       const data = await getUsers(restaurantId, params);
       setCallers(data.users);
@@ -221,10 +230,48 @@ export function Callers() {
     }
   }, [fetchCallers, restaurantId]);
 
-  // Reset offset when filters change
+  // Reset offset and trigger fetch when spam filter changes
   useEffect(() => {
     setOffset(0);
+    // fetchCallers will be called automatically because it depends on spamFilter and offset
   }, [spamFilter]);
+
+  // SSE Integration: Auto-refresh on order and reservation events (affects caller statistics)
+  const { orderEvents, reservationEvents } = useSSE();
+  const lastOrderEventRef = useRef<string | null>(null);
+  const lastReservationEventRef = useRef<string | null>(null);
+  const hasInitialLoadRef = useRef(false);
+
+  useEffect(() => {
+    // Mark as loaded after first fetch
+    if (callers.length > 0 || !isLoading) {
+      hasInitialLoadRef.current = true;
+    }
+  }, [callers.length, isLoading]);
+
+  useEffect(() => {
+    // Refresh on new order events
+    if (orderEvents.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = orderEvents[0].id;
+      if (lastOrderEventRef.current !== latestEventId) {
+        lastOrderEventRef.current = latestEventId;
+        console.log("SSE: Order event received, refreshing callers...");
+        fetchCallers();
+      }
+    }
+  }, [orderEvents, fetchCallers]);
+
+  useEffect(() => {
+    // Refresh on new reservation events
+    if (reservationEvents.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = reservationEvents[0].id;
+      if (lastReservationEventRef.current !== latestEventId) {
+        lastReservationEventRef.current = latestEventId;
+        console.log("SSE: Reservation event received, refreshing callers...");
+        fetchCallers();
+      }
+    }
+  }, [reservationEvents, fetchCallers]);
 
   // ============================================================================
   // Handlers
@@ -297,17 +344,27 @@ export function Callers() {
       }
     }
 
-    // Email validation (optional)
+    // Email validation (optional but must be valid if provided)
     if (formData.email && formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email.trim())) {
         errors.email = "Please enter a valid email address";
+      } else if (formData.email.trim().length > 254) {
+        errors.email = "Email address is too long";
       }
     }
 
     // Address validation (max length)
     if (formData.address && formData.address.length > 500) {
       errors.address = "Address must be less than 500 characters";
+    }
+
+    // Credit card validation (must be exactly 4 digits if provided)
+    if (formData.credit_card && formData.credit_card.trim()) {
+      const ccDigits = formData.credit_card.replace(/\D/g, "");
+      if (ccDigits.length !== 4) {
+        errors.credit_card = "Please enter exactly 4 digits";
+      }
     }
 
     setFormErrors(errors);
@@ -416,15 +473,15 @@ export function Callers() {
               *
             </span>
           </Label>
-          <Input
+          <PhoneInput
             id="phone_number"
-            placeholder="+1234567890"
+            placeholder="1234567890"
             value={formData.phone_number}
-            onChange={(e) => {
-              setFormData({ ...formData, phone_number: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, phone_number: value });
               if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
             }}
-            className={formErrors.phone_number ? "border-destructive" : ""}
+            error={!!formErrors.phone_number}
           />
           {formErrors.phone_number && (
             <p className="text-sm text-destructive">{formErrors.phone_number}</p>
@@ -518,9 +575,10 @@ export function Callers() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={openCreateDialog} disabled={!restaurantId}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Customer
+          <Button onClick={openCreateDialog} disabled={!restaurantId} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Customer</span>
+            <span className="sm:hidden">Add</span>
           </Button>
           <Button
             variant="outline"
@@ -606,7 +664,7 @@ export function Callers() {
             <div className="flex gap-2 flex-wrap">
               {/* Status Filter */}
               <Select value={spamFilter} onValueChange={setSpamFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -660,9 +718,9 @@ export function Callers() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Customer</TableHead>
@@ -747,13 +805,13 @@ export function Callers() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-1 sm:gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                      className="h-8 w-8 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                       onClick={() => openDetailsDialog(caller)}
                                     >
                                       <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -767,7 +825,7 @@ export function Callers() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-muted"
+                                      className="h-8 w-8 sm:h-8 sm:w-8 hover:bg-muted"
                                       onClick={() => openEditDialog(caller)}
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -866,7 +924,7 @@ export function Callers() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Add Customer</DialogTitle>
             <DialogDescription>Add a new customer to your restaurant's database</DialogDescription>
@@ -885,7 +943,7 @@ export function Callers() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>
@@ -906,7 +964,7 @@ export function Callers() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -940,7 +998,7 @@ export function Callers() {
 
               {/* Basic Info */}
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground text-xs">Full Name</Label>
                     <p className="font-medium">{selectedCaller.name}</p>
@@ -1016,7 +1074,7 @@ export function Callers() {
               )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>

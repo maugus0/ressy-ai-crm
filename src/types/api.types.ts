@@ -1019,6 +1019,81 @@ export interface DashboardOrderRestoreResponse {
 }
 
 // ============================================================================
+// Order History Types
+// ============================================================================
+
+/**
+ * Order History Action Types
+ */
+export type OrderHistoryAction =
+  | "created"
+  | "status_changed"
+  | "items_updated"
+  | "updated"
+  | "cancelled"
+  | "deleted"
+  | "restored";
+
+/**
+ * Order History Entry
+ * Represents a single change in order history
+ */
+export interface OrderHistoryEntry {
+  id: number;
+  action: OrderHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+/**
+ * Dashboard Order with History
+ * Extended response when fetching order details by ID
+ * GET /api/v1/dashboard/orders/{order_id}
+ */
+export interface DashboardOrderWithHistory extends DashboardOrder {
+  history: OrderHistoryEntry[];
+}
+
+// ============================================================================
+// Reservation History Types
+// ============================================================================
+
+/**
+ * Reservation History Action Types
+ */
+export type ReservationHistoryAction =
+  | "created"
+  | "status_changed"
+  | "updated"
+  | "confirmed"
+  | "cancelled"
+  | "finalized";
+
+/**
+ * Reservation History Entry
+ * Represents a single change in reservation history
+ */
+export interface ReservationHistoryEntry {
+  id: number;
+  action: ReservationHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+/**
+ * Reservation with History
+ * Extended response when fetching reservation details by ID
+ * GET /api/v1/dashboard/reservations/{reservation_id}
+ */
+export interface ReservationWithHistory extends Reservation {
+  history: ReservationHistoryEntry[];
+}
+
+// ============================================================================
 // Client Analytics Types
 // ============================================================================
 
@@ -1194,6 +1269,110 @@ export interface IntentData {
 export interface OutcomeData {
   outcome: string;
   value: number;
+}
+
+// ============================================================================
+// SSE (Server-Sent Events) Types
+// ============================================================================
+
+/**
+ * SSE Event Types
+ * The main event categories sent by the backend
+ */
+export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+
+/**
+ * SSE Event Subtypes
+ * Specific event subtypes within each category
+ */
+export type SSEEscalationSubtype = "user_requested" | "internal_server_error" | "suspected_spam";
+export type SSEOrderSubtype = "new_order" | "order_updated" | "order_cancelled";
+export type SSEReservationSubtype =
+  | "new_reservation"
+  | "reservation_updated"
+  | "reservation_cancelled";
+export type SSEEventSubtype =
+  | SSEEscalationSubtype
+  | SSEOrderSubtype
+  | SSEReservationSubtype
+  | "heartbeat";
+
+/**
+ * SSE Escalation Type
+ * Types of escalation events that can be triggered
+ */
+export type SSEEscalationType = "user_requested" | "internal_server_error" | "suspected_spam";
+
+/**
+ * SSE Event
+ * The main event structure received from the SSE stream
+ */
+export interface SSEEvent {
+  /** Unique identifier for this event */
+  id: string;
+  /** Main event category */
+  event_type: SSEEventType;
+  /** Specific event subtype */
+  subtype: SSEEventSubtype;
+  /** Restaurant ID this event belongs to */
+  restaurant_id: number;
+  /** ISO timestamp of when the event occurred */
+  timestamp: string;
+  /** Event-specific data payload */
+  data: Record<string, unknown>;
+}
+
+/**
+ * SSE Escalation Event Data
+ * Data payload for escalation events
+ */
+export interface SSEEscalationData {
+  restaurant_name?: string;
+  caller_phone?: string;
+  call_id?: string;
+  summary?: string;
+}
+
+/**
+ * SSE Order Event Data
+ * Data payload for order events
+ */
+export interface SSEOrderData {
+  order_id?: number;
+  status?: string;
+  total_amount?: number;
+  customer_name?: string;
+}
+
+/**
+ * SSE Reservation Event Data
+ * Data payload for reservation events
+ */
+export interface SSEReservationData {
+  reservation_id?: number;
+  confirmation_number?: string;
+  customer_name?: string;
+  party_size?: number;
+  date_time?: string;
+}
+
+/**
+ * SSE Connection Statistics
+ * Response from GET /api/v1/sse/events/stats
+ */
+export interface SSEConnectionStats {
+  total_connections: number;
+  connections_by_restaurant: Record<string, number>;
+  uptime_seconds: number;
+}
+
+/**
+ * SSE Trigger Escalation Request
+ * POST /api/v1/sse/events/escalation/{restaurant_id}
+ */
+export interface SSETriggerEscalationRequest {
+  type: SSEEscalationType;
+  data: Record<string, unknown>;
 }
 
 // ============================================================================

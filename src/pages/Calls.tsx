@@ -58,6 +58,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getCalls,
   getCallDetails,
@@ -83,16 +84,19 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -352,6 +356,31 @@ export function Calls() {
     setPage(1);
   }, [statusFilter, startDate, endDate, durationMin, durationMax]);
 
+  // SSE Integration: Auto-refresh on escalation events (escalations are call-related)
+  const { escalations } = useSSE();
+  const lastEscalationEventRef = useRef<string | null>(null);
+  const hasInitialLoadRef = useRef(false);
+
+  useEffect(() => {
+    // Mark as loaded after first fetch
+    if (calls.length > 0 || !isLoadingCalls) {
+      hasInitialLoadRef.current = true;
+    }
+  }, [calls.length, isLoadingCalls]);
+
+  useEffect(() => {
+    // Only refresh if we have new escalation events since last check and initial load is complete
+    if (escalations.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = escalations[0].id;
+      if (lastEscalationEventRef.current !== latestEventId) {
+        lastEscalationEventRef.current = latestEventId;
+        console.log("SSE: Escalation event received, refreshing calls...");
+        fetchCalls();
+        fetchAnalytics();
+      }
+    }
+  }, [escalations, fetchCalls, fetchAnalytics]);
+
   // ============================================================================
   // Handlers
   // ============================================================================
@@ -433,48 +462,61 @@ export function Calls() {
   // ============================================================================
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Calls</h2>
-          <p className="text-muted-foreground">View call history, transcripts, and analytics</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Calls</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+            View call history, transcripts, and analytics
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
+            size="sm"
             onClick={handleExport}
             disabled={isExporting || calls.length === 0}
+            className="text-xs sm:text-sm"
           >
             {isExporting ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 animate-spin" />
             ) : (
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             )}
-            Export CSV
+            <span className="hidden xs:inline">Export CSV</span>
+            <span className="xs:hidden">Export</span>
           </Button>
-          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoadingCalls}>
-            <RefreshCw className={`h-4 w-4 ${isLoadingCalls ? "animate-spin" : ""}`} />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 sm:h-10 sm:w-10"
+            onClick={handleRefresh}
+            disabled={isLoadingCalls}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isLoadingCalls ? "animate-spin" : ""}`}
+            />
           </Button>
         </div>
       </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            <CardTitle className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 truncate pr-2">
               Total Calls
             </CardTitle>
-            <div className="p-2 rounded-full bg-blue-500/10">
-              <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <div className="p-1.5 sm:p-2 rounded-full bg-blue-500/10 shrink-0">
+              <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingAnalytics ? (
-              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
-              <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+              <div className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">
                 {analytics?.total_calls ?? 0}
               </div>
             )}
@@ -483,18 +525,18 @@ export function Calls() {
 
         <Card className="bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/50 dark:to-violet-900/30 border-violet-200/50 dark:border-violet-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-violet-700 dark:text-violet-300">
+            <CardTitle className="text-xs sm:text-sm font-medium text-violet-700 dark:text-violet-300 truncate pr-2">
               Avg Duration
             </CardTitle>
-            <div className="p-2 rounded-full bg-violet-500/10">
-              <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            <div className="p-1.5 sm:p-2 rounded-full bg-violet-500/10 shrink-0">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-600 dark:text-violet-400" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingAnalytics ? (
-              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
-              <div className="text-3xl font-bold text-violet-900 dark:text-violet-100">
+              <div className="text-2xl sm:text-3xl font-bold text-violet-900 dark:text-violet-100">
                 {formatDuration(Math.round(analytics?.average_call_duration ?? 0))}
               </div>
             )}
@@ -503,18 +545,18 @@ export function Calls() {
 
         <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200/50 dark:border-emerald-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            <CardTitle className="text-xs sm:text-sm font-medium text-emerald-700 dark:text-emerald-300 truncate pr-2">
               Conversion Rate
             </CardTitle>
-            <div className="p-2 rounded-full bg-emerald-500/10">
-              <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="p-1.5 sm:p-2 rounded-full bg-emerald-500/10 shrink-0">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingAnalytics ? (
-              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
-              <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
+              <div className="text-2xl sm:text-3xl font-bold text-emerald-900 dark:text-emerald-100">
                 {(() => {
                   const rawRate = analytics?.conversion_rates?.rate;
                   if (
@@ -529,7 +571,7 @@ export function Calls() {
                 })()}
               </div>
             )}
-            <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+            <p className="text-[10px] sm:text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
               {analytics?.conversion_rates?.orders ?? 0} orders,{" "}
               {analytics?.conversion_rates?.reservations ?? 0} reservations
             </p>
@@ -538,27 +580,31 @@ export function Calls() {
 
         <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30 border-amber-200/50 dark:border-amber-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            <CardTitle className="text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-300 truncate pr-2">
               Status Breakdown
             </CardTitle>
-            <div className="p-2 rounded-full bg-amber-500/10">
-              <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <div className="p-1.5 sm:p-2 rounded-full bg-amber-500/10 shrink-0">
+              <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingAnalytics ? (
-              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-6 sm:h-8 w-full" />
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1 sm:gap-1.5">
                 {analytics?.status_breakdown &&
                   Object.entries(analytics.status_breakdown).map(([status, count]) => (
-                    <Badge key={status} variant={getStatusColor(status)} className="text-xs">
+                    <Badge
+                      key={status}
+                      variant={getStatusColor(status)}
+                      className="text-[10px] sm:text-xs"
+                    >
                       {status}: {count}
                     </Badge>
                   ))}
                 {(!analytics?.status_breakdown ||
                   Object.keys(analytics.status_breakdown).length === 0) && (
-                  <span className="text-sm text-muted-foreground">No data</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">No data</span>
                 )}
               </div>
             )}
@@ -567,7 +613,7 @@ export function Calls() {
       </div>
 
       {/* Call Distribution Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
@@ -595,11 +641,11 @@ export function Calls() {
                   .slice(0, 5)
                   .sort((a, b) => a.hour_bucket - b.hour_bucket)
                   .map((item) => (
-                    <div key={item.hour_bucket} className="flex items-center gap-3">
-                      <span className="text-sm font-mono font-medium w-14 text-muted-foreground">
+                    <div key={item.hour_bucket} className="flex items-center gap-2 sm:gap-3">
+                      <span className="text-xs sm:text-sm font-mono font-medium w-12 sm:w-14 text-muted-foreground shrink-0">
                         {item.hour_bucket.toString().padStart(2, "0")}:00
                       </span>
-                      <div className="flex-1 h-6 bg-blue-100/50 dark:bg-blue-900/30 rounded-md overflow-hidden">
+                      <div className="flex-1 h-5 sm:h-6 bg-blue-100/50 dark:bg-blue-900/30 rounded-md overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-blue-400 dark:from-blue-600 dark:to-blue-500 transition-all duration-500 rounded-md"
                           style={{
@@ -613,7 +659,7 @@ export function Calls() {
                           }}
                         />
                       </div>
-                      <span className="text-sm font-semibold w-10 text-right text-blue-700 dark:text-blue-300">
+                      <span className="text-xs sm:text-sm font-semibold w-8 sm:w-10 text-right text-blue-700 dark:text-blue-300 shrink-0">
                         {item.count}
                       </span>
                     </div>
@@ -655,11 +701,11 @@ export function Calls() {
                       getDaySortKeyMonFirst(a.day_of_week) - getDaySortKeyMonFirst(b.day_of_week)
                   )
                   .map((item) => (
-                    <div key={item.day_of_week} className="flex items-center gap-3">
-                      <span className="text-sm font-medium w-20 text-muted-foreground">
+                    <div key={item.day_of_week} className="flex items-center gap-2 sm:gap-3">
+                      <span className="text-xs sm:text-sm font-medium w-16 sm:w-20 text-muted-foreground shrink-0">
                         {getDayName(item.day_of_week).slice(0, 3)}
                       </span>
-                      <div className="flex-1 h-6 bg-violet-100/50 dark:bg-violet-900/30 rounded-md overflow-hidden">
+                      <div className="flex-1 h-5 sm:h-6 bg-violet-100/50 dark:bg-violet-900/30 rounded-md overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-violet-500 to-violet-400 dark:from-violet-600 dark:to-violet-500 transition-all duration-500 rounded-md"
                           style={{
@@ -671,7 +717,7 @@ export function Calls() {
                           }}
                         />
                       </div>
-                      <span className="text-sm font-semibold w-10 text-right text-violet-700 dark:text-violet-300">
+                      <span className="text-xs sm:text-sm font-semibold w-8 sm:w-10 text-right text-violet-700 dark:text-violet-300 shrink-0">
                         {item.count}
                       </span>
                     </div>
@@ -699,12 +745,12 @@ export function Calls() {
           </div>
 
           {/* Search and Filter Row */}
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col md:flex-row gap-2 sm:gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by phone or transcript..."
-                className="pl-9"
+                className="pl-8 sm:pl-9 text-xs sm:text-sm h-9 sm:h-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -712,19 +758,19 @@ export function Calls() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                  className="absolute right-0.5 sm:right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-7 sm:w-7"
                   onClick={() => setSearchQuery("")}
                   aria-label="Clear search"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </Button>
               )}
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full xs:w-[130px] sm:w-[140px] h-9 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -741,7 +787,7 @@ export function Calls() {
                 value={sortBy}
                 onValueChange={(v) => setSortBy(v as ClientCallListParams["sort_by"])}
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-full xs:w-[120px] sm:w-[130px] h-9 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -755,7 +801,7 @@ export function Calls() {
                 value={sortOrder}
                 onValueChange={(v) => setSortOrder(v as ClientCallListParams["sort_order"])}
               >
-                <SelectTrigger className="w-[100px]">
+                <SelectTrigger className="w-full xs:w-[95px] sm:w-[100px] h-9 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder="Order" />
                 </SelectTrigger>
                 <SelectContent>
@@ -768,9 +814,10 @@ export function Calls() {
               <Button
                 variant={showFilters ? "secondary" : "outline"}
                 size="icon"
+                className="h-9 w-9 sm:h-10 sm:w-10"
                 onClick={() => setShowFilters(!showFilters)}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
 
               {/* Clear Filters */}
@@ -779,11 +826,11 @@ export function Calls() {
                   variant="ghost"
                   size="sm"
                   onClick={handleClearFilters}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground h-9 sm:h-10 text-xs sm:text-sm"
                   aria-label="Clear all filters"
                 >
-                  <X className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Clear</span>
+                  <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                  <span className="hidden xs:inline">Clear</span>
                 </Button>
               )}
             </div>
@@ -791,49 +838,54 @@ export function Calls() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Start Date</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg border">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-xs sm:text-sm font-medium">Start Date</Label>
                 <Input
                   type="date"
+                  className="h-9 sm:h-10 text-xs sm:text-sm"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   max={endDate || undefined}
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">End Date</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-xs sm:text-sm font-medium">End Date</Label>
                 <Input
                   type="date"
+                  className="h-9 sm:h-10 text-xs sm:text-sm"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate || undefined}
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Min Duration (sec)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-xs sm:text-sm font-medium">Min Duration (sec)</Label>
                 <Input
                   type="number"
                   min="0"
                   placeholder="0"
+                  className="h-9 sm:h-10 text-xs sm:text-sm"
                   value={durationMin}
                   onChange={(e) => setDurationMin(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Max Duration (sec)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-xs sm:text-sm font-medium">Max Duration (sec)</Label>
                 <Input
                   type="number"
                   min="0"
                   placeholder="No limit"
+                  className="h-9 sm:h-10 text-xs sm:text-sm"
                   value={durationMax}
                   onChange={(e) => setDurationMax(e.target.value)}
                 />
               </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label className="text-sm font-medium">Caller Phone</Label>
+              <div className="space-y-1.5 sm:space-y-2 lg:col-span-2">
+                <Label className="text-xs sm:text-sm font-medium">Caller Phone</Label>
                 <Input
                   placeholder="Filter by phone number..."
+                  className="h-9 sm:h-10 text-xs sm:text-sm"
                   value={callerPhoneSearch}
                   onChange={(e) => setCallerPhoneSearch(e.target.value)}
                 />
@@ -844,19 +896,19 @@ export function Calls() {
 
         <CardContent>
           {error && (
-            <div className="flex items-center gap-3 p-4 mb-4 text-sm bg-destructive/10 border border-destructive/20 rounded-lg">
-              <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
-              <div className="flex-1">
-                <p className="font-medium text-destructive">{error}</p>
+            <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 mb-3 sm:mb-4 text-xs sm:text-sm bg-destructive/10 border border-destructive/20 rounded-lg">
+              <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-destructive break-words">{error}</p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                className="h-6 w-6 sm:h-7 sm:w-7 text-destructive hover:bg-destructive/10 shrink-0"
                 onClick={() => setError(null)}
                 aria-label="Dismiss error"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           )}
@@ -869,22 +921,28 @@ export function Calls() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-3 sm:mx-0">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-[700px]">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold">ID</TableHead>
-                        <TableHead className="font-semibold">Caller</TableHead>
-                        <TableHead className="font-semibold text-center">Duration</TableHead>
-                        <TableHead className="font-semibold text-center">Status</TableHead>
-                        <TableHead className="font-semibold hidden md:table-cell">
+                        <TableHead className="font-semibold text-xs sm:text-sm">ID</TableHead>
+                        <TableHead className="font-semibold text-xs sm:text-sm">Caller</TableHead>
+                        <TableHead className="font-semibold text-center text-xs sm:text-sm">
+                          Duration
+                        </TableHead>
+                        <TableHead className="font-semibold text-center text-xs sm:text-sm min-w-[100px]">
+                          Status
+                        </TableHead>
+                        <TableHead className="font-semibold text-xs sm:text-sm hidden md:table-cell">
                           Started At
                         </TableHead>
-                        <TableHead className="font-semibold text-center hidden sm:table-cell">
+                        <TableHead className="font-semibold text-center text-xs sm:text-sm hidden sm:table-cell">
                           Transcript
                         </TableHead>
-                        <TableHead className="font-semibold text-right">Actions</TableHead>
+                        <TableHead className="font-semibold text-right text-xs sm:text-sm min-w-[80px]">
+                          Actions
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -895,38 +953,51 @@ export function Calls() {
                             key={call.call_id}
                             className="group hover:bg-muted/30 transition-colors"
                           >
-                            <TableCell className="font-mono text-sm">{call.call_id}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <span className="font-mono text-sm">{call.caller_phone}</span>
+                            <TableCell className="font-mono text-xs sm:text-sm truncate max-w-[100px] sm:max-w-none">
+                              {call.call_id}
+                            </TableCell>
+                            <TableCell className="min-w-[120px]">
+                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                                <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                                <span className="font-mono text-xs sm:text-sm truncate">
+                                  {call.caller_phone}
+                                </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span>{formatDuration(call.duration_seconds)}</span>
+                                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground shrink-0" />
+                                <span className="text-xs sm:text-sm">
+                                  {formatDuration(call.duration_seconds)}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Badge variant={getStatusColor(call.status)} className="capitalize">
+                              <Badge
+                                variant={getStatusColor(call.status)}
+                                className="capitalize text-[10px] sm:text-xs whitespace-nowrap"
+                              >
                                 {call.status}
                               </Badge>
                             </TableCell>
-                            <TableCell className="hidden md:table-cell">
+                            <TableCell className="hidden md:table-cell whitespace-nowrap">
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-sm">{date}</span>
-                                <span className="text-xs text-muted-foreground">{time}</span>
+                                <span className="text-xs sm:text-sm">{date}</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                  {time}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-center hidden sm:table-cell">
                               {call.has_transcript ? (
-                                <Badge variant="outline" className="text-xs">
-                                  <FileText className="h-3 w-3 mr-1" />
+                                <Badge variant="outline" className="text-[10px] sm:text-xs">
+                                  <FileText className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                                   Yes
                                 </Badge>
                               ) : (
-                                <span className="text-muted-foreground text-xs">No</span>
+                                <span className="text-muted-foreground text-[10px] sm:text-xs">
+                                  No
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -936,10 +1007,10 @@ export function Calls() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                      className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                       onClick={() => handleViewDetails(call.call_id)}
                                     >
-                                      <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>View Details</TooltipContent>
@@ -994,19 +1065,24 @@ export function Calls() {
           )}
 
           {!isLoadingCalls && !error && calls.length === 0 && (
-            <div className="text-center py-16 px-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                <Phone className="h-8 w-8 text-muted-foreground" />
+            <div className="text-center py-12 sm:py-16 px-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted mb-3 sm:mb-4">
+                <Phone className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
               </div>
-              <p className="text-lg font-semibold mb-2">No calls found</p>
-              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+              <p className="text-base sm:text-lg font-semibold mb-1.5 sm:mb-2">No calls found</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-md mx-auto">
                 {hasActiveFilters
                   ? "Try adjusting your filters to see more results."
                   : "Voice call records will appear here once customers start calling."}
               </p>
               {hasActiveFilters && (
-                <Button variant="outline" onClick={handleClearFilters}>
-                  <X className="h-4 w-4 mr-2" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="text-xs sm:text-sm"
+                >
+                  <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                   Clear All Filters
                 </Button>
               )}
@@ -1017,7 +1093,7 @@ export function Calls() {
 
       {/* Call Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="w-[95vw] sm:w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Phone className="h-5 w-5" />
@@ -1036,41 +1112,54 @@ export function Calls() {
           ) : selectedCall ? (
             <div className="flex-1 overflow-y-auto space-y-6">
               {/* Call Info Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <Label className="text-muted-foreground text-xs">Restaurant</Label>
-                  <p className="font-medium">{selectedCall.restaurant_name}</p>
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">Restaurant</Label>
+                  <p className="font-medium text-xs sm:text-sm truncate">
+                    {selectedCall.restaurant_name}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground text-xs">Caller Phone</Label>
-                  <p className="font-medium font-mono">{selectedCall.caller_phone}</p>
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">
+                    Caller Phone
+                  </Label>
+                  <p className="font-medium font-mono text-xs sm:text-sm truncate">
+                    {selectedCall.caller_phone}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground text-xs">Direction</Label>
-                  <div className="flex items-center gap-1">
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">Direction</Label>
+                  <div className="flex items-center gap-1 mt-0.5">
                     {selectedCall.call_direction === "inbound" ? (
-                      <PhoneIncoming className="h-4 w-4 text-green-600" />
+                      <PhoneIncoming className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
                     ) : (
-                      <PhoneOutgoing className="h-4 w-4 text-blue-600" />
+                      <PhoneOutgoing className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 shrink-0" />
                     )}
-                    <span className="capitalize">{selectedCall.call_direction}</span>
+                    <span className="capitalize text-xs sm:text-sm">
+                      {selectedCall.call_direction}
+                    </span>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">Status</Label>
                   <div className="mt-0.5">
-                    <Badge variant={getStatusColor(selectedCall.status)} className="capitalize">
+                    <Badge
+                      variant={getStatusColor(selectedCall.status)}
+                      className="capitalize text-[10px] sm:text-xs"
+                    >
                       {selectedCall.status}
                     </Badge>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground text-xs">Duration</Label>
-                  <p className="font-medium">{formatDuration(selectedCall.duration_seconds)}</p>
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">Duration</Label>
+                  <p className="font-medium text-xs sm:text-sm">
+                    {formatDuration(selectedCall.duration_seconds)}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground text-xs">Started At</Label>
-                  <p className="font-medium text-sm">
+                  <Label className="text-muted-foreground text-[10px] sm:text-xs">Started At</Label>
+                  <p className="font-medium text-xs sm:text-sm">
                     {formatDateTime(selectedCall.started_at).date}{" "}
                     {formatDateTime(selectedCall.started_at).time}
                   </p>
@@ -1121,7 +1210,7 @@ export function Calls() {
                       </Badge>
                     </div>
                   </div>
-                  <ScrollArea className="h-[300px] p-4">
+                  <ScrollArea className="h-[250px] sm:h-[300px] p-3 sm:p-4">
                     <div className="space-y-4">
                       {selectedCall.transcript.map((entry, idx) => (
                         <div
@@ -1158,7 +1247,11 @@ export function Calls() {
                               <p className="whitespace-pre-wrap">{entry.content}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(entry.timestamp).toLocaleTimeString()}
+                              {new Date(entry.timestamp).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "America/Vancouver",
+                              })}
                             </p>
                           </div>
                         </div>

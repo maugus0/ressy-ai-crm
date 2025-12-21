@@ -1,6 +1,7 @@
 /**
  * Sidebar Component
  * Navigation sidebar for the Client Dashboard
+ * Includes real-time escalation badge from SSE
  */
 
 import { NavLink, useNavigate } from "react-router-dom";
@@ -14,9 +15,12 @@ import {
   CalendarDays,
   Settings,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
+import { Badge } from "@/components/ui/badge";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -31,6 +35,12 @@ const menuItems = [
   { id: "orders", label: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
   { id: "menu", label: "Menu", icon: UtensilsCrossed, path: "/dashboard/menu" },
   { id: "faqs", label: "FAQs", icon: HelpCircle, path: "/dashboard/faqs" },
+  {
+    id: "escalations",
+    label: "Escalations",
+    icon: AlertTriangle,
+    path: "/dashboard/escalations",
+  },
   { id: "settings", label: "Settings", icon: Settings, path: "/dashboard/settings" },
 ];
 
@@ -41,11 +51,15 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { escalations } = useSSE();
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
+
+  // Get escalation count for badge
+  const escalationCount = escalations.length;
 
   return (
     <div className="w-64 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shadow-lg">
@@ -63,6 +77,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            const showBadge = item.id === "escalations" && escalationCount > 0;
 
             return (
               <li key={item.id}>
@@ -75,12 +90,27 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       "group w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                       isActive
                         ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-md"
-                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground text-sidebar-foreground"
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground text-sidebar-foreground",
+                      // Highlight escalations when there are active ones
+                      item.id === "escalations" && escalationCount > 0 && "text-destructive"
                     )
                   }
                 >
-                  <Icon className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
-                  <span>{item.label}</span>
+                  <Icon
+                    className={cn(
+                      "w-5 h-5 transition-transform duration-200 group-hover:scale-110",
+                      item.id === "escalations" && escalationCount > 0 && "text-destructive"
+                    )}
+                  />
+                  <span className="flex-1">{item.label}</span>
+                  {showBadge && (
+                    <Badge
+                      variant="destructive"
+                      className="h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center"
+                    >
+                      {escalationCount > 99 ? "99+" : escalationCount}
+                    </Badge>
+                  )}
                 </NavLink>
               </li>
             );

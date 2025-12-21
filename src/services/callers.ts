@@ -28,9 +28,19 @@ export async function getUsers(
   restaurantId: number,
   params?: DashboardUserListParams
 ): Promise<DashboardUserListResponse> {
-  const response = await api.get<DashboardUserListResponse>(ENDPOINTS.USERS.LIST(restaurantId), {
-    params,
-  });
+  // Build query string from params
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.set("search", params.search);
+  if (params?.is_spam !== undefined) queryParams.set("is_spam", String(params.is_spam));
+  if (params?.limit) queryParams.set("limit", String(params.limit));
+  if (params?.offset) queryParams.set("offset", String(params.offset));
+
+  const query = queryParams.toString();
+  const url = query
+    ? `${ENDPOINTS.USERS.LIST(restaurantId)}?${query}`
+    : ENDPOINTS.USERS.LIST(restaurantId);
+
+  const response = await api.get<DashboardUserListResponse>(url);
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch users");
   }

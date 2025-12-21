@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -238,40 +239,40 @@ export function Settings() {
   // Loading skeleton
   if (loading) {
     return (
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-7 sm:h-8 w-40 sm:w-48 mb-1.5 sm:mb-2" />
+            <Skeleton className="h-3 sm:h-4 w-56 sm:w-64" />
           </div>
-          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-9 sm:h-10 w-28 sm:w-32" />
         </div>
         <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-64" />
+          <CardHeader className="pb-3 sm:pb-4">
+            <Skeleton className="h-5 sm:h-6 w-40 sm:w-48 mb-1.5 sm:mb-2" />
+            <Skeleton className="h-3 sm:h-4 w-56 sm:w-64" />
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
+                <div key={i} className="space-y-1.5 sm:space-y-2">
+                  <Skeleton className="h-3 sm:h-4 w-20 sm:w-24" />
+                  <Skeleton className="h-9 sm:h-10 w-full" />
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
+          <CardHeader className="pb-3 sm:pb-4">
+            <Skeleton className="h-5 sm:h-6 w-40 sm:w-48" />
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
+                <div key={i} className="space-y-1.5 sm:space-y-2">
+                  <Skeleton className="h-3 sm:h-4 w-20 sm:w-24" />
+                  <Skeleton className="h-9 sm:h-10 w-full" />
                 </div>
               ))}
             </div>
@@ -301,31 +302,45 @@ export function Settings() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Settings</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
             Manage your restaurant's information and preferences
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {hasChanges && (
-            <Button variant="outline" onClick={handleReset} disabled={saving}>
-              Discard Changes
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={saving}
+              className="text-xs sm:text-sm"
+            >
+              <span className="hidden xs:inline">Discard Changes</span>
+              <span className="xs:hidden">Discard</span>
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !hasChanges}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+            size="sm"
+            className="text-xs sm:text-sm"
+          >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
+                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 animate-spin" />
+                <span className="hidden xs:inline">Saving...</span>
+                <span className="xs:hidden">Saving</span>
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
+                <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                <span className="hidden xs:inline">Save Changes</span>
+                <span className="xs:hidden">Save</span>
               </>
             )}
           </Button>
@@ -335,9 +350,9 @@ export function Settings() {
       {/* Unsaved changes indicator */}
       {hasChanges && (
         <Alert className="bg-yellow-50 border-yellow-200 text-yellow-800">
-          <AlertCircle className="h-4 w-4 text-yellow-700" />
-          <AlertTitle className="text-yellow-800">Unsaved Changes</AlertTitle>
-          <AlertDescription className="text-yellow-700">
+          <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-700 shrink-0" />
+          <AlertTitle className="text-xs sm:text-sm text-yellow-800">Unsaved Changes</AlertTitle>
+          <AlertDescription className="text-xs sm:text-sm text-yellow-700">
             You have unsaved changes. Click "Save Changes" to apply them.
           </AlertDescription>
         </Alert>
@@ -345,17 +360,19 @@ export function Settings() {
 
       {/* Restaurant Information */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-center gap-2">
-            <Building className="h-5 w-5 text-primary" />
-            <CardTitle>Restaurant Information</CardTitle>
+            <Building className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Restaurant Information</CardTitle>
           </div>
-          <CardDescription>Basic information about your restaurant</CardDescription>
+          <CardDescription className="text-xs sm:text-sm mt-1">
+            Basic information about your restaurant
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="name" className="text-xs sm:text-sm">
                 Restaurant Name <span className="text-destructive">*</span>
               </Label>
               <Input
@@ -366,39 +383,39 @@ export function Settings() {
                   if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
                 }}
                 placeholder="e.g., Ressy's Kitchen"
-                className={formErrors.name ? "border-destructive" : ""}
+                className={`h-9 sm:h-10 text-xs sm:text-sm ${formErrors.name ? "border-destructive" : ""}`}
               />
-              {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
+              {formErrors.name && (
+                <p className="text-[10px] sm:text-xs text-destructive">{formErrors.name}</p>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone_number">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="phone_number" className="text-xs sm:text-sm">
                 Phone Number <span className="text-destructive">*</span>
               </Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone_number"
-                  value={formData.phone_number}
-                  onChange={(e) => {
-                    updateFormData({ phone_number: e.target.value });
-                    if (formErrors.phone_number)
-                      setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
-                  }}
-                  placeholder="+15551234567"
-                  className={`pl-9 ${formErrors.phone_number ? "border-destructive" : ""}`}
-                />
-              </div>
+              <PhoneInput
+                id="phone_number"
+                value={formData.phone_number}
+                onChange={(value) => {
+                  updateFormData({ phone_number: value });
+                  if (formErrors.phone_number)
+                    setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
+                }}
+                placeholder="5551234567"
+                error={!!formErrors.phone_number}
+                className="[&>button]:h-9 sm:[&>button]:h-10 [&>input]:h-9 sm:[&>input]:h-10 [&>button]:text-xs sm:[&>button]:text-sm [&>input]:text-xs sm:[&>input]:text-sm"
+              />
               {formErrors.phone_number && (
-                <p className="text-xs text-destructive">{formErrors.phone_number}</p>
+                <p className="text-[10px] sm:text-xs text-destructive">{formErrors.phone_number}</p>
               )}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="address">
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="address" className="text-xs sm:text-sm">
               Address <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MapPin className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 id="address"
                 value={formData.address}
@@ -408,30 +425,32 @@ export function Settings() {
                     setFormErrors((prev) => ({ ...prev, address: undefined }));
                 }}
                 placeholder="123 Main St, City, State"
-                className={`pl-9 ${formErrors.address ? "border-destructive" : ""}`}
+                className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${formErrors.address ? "border-destructive" : ""}`}
               />
             </div>
-            {formErrors.address && <p className="text-xs text-destructive">{formErrors.address}</p>}
+            {formErrors.address && (
+              <p className="text-[10px] sm:text-xs text-destructive">{formErrors.address}</p>
+            )}
           </div>
 
           {/* Twilio Phone (Read-only) */}
           {formData.twilio_phone_number && (
-            <div className="space-y-2">
-              <Label htmlFor="twilio_phone">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="twilio_phone" className="text-xs sm:text-sm">
                 Twilio Phone Number{" "}
-                <span className="text-xs text-muted-foreground">(Read-only)</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
               </Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Phone className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
                   id="twilio_phone"
                   value={formData.twilio_phone_number}
                   readOnly
                   disabled
-                  className="pl-9 bg-muted cursor-not-allowed"
+                  className="pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm bg-muted cursor-not-allowed"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 This is your AI assistant's phone number. Contact support to change it.
               </p>
             </div>
@@ -441,44 +460,52 @@ export function Settings() {
 
       {/* Operating Hours */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            <CardTitle>Operating Hours</CardTitle>
+            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Operating Hours</CardTitle>
           </div>
-          <CardDescription>Set your restaurant's opening and closing times</CardDescription>
+          <CardDescription className="text-xs sm:text-sm mt-1">
+            Set your restaurant's opening and closing times
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="opening_time">Opening Time</Label>
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="opening_time" className="text-xs sm:text-sm">
+                Opening Time
+              </Label>
               <Input
                 id="opening_time"
                 type="time"
                 value={formData.opening_time}
                 onChange={(e) => updateFormData({ opening_time: e.target.value })}
+                className="h-9 sm:h-10 text-xs sm:text-sm"
               />
               {formErrors.opening_time && (
-                <p className="text-xs text-destructive">{formErrors.opening_time}</p>
+                <p className="text-[10px] sm:text-xs text-destructive">{formErrors.opening_time}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="closing_time">Closing Time</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="closing_time" className="text-xs sm:text-sm">
+                Closing Time
+              </Label>
               <Input
                 id="closing_time"
                 type="time"
                 value={formData.closing_time}
                 onChange={(e) => updateFormData({ closing_time: e.target.value })}
+                className="h-9 sm:h-10 text-xs sm:text-sm"
               />
               {formErrors.closing_time && (
-                <p className="text-xs text-destructive">{formErrors.closing_time}</p>
+                <p className="text-[10px] sm:text-xs text-destructive">{formErrors.closing_time}</p>
               )}
             </div>
           </div>
           {formData.opening_time && formData.closing_time && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-green-700">
+            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-green-50 border border-green-200">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
+              <span className="text-xs sm:text-sm text-green-700">
                 Open from {formData.opening_time} to {formData.closing_time}
               </span>
             </div>
@@ -488,19 +515,23 @@ export function Settings() {
 
       {/* Reservation Settings */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-center gap-2">
-            <Timer className="h-5 w-5 text-primary" />
-            <CardTitle>Reservation Settings</CardTitle>
+            <Timer className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Reservation Settings</CardTitle>
           </div>
-          <CardDescription>Configure reservation booking and cancellation windows</CardDescription>
+          <CardDescription className="text-xs sm:text-sm mt-1">
+            Configure reservation booking and cancellation windows
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="forward_minutes">
+        <CardContent className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="forward_minutes" className="text-xs sm:text-sm">
                 Forward Window (minutes)
-                <span className="text-xs text-muted-foreground ml-2">Booking ahead</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground ml-1 sm:ml-2">
+                  Booking ahead
+                </span>
               </Label>
               <Input
                 id="forward_minutes"
@@ -513,20 +544,24 @@ export function Settings() {
                   if (formErrors.forward_minutes)
                     setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
                 }}
-                className={formErrors.forward_minutes ? "border-destructive" : ""}
+                className={`h-9 sm:h-10 text-xs sm:text-sm ${formErrors.forward_minutes ? "border-destructive" : ""}`}
               />
               {formErrors.forward_minutes ? (
-                <p className="text-xs text-destructive">{formErrors.forward_minutes}</p>
+                <p className="text-[10px] sm:text-xs text-destructive">
+                  {formErrors.forward_minutes}
+                </p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   Customers can book up to {formData.forward_minutes} minutes ahead
                 </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="backward_minutes">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="backward_minutes" className="text-xs sm:text-sm">
                 Backward Window (minutes)
-                <span className="text-xs text-muted-foreground ml-2">Cancellation</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground ml-1 sm:ml-2">
+                  Cancellation
+                </span>
               </Label>
               <Input
                 id="backward_minutes"
@@ -539,31 +574,36 @@ export function Settings() {
                   if (formErrors.backward_minutes)
                     setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
                 }}
-                className={formErrors.backward_minutes ? "border-destructive" : ""}
+                className={`h-9 sm:h-10 text-xs sm:text-sm ${formErrors.backward_minutes ? "border-destructive" : ""}`}
               />
               {formErrors.backward_minutes ? (
-                <p className="text-xs text-destructive">{formErrors.backward_minutes}</p>
+                <p className="text-[10px] sm:text-xs text-destructive">
+                  {formErrors.backward_minutes}
+                </p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   Cancellations allowed up to {formData.backward_minutes} minutes before
                 </p>
               )}
             </div>
           </div>
 
-          <Separator />
+          <Separator className="my-3 sm:my-4" />
 
           {/* Credit Card Requirement */}
-          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <CreditCard className="h-5 w-5 text-primary" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div className="space-y-0.5">
-                <Label htmlFor="credit_card" className="text-sm font-medium cursor-pointer">
+              <div className="space-y-0.5 min-w-0">
+                <Label
+                  htmlFor="credit_card"
+                  className="text-xs sm:text-sm font-medium cursor-pointer block"
+                >
                   Credit Card Required for Reservations
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   Require customers to provide credit card details when booking
                 </p>
               </div>
@@ -574,6 +614,7 @@ export function Settings() {
               onCheckedChange={(checked) =>
                 updateFormData({ is_credit_card_required_for_reservation: checked })
               }
+              className="shrink-0"
             />
           </div>
         </CardContent>
@@ -581,8 +622,13 @@ export function Settings() {
 
       {/* Last Updated */}
       {originalData && (
-        <p className="text-xs text-muted-foreground text-center">
-          Last updated: {new Date(originalData.updated_at).toLocaleString()}
+        <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
+          Last updated:{" "}
+          {new Date(originalData.updated_at).toLocaleString("en-US", {
+            timeZone: "America/Vancouver",
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
         </p>
       )}
     </div>

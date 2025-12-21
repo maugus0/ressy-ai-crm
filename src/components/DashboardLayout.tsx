@@ -1,18 +1,121 @@
 /**
  * Dashboard Layout
  * Main layout wrapper for authenticated dashboard pages
+ * Includes notification bell with SSE events and connection status
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import { Menu, UserCircle2, LogOut } from "lucide-react";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Menu,
+  UserCircle2,
+  LogOut,
+  Bell,
+  AlertTriangle,
+  ShoppingBag,
+  CalendarDays,
+  X,
+  Wifi,
+  WifiOff,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { SSEEvent } from "@/types/api.types";
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+// Format relative time for notifications
+const formatRelativeTime = (timestamp: string) => {
+  const now = new Date();
+  const eventTime = new Date(timestamp);
+  const diffMs = now.getTime() - eventTime.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
+
+// Get icon for event type
+const getEventIcon = (event: SSEEvent) => {
+  switch (event.event_type) {
+    case "escalation":
+      return <AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "order":
+      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
+    case "reservation":
+      return <CalendarDays className="h-4 w-4 text-green-500" />;
+    default:
+      return <Bell className="h-4 w-4" />;
+  }
+};
+
+// Get event title
+const getEventTitle = (event: SSEEvent) => {
+  const titles: Record<string, string> = {
+    user_requested: "Human Assistance Requested",
+    internal_server_error: "System Error",
+    suspected_spam: "Spam Detected",
+    new_order: "New Order",
+    order_updated: "Order Updated",
+    order_cancelled: "Order Cancelled",
+    new_reservation: "New Reservation",
+    reservation_updated: "Reservation Updated",
+    reservation_cancelled: "Reservation Cancelled",
+  };
+  return titles[event.subtype] || event.subtype;
+};
+
+// Get event description
+const getEventDescription = (event: SSEEvent) => {
+  const { data, event_type } = event;
+  if (event_type === "order" && data?.customer_name) {
+    return `Customer: ${data.customer_name}`;
+  }
+  if (event_type === "reservation" && data?.customer_name) {
+    const partySize = data.party_size ? ` (Party of ${data.party_size})` : "";
+    return `${data.customer_name}${partySize}`;
+  }
+  if (event_type === "escalation" && data?.caller_phone) {
+    return `Caller: ${data.caller_phone}`;
+  }
+  return undefined;
+};
+
+// ============================================================================
+// Component
+// ============================================================================
 
 export function DashboardLayout() {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
   const { restaurantName, user, logout } = useAuth();
+  const {
+    events,
+    unreadCount,
+    isConnected,
+    soundsEnabled,
+    toggleSounds,
+    markAsRead,
+    dismissEvent,
+    clearEvents,
+  } = useSSE();
 
   const companyName = restaurantName || "Your Restaurant";
   const email = user?.email || "manager@restaurant.com";
@@ -20,6 +123,25 @@ export function DashboardLayout() {
   const handleLogout = async () => {
     await logout();
   };
+
+  const handleNotificationsOpen = (open: boolean) => {
+    setIsNotificationsOpen(open);
+    // Delay markAsRead to avoid interfering with popover open state
+    if (open) {
+      // Use setTimeout to ensure popover is fully open before marking as read
+      // This prevents state updates from closing the popover immediately
+      setTimeout(() => {
+        markAsRead();
+      }, 300);
+    }
+  };
+
+  const handleViewEscalations = () => {
+    setIsNotificationsOpen(false);
+    navigate("/dashboard/escalations");
+  };
+
+  const hasEscalations = events.some((e) => e.event_type === "escalation");
 
   // Accessibility: trap focus inside mobile sidebar and lock body scroll
   useEffect(() => {
@@ -120,14 +242,71 @@ export function DashboardLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header with hamburger */}
         <div className="md:hidden flex items-center justify-between bg-card border-b border-border px-4 py-3">
-          <h1 className="text-lg font-semibold text-foreground">{companyName}</h1>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-foreground"
-            aria-label="Open menu"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
+          <h1 className="text-lg font-semibold text-foreground truncate flex-1">{companyName}</h1>
+          <div className="flex items-center gap-2">
+            {/* Connection Status */}
+            <div
+              className="flex items-center"
+              title={isConnected ? "Live updates connected" : "Live updates disconnected"}
+            >
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-destructive" />
+              )}
+            </div>
+
+            {/* Notifications Bell (Mobile) */}
+            {isMobile && (
+              <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-8 w-8"
+                    title="Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center pointer-events-none"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[calc(100vw-2rem)] max-w-[400px] p-0 mx-4"
+                  align="center"
+                  side="bottom"
+                  sideOffset={8}
+                  alignOffset={0}
+                >
+                  <NotificationDropdown
+                    events={events}
+                    soundsEnabled={soundsEnabled}
+                    hasEscalations={hasEscalations}
+                    toggleSounds={toggleSounds}
+                    clearEvents={clearEvents}
+                    dismissEvent={dismissEvent}
+                    onViewEscalations={handleViewEscalations}
+                    isMobile={true}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-foreground p-1"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         {/* Desktop header */}
@@ -137,6 +316,56 @@ export function DashboardLayout() {
             <p className="text-sm text-muted-foreground">Restaurant Manager Portal</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Connection Status Indicator */}
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              title={isConnected ? "Live updates connected" : "Live updates disconnected"}
+            >
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-destructive" />
+              )}
+              <span className="hidden lg:inline">{isConnected ? "Live" : "Offline"}</span>
+            </div>
+
+            {/* Notifications Bell (Desktop) */}
+            {!isMobile && (
+              <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative text-muted-foreground hover:text-foreground"
+                    title="Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center pointer-events-none"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 p-0" align="end" sideOffset={8}>
+                  <NotificationDropdown
+                    events={events}
+                    soundsEnabled={soundsEnabled}
+                    hasEscalations={hasEscalations}
+                    toggleSounds={toggleSounds}
+                    clearEvents={clearEvents}
+                    dismissEvent={dismissEvent}
+                    onViewEscalations={handleViewEscalations}
+                    isMobile={false}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* User Info */}
             <div className="flex items-center gap-3 rounded-full border border-border bg-background/60 px-3 py-1.5">
               <UserCircle2 className="h-7 w-7 text-muted-foreground" />
               <div className="leading-tight">
@@ -144,6 +373,8 @@ export function DashboardLayout() {
                 <p className="text-xs text-muted-foreground">{email}</p>
               </div>
             </div>
+
+            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -161,6 +392,152 @@ export function DashboardLayout() {
         </main>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// Notification Dropdown Component
+// ============================================================================
+
+interface NotificationDropdownProps {
+  events: SSEEvent[];
+  soundsEnabled: boolean;
+  hasEscalations: boolean;
+  toggleSounds: () => void;
+  clearEvents: () => void;
+  dismissEvent: (eventId: string) => void;
+  onViewEscalations: () => void;
+  isMobile?: boolean;
+}
+
+function NotificationDropdown({
+  events,
+  soundsEnabled,
+  hasEscalations,
+  toggleSounds,
+  clearEvents,
+  dismissEvent,
+  onViewEscalations,
+  isMobile = false,
+}: NotificationDropdownProps) {
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-sm">Notifications</h3>
+          {events.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {events.length}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSounds();
+            }}
+            title={soundsEnabled ? "Mute notification sounds" : "Enable notification sounds"}
+          >
+            {soundsEnabled ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+          {events.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                clearEvents();
+              }}
+            >
+              <span className="hidden sm:inline">Clear all</span>
+              <span className="sm:hidden">Clear</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Events List */}
+      {events.length > 0 ? (
+        <ScrollArea className={isMobile ? "h-[calc(100vh-200px)] max-h-[500px]" : "h-[350px]"}>
+          <div className="divide-y">
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors ${
+                  event.event_type === "escalation" ? "bg-destructive/5" : ""
+                }`}
+              >
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs sm:text-sm font-medium break-words">
+                        {getEventTitle(event)}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100 mt-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissEvent(event.id);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {getEventDescription(event) && (
+                      <p className="text-xs text-muted-foreground break-words mt-0.5">
+                        {getEventDescription(event)}
+                      </p>
+                    )}
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                      {formatRelativeTime(event.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="px-4 py-8 text-center text-muted-foreground">
+          <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No notifications yet</p>
+          <p className="text-xs mt-1">Events will appear here in real-time</p>
+        </div>
+      )}
+
+      {/* Footer - View Escalations Link */}
+      <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t bg-muted/30">
+        <Button
+          variant={hasEscalations ? "default" : "outline"}
+          size="sm"
+          className="w-full text-xs sm:text-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewEscalations();
+          }}
+        >
+          <AlertTriangle
+            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2 ${hasEscalations ? "" : "text-muted-foreground"}`}
+          />
+          {hasEscalations
+            ? `View Escalations (${events.filter((e) => e.event_type === "escalation").length})`
+            : "View Escalations"}
+        </Button>
+      </div>
+    </>
   );
 }
 
