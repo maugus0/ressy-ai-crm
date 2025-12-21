@@ -807,7 +807,7 @@ export function Orders() {
             <>
               {/* Menu Filters */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search menu items..."
@@ -817,7 +817,7 @@ export function Orders() {
                   />
                 </div>
                 <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectTrigger className="w-full sm:w-[160px] flex-shrink-0">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -962,7 +962,7 @@ export function Orders() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {!item.item_id && (
                       <div className="col-span-2 sm:col-span-4 space-y-1.5">
                         <Label className="text-xs font-medium">Item Name *</Label>
@@ -1275,9 +1275,10 @@ export function Orders() {
               </div>
 
               {/* Create Order */}
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button onClick={openCreateDialog} className="flex-shrink-0">
+                <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">New Order</span>
+                <span className="sm:hidden">New</span>
               </Button>
 
               {/* Refresh */}
@@ -1363,7 +1364,7 @@ export function Orders() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg border">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Start Date</Label>
                 <Input
@@ -1412,9 +1413,9 @@ export function Orders() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table className="min-w-[600px]">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Order ID</TableHead>
@@ -1483,7 +1484,7 @@ export function Orders() {
                                 {formatCurrency(order.total_amount)}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center min-w-[110px]">
+                            <TableCell className="text-center">
                               <div className="flex justify-center">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -1493,7 +1494,7 @@ export function Orders() {
                                       disabled={isDeleted}
                                     >
                                       <span
-                                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
+                                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
                                       >
                                         <span className="flex-shrink-0">
                                           {getStatusIcon(order.status)}
@@ -1735,24 +1736,24 @@ export function Orders() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {selectedOrder.customer_name || "N/A"}
+                    <p className="font-medium flex items-center gap-1 break-words">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="break-words">{selectedOrder.customer_name || "N/A"}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Phone</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      {selectedOrder.customer_phone || "N/A"}
+                    <p className="font-medium flex items-center gap-1 break-words">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="break-words">{selectedOrder.customer_phone || "N/A"}</span>
                     </p>
                   </div>
                   {selectedOrder.customer_email && (
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        {selectedOrder.customer_email}
+                      <p className="font-medium flex items-center gap-1 break-words">
+                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="break-words">{selectedOrder.customer_email}</span>
                       </p>
                     </div>
                   )}
@@ -1799,9 +1800,9 @@ export function Orders() {
               {/* Customization */}
               {selectedOrder.customization &&
                 Object.keys(selectedOrder.customization).length > 0 && (
-                  <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="border rounded-lg p-3 sm:p-4 bg-muted/30">
                     <Label className="text-sm font-medium mb-3 block">Order Options</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       {selectedOrder.customization.delivery !== undefined && (
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-muted-foreground" />
@@ -1821,9 +1822,11 @@ export function Orders() {
                         </div>
                       )}
                       {selectedOrder.customization.notes && (
-                        <div className="col-span-2">
+                        <div className="col-span-1 sm:col-span-2">
                           <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                          <p className="font-medium">{selectedOrder.customization.notes}</p>
+                          <p className="font-medium break-words">
+                            {selectedOrder.customization.notes}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1831,7 +1834,7 @@ export function Orders() {
                 )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>

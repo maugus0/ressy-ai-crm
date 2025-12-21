@@ -562,7 +562,7 @@ export function Reservations() {
         <>
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Guest Information</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Name</p>
                 <p className="font-medium">{selectedReservation.name}</p>
@@ -603,7 +603,7 @@ export function Reservations() {
         </>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="date_time">Date & Time *</Label>
           <Input
@@ -769,15 +769,16 @@ export function Reservations() {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
-          <Button onClick={openCreateDialog} disabled={!restaurantId}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Reservation
+          <Button onClick={openCreateDialog} disabled={!restaurantId} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Reservation</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -851,7 +852,7 @@ export function Reservations() {
 
             <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -888,8 +889,8 @@ export function Reservations() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg border">
-              <div className="space-y-2 flex-1 min-w-[200px]">
+            <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/50 rounded-lg border">
+              <div className="space-y-2 flex-1 min-w-0">
                 <Label className="text-sm font-medium">Start Date</Label>
                 <Input
                   type="date"
@@ -901,7 +902,7 @@ export function Reservations() {
                   max={endDate || undefined}
                 />
               </div>
-              <div className="space-y-2 flex-1 min-w-[200px]">
+              <div className="space-y-2 flex-1 min-w-0">
                 <Label className="text-sm font-medium">End Date</Label>
                 <Input
                   type="date"
@@ -951,9 +952,9 @@ export function Reservations() {
             </div>
           ) : reservations.length > 0 ? (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold hidden sm:table-cell">ID</TableHead>
@@ -1035,16 +1036,16 @@ export function Reservations() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-1 sm:gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                      className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                       onClick={() => openDetailsDialog(reservation)}
                                     >
-                                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
+                                      <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>View Details</TooltipContent>
@@ -1056,10 +1057,10 @@ export function Reservations() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-green-50 dark:hover:bg-green-950"
+                                        className="h-8 w-8 hover:bg-green-50 dark:hover:bg-green-950"
                                         onClick={() => openFinalizeDialog(reservation)}
                                       >
-                                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Confirm Reservation</TooltipContent>
@@ -1074,10 +1075,10 @@ export function Reservations() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-muted"
+                                          className="h-8 w-8 hover:bg-muted"
                                           onClick={() => openEditDialog(reservation)}
                                         >
-                                          <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          <Pencil className="h-4 w-4" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Edit Reservation</TooltipContent>
@@ -1088,10 +1089,10 @@ export function Reservations() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-destructive/10"
+                                          className="h-8 w-8 hover:bg-destructive/10"
                                           onClick={() => openCancelDialog(reservation)}
                                         >
-                                          <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+                                          <XCircle className="h-4 w-4 text-destructive" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Cancel Reservation</TooltipContent>
@@ -1169,7 +1170,7 @@ export function Reservations() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Create Reservation</DialogTitle>
             <DialogDescription>Create a new confirmed reservation</DialogDescription>
@@ -1188,7 +1189,7 @@ export function Reservations() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit Reservation</DialogTitle>
             <DialogDescription>
@@ -1209,14 +1210,14 @@ export function Reservations() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reservation Details</DialogTitle>
             <DialogDescription>{selectedReservation?.confirmation_number}</DialogDescription>
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Guest Name</Label>
                   <p className="font-medium">{selectedReservation.name}</p>
@@ -1227,7 +1228,7 @@ export function Reservations() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Phone</Label>
                   <p className="font-medium">{selectedReservation.phone_number}</p>
@@ -1262,7 +1263,7 @@ export function Reservations() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
                   <div className="mt-1">
@@ -1280,7 +1281,7 @@ export function Reservations() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">

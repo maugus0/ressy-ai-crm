@@ -641,7 +641,7 @@ export function Menu() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="price">Price *</Label>
               <Input
@@ -682,7 +682,7 @@ export function Menu() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <div className="space-y-2">
@@ -883,9 +883,10 @@ export function Menu() {
           <h2 className="text-2xl font-bold tracking-tight">Menu Management</h2>
           <p className="text-muted-foreground">Manage menu items, categories, and specials</p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Menu Item
+        <Button onClick={openCreateDialog} className="flex-shrink-0">
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Add Menu Item</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
@@ -920,7 +921,7 @@ export function Menu() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -942,7 +943,7 @@ export function Menu() {
                     setCurrentPage(1);
                   }}
                 >
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-full sm:w-[160px]">
                     <SelectValue placeholder="Sub-category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -977,9 +978,9 @@ export function Menu() {
 
           {/* Additional Filters */}
           {showFilters && (
-            <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex flex-col sm:flex-row gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Availability:</Label>
+                <Label className="text-sm whitespace-nowrap">Availability:</Label>
                 <Select
                   value={filterAvailable === undefined ? "all" : String(filterAvailable)}
                   onValueChange={(v) => {
@@ -987,7 +988,7 @@ export function Menu() {
                     setCurrentPage(1);
                   }}
                 >
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full sm:w-[120px]">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -999,7 +1000,7 @@ export function Menu() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Special:</Label>
+                <Label className="text-sm whitespace-nowrap">Special:</Label>
                 <Select
                   value={filterSpecial === undefined ? "all" : String(filterSpecial)}
                   onValueChange={(v) => {
@@ -1007,7 +1008,7 @@ export function Menu() {
                     setCurrentPage(1);
                   }}
                 >
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full sm:w-[120px]">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1021,41 +1022,51 @@ export function Menu() {
           )}
 
           {/* Bulk Actions */}
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-3 bg-muted/30 rounded-lg">
             {selectedItemIds.size > 0 ? (
               <>
-                <CheckSquare className="h-4 w-4" />
-                <span className="text-sm font-medium">{selectedItemIds.size} item(s) selected</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setBulkAvailability(true);
-                    setIsBulkDialogOpen(true);
-                  }}
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Set Available
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setBulkAvailability(false);
-                    setIsBulkDialogOpen(true);
-                  }}
-                >
-                  <EyeOff className="h-4 w-4 mr-1" />
-                  Set Unavailable
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedItemIds(new Set())}>
-                  Clear
-                </Button>
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    {selectedItemIds.size} item(s) selected
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBulkAvailability(true);
+                      setIsBulkDialogOpen(true);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Set Available</span>
+                    <span className="sm:hidden">Available</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBulkAvailability(false);
+                      setIsBulkDialogOpen(true);
+                    }}
+                  >
+                    <EyeOff className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Set Unavailable</span>
+                    <span className="sm:hidden">Unavailable</span>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemIds(new Set())}>
+                    Clear
+                  </Button>
+                </div>
               </>
             ) : (
               <>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1064,8 +1075,9 @@ export function Menu() {
                     setIsCsvDialogOpen(true);
                   }}
                 >
-                  <Upload className="h-4 w-4 mr-1" />
-                  Upload CSV
+                  <Upload className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Upload CSV</span>
+                  <span className="sm:hidden">CSV</span>
                 </Button>
               </>
             )}
@@ -1074,8 +1086,8 @@ export function Menu() {
 
         <CardContent>
           {/* Table */}
-          <div className="overflow-x-auto border rounded-lg">
-            <Table>
+          <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
+            <Table className="min-w-full">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[40px]">
@@ -1191,7 +1203,7 @@ export function Menu() {
                       </button>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-0.5">
+                      <div className="flex items-center justify-end gap-1 sm:gap-0.5">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1245,8 +1257,8 @@ export function Menu() {
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground text-center sm:text-left">
                 Page {pagination.page} of {pagination.pages} ({pagination.total} items)
               </p>
               <div className="flex gap-2">
@@ -1257,7 +1269,7 @@ export function Menu() {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <span className="hidden sm:inline ml-1">Previous</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -1265,7 +1277,7 @@ export function Menu() {
                   onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                   disabled={currentPage === pagination.pages}
                 >
-                  Next
+                  <span className="hidden sm:inline mr-1">Next</span>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -1276,7 +1288,7 @@ export function Menu() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Menu Item</DialogTitle>
             <DialogDescription>Create a new menu item for your restaurant</DialogDescription>
@@ -1307,7 +1319,7 @@ export function Menu() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Menu Item</DialogTitle>
             <DialogDescription>Update the menu item details</DialogDescription>
@@ -1360,14 +1372,14 @@ export function Menu() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedMenuItem?.item_name}</DialogTitle>
             <DialogDescription>Menu item details</DialogDescription>
           </DialogHeader>
           {selectedMenuItem && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Category</Label>
                   <p className="font-medium">{selectedMenuItem.category}</p>
@@ -1384,18 +1396,18 @@ export function Menu() {
               {selectedMenuItem.item_desc && (
                 <div>
                   <Label className="text-muted-foreground">Description</Label>
-                  <p>{selectedMenuItem.item_desc}</p>
+                  <p className="break-words">{selectedMenuItem.item_desc}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Prep Time</Label>
                   <p className="font-medium">{selectedMenuItem.avg_prep_time} minutes</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-2 mt-1 flex-wrap">
                     <Badge variant={selectedMenuItem.is_available ? "default" : "secondary"}>
                       {selectedMenuItem.is_available ? "Available" : "Unavailable"}
                     </Badge>
@@ -1404,7 +1416,7 @@ export function Menu() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">{formatDate(selectedMenuItem.created_at)}</p>
@@ -1458,7 +1470,7 @@ export function Menu() {
 
       {/* CSV Upload Dialog */}
       <Dialog open={isCsvDialogOpen} onOpenChange={setIsCsvDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />

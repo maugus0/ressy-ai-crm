@@ -518,9 +518,10 @@ export function Callers() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={openCreateDialog} disabled={!restaurantId}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Customer
+          <Button onClick={openCreateDialog} disabled={!restaurantId} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Customer</span>
+            <span className="sm:hidden">Add</span>
           </Button>
           <Button
             variant="outline"
@@ -606,7 +607,7 @@ export function Callers() {
             <div className="flex gap-2 flex-wrap">
               {/* Status Filter */}
               <Select value={spamFilter} onValueChange={setSpamFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -660,9 +661,9 @@ export function Callers() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
                 <TooltipProvider>
-                  <Table>
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Customer</TableHead>
@@ -747,13 +748,13 @@ export function Callers() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-1 sm:gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                      className="h-8 w-8 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                       onClick={() => openDetailsDialog(caller)}
                                     >
                                       <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -767,7 +768,7 @@ export function Callers() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-muted"
+                                      className="h-8 w-8 sm:h-8 sm:w-8 hover:bg-muted"
                                       onClick={() => openEditDialog(caller)}
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -866,7 +867,7 @@ export function Callers() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Add Customer</DialogTitle>
             <DialogDescription>Add a new customer to your restaurant's database</DialogDescription>
@@ -885,7 +886,7 @@ export function Callers() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>
@@ -906,7 +907,7 @@ export function Callers() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -940,7 +941,7 @@ export function Callers() {
 
               {/* Basic Info */}
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground text-xs">Full Name</Label>
                     <p className="font-medium">{selectedCaller.name}</p>
@@ -1016,7 +1017,7 @@ export function Callers() {
               )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>
