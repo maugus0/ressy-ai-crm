@@ -8,6 +8,7 @@ import { api } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
 import type {
   Reservation,
+  ReservationWithHistory,
   ReservationListResponse,
   ReservationListParams,
   ReservationCreateRequest,
@@ -45,11 +46,12 @@ export async function getReservations(
 // ============================================================================
 
 /**
- * Get reservation by ID
+ * Get reservation by ID with history
  * GET /api/v1/dashboard/reservations/{reservation_id}
+ * Returns reservation details including change history
  */
-export async function getReservation(reservationId: number): Promise<Reservation> {
-  const response = await api.get<Reservation>(ENDPOINTS.RESERVATIONS.GET(reservationId));
+export async function getReservation(reservationId: number): Promise<ReservationWithHistory> {
+  const response = await api.get<ReservationWithHistory>(ENDPOINTS.RESERVATIONS.GET(reservationId));
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch reservation details");
   }

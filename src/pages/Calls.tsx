@@ -58,6 +58,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getCalls,
   getCallDetails,
@@ -354,6 +355,31 @@ export function Calls() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter, startDate, endDate, durationMin, durationMax]);
+
+  // SSE Integration: Auto-refresh on escalation events (escalations are call-related)
+  const { escalations } = useSSE();
+  const lastEscalationEventRef = useRef<string | null>(null);
+  const hasInitialLoadRef = useRef(false);
+
+  useEffect(() => {
+    // Mark as loaded after first fetch
+    if (calls.length > 0 || !isLoadingCalls) {
+      hasInitialLoadRef.current = true;
+    }
+  }, [calls.length, isLoadingCalls]);
+
+  useEffect(() => {
+    // Only refresh if we have new escalation events since last check and initial load is complete
+    if (escalations.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = escalations[0].id;
+      if (lastEscalationEventRef.current !== latestEventId) {
+        lastEscalationEventRef.current = latestEventId;
+        console.log("SSE: Escalation event received, refreshing calls...");
+        fetchCalls();
+        fetchAnalytics();
+      }
+    }
+  }, [escalations, fetchCalls, fetchAnalytics]);
 
   // ============================================================================
   // Handlers

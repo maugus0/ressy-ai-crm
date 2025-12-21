@@ -83,9 +83,12 @@ import {
   AlertTriangle,
   StickyNote,
   DollarSign,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getOrders,
   getOrderDetails,
@@ -99,6 +102,7 @@ import {
 import { getMenuItems, getMenuCategories } from "@/services/menu";
 import type {
   DashboardOrder,
+  DashboardOrderWithHistory,
   DashboardOrderStatus,
   DashboardOrderCreateRequest,
   DashboardOrderUpdateRequest,
@@ -106,6 +110,7 @@ import type {
   DashboardOrderCustomization,
   ClientMenuItem,
   MenuCategoriesResponse,
+  OrderHistoryEntry,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -185,6 +190,81 @@ const STATUS_OPTIONS: DashboardOrderStatus[] = [
 ];
 
 // ============================================================================
+// Order History Item Component
+// ============================================================================
+
+interface OrderHistoryItemProps {
+  entry: OrderHistoryEntry;
+  isLast: boolean;
+}
+
+const getHistoryActionIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-3 w-3" />;
+    case "status_changed":
+      return <ArrowRight className="h-3 w-3" />;
+    case "items_updated":
+      return <Package className="h-3 w-3" />;
+    case "cancelled":
+      return <XCircle className="h-3 w-3" />;
+    case "deleted":
+      return <Trash2 className="h-3 w-3" />;
+    case "restored":
+      return <RotateCcw className="h-3 w-3" />;
+    default:
+      return <Clock className="h-3 w-3" />;
+  }
+};
+
+const getHistoryActionColor = (action: string) => {
+  switch (action) {
+    case "created":
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    case "status_changed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    case "deleted":
+      return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400";
+    case "restored":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
+function OrderHistoryItem({ entry, isLast }: OrderHistoryItemProps) {
+  const { date, time } = formatDateTime(entry.created_at);
+
+  return (
+    <div className={`px-3 sm:px-4 py-3 ${!isLast ? "border-b" : ""}`}>
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <div className={`p-1.5 rounded-full flex-shrink-0 ${getHistoryActionColor(entry.action)}`}>
+          {getHistoryActionIcon(entry.action)}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+            <Badge variant="outline" className="w-fit text-[10px] sm:text-xs capitalize">
+              {entry.action.replace(/_/g, " ")}
+            </Badge>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">
+              {date} {time}
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words leading-relaxed">
+            {entry.change_summary}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -192,7 +272,7 @@ interface OrderItemFormData {
   item_id?: number;
   name: string;
   quantity: number;
-  price: number;
+  price: string; // Store as string to handle input properly
   instructions: string;
 }
 
@@ -211,7 +291,7 @@ interface OrderFormData {
 const defaultItemFormData: OrderItemFormData = {
   name: "",
   quantity: 1,
-  price: 0,
+  price: "", // Empty string for input, allows user to type without leading 0
   instructions: "",
 };
 
@@ -262,7 +342,7 @@ export function Orders() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrderWithHistory | null>(null);
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<DashboardOrder | null>(null);
   const [formData, setFormData] = useState<OrderFormData>(defaultFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -385,6 +465,25 @@ export function Orders() {
     setOffset(0);
   }, [statusFilter, startDate, endDate, includeDeleted]);
 
+  // SSE Integration: Auto-refresh on order events
+  const { orderEvents } = useSSE();
+  const lastOrderEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only refresh if we have new order events since last check
+    if (orderEvents.length > 0) {
+      const latestEventId = orderEvents[0].id;
+      if (lastOrderEventRef.current !== latestEventId) {
+        lastOrderEventRef.current = latestEventId;
+        // Skip refresh on initial mount (when we already have data)
+        if (orders.length > 0 || hasFetched.current) {
+          console.log("SSE: Order event received, refreshing orders...");
+          fetchOrders();
+        }
+      }
+    }
+  }, [orderEvents, fetchOrders, orders.length]);
+
   // ============================================================================
   // Handlers
   // ============================================================================
@@ -400,7 +499,10 @@ export function Orders() {
   };
 
   const calculateTotal = (items: OrderItemFormData[]): number => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return items.reduce((sum, item) => {
+      const price = parseFloat(item.price) || 0;
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const openCreateDialog = () => {
@@ -418,7 +520,7 @@ export function Orders() {
       item_id: item.item_id,
       name: item.name,
       quantity: item.quantity,
-      price: item.price,
+      price: String(item.price), // Convert to string for form input
       instructions: item.instructions || "",
     }));
     if (items.length === 0) {
@@ -504,7 +606,7 @@ export function Orders() {
       item_id: menuItem.id,
       name: menuItem.item_name,
       quantity: 1,
-      price: parseFloat(menuItem.price),
+      price: menuItem.price, // Keep as string
       instructions: "",
     };
     // Check if item already exists in order
@@ -578,8 +680,14 @@ export function Orders() {
         if (item.quantity < 1) {
           errors[`item_${index}_quantity`] = "Quantity must be at least 1";
         }
-        if (item.price < 0) {
+        // Price validation (stored as string)
+        const price = parseFloat(item.price);
+        if (item.price === "" || isNaN(price)) {
+          errors[`item_${index}_price`] = "Price is required";
+        } else if (price < 0) {
           errors[`item_${index}_price`] = "Price cannot be negative";
+        } else if (price > 99999.99) {
+          errors[`item_${index}_price`] = "Price is too high";
         }
       });
     }
@@ -619,7 +727,7 @@ export function Orders() {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string price to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -666,7 +774,7 @@ export function Orders() {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string price to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -1006,10 +1114,9 @@ export function Orders() {
                         type="number"
                         min="0"
                         step="0.01"
+                        placeholder="0.00"
                         value={item.price}
-                        onChange={(e) =>
-                          updateItem(index, "price", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(e) => updateItem(index, "price", e.target.value)}
                         className={`h-9 ${formErrors[`item_${index}_price`] ? "border-destructive" : ""}`}
                         disabled={!!item.item_id}
                       />
@@ -1858,6 +1965,30 @@ export function Orders() {
                   </p>
                 </div>
               </div>
+
+              {/* Order History */}
+              {selectedOrder.history && selectedOrder.history.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Order History</Label>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedOrder.history.length}
+                    </Badge>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {selectedOrder.history.map((entry, index) => (
+                        <OrderHistoryItem
+                          key={entry.id}
+                          entry={entry}
+                          isLast={index === selectedOrder.history.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 

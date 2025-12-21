@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getUsers,
   getUserDetails,
@@ -180,9 +181,13 @@ export function Callers() {
       if (debouncedSearchQuery.trim()) {
         params.search = debouncedSearchQuery.trim();
       }
-      if (spamFilter !== "all") {
-        params.is_spam = spamFilter === "spam";
+      // Apply spam filter: "regular" = false (active), "spam" = true (blocked), "all" = undefined (both)
+      if (spamFilter === "regular") {
+        params.is_spam = false;
+      } else if (spamFilter === "spam") {
+        params.is_spam = true;
       }
+      // If spamFilter is "all", don't set is_spam param to show both
 
       const data = await getUsers(restaurantId, params);
       setCallers(data.users);
@@ -225,10 +230,48 @@ export function Callers() {
     }
   }, [fetchCallers, restaurantId]);
 
-  // Reset offset when filters change
+  // Reset offset and trigger fetch when spam filter changes
   useEffect(() => {
     setOffset(0);
+    // fetchCallers will be called automatically because it depends on spamFilter and offset
   }, [spamFilter]);
+
+  // SSE Integration: Auto-refresh on order and reservation events (affects caller statistics)
+  const { orderEvents, reservationEvents } = useSSE();
+  const lastOrderEventRef = useRef<string | null>(null);
+  const lastReservationEventRef = useRef<string | null>(null);
+  const hasInitialLoadRef = useRef(false);
+
+  useEffect(() => {
+    // Mark as loaded after first fetch
+    if (callers.length > 0 || !isLoading) {
+      hasInitialLoadRef.current = true;
+    }
+  }, [callers.length, isLoading]);
+
+  useEffect(() => {
+    // Refresh on new order events
+    if (orderEvents.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = orderEvents[0].id;
+      if (lastOrderEventRef.current !== latestEventId) {
+        lastOrderEventRef.current = latestEventId;
+        console.log("SSE: Order event received, refreshing callers...");
+        fetchCallers();
+      }
+    }
+  }, [orderEvents, fetchCallers]);
+
+  useEffect(() => {
+    // Refresh on new reservation events
+    if (reservationEvents.length > 0 && hasInitialLoadRef.current) {
+      const latestEventId = reservationEvents[0].id;
+      if (lastReservationEventRef.current !== latestEventId) {
+        lastReservationEventRef.current = latestEventId;
+        console.log("SSE: Reservation event received, refreshing callers...");
+        fetchCallers();
+      }
+    }
+  }, [reservationEvents, fetchCallers]);
 
   // ============================================================================
   // Handlers
@@ -301,17 +344,27 @@ export function Callers() {
       }
     }
 
-    // Email validation (optional)
+    // Email validation (optional but must be valid if provided)
     if (formData.email && formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email.trim())) {
         errors.email = "Please enter a valid email address";
+      } else if (formData.email.trim().length > 254) {
+        errors.email = "Email address is too long";
       }
     }
 
     // Address validation (max length)
     if (formData.address && formData.address.length > 500) {
       errors.address = "Address must be less than 500 characters";
+    }
+
+    // Credit card validation (must be exactly 4 digits if provided)
+    if (formData.credit_card && formData.credit_card.trim()) {
+      const ccDigits = formData.credit_card.replace(/\D/g, "");
+      if (ccDigits.length !== 4) {
+        errors.credit_card = "Please enter exactly 4 digits";
+      }
     }
 
     setFormErrors(errors);

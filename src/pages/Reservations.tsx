@@ -66,6 +66,8 @@ import {
   X,
   Calendar,
   RefreshCw,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import {
   vancouverDateTimeToISO,
@@ -75,6 +77,7 @@ import {
 } from "@/lib/utils/timezone";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   getReservations,
   getReservation,
@@ -85,9 +88,11 @@ import {
 } from "@/services/reservations";
 import type {
   Reservation,
+  ReservationWithHistory,
   ReservationStatus,
   ReservationCreateRequest,
   ReservationUpdateRequest,
+  ReservationHistoryEntry,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -114,6 +119,86 @@ const defaultFormData: ReservationFormData = {
   special_request: "",
   notes: "",
 };
+
+// ============================================================================
+// Reservation History Item Component
+// ============================================================================
+
+interface ReservationHistoryItemProps {
+  entry: ReservationHistoryEntry;
+  isLast: boolean;
+}
+
+const getReservationHistoryIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-3 w-3" />;
+    case "status_changed":
+      return <ArrowRight className="h-3 w-3" />;
+    case "updated":
+      return <Pencil className="h-3 w-3" />;
+    case "confirmed":
+      return <CheckCircle className="h-3 w-3" />;
+    case "cancelled":
+      return <XCircle className="h-3 w-3" />;
+    case "finalized":
+      return <CheckCircle className="h-3 w-3" />;
+    default:
+      return <Clock className="h-3 w-3" />;
+  }
+};
+
+const getReservationHistoryColor = (action: string) => {
+  switch (action) {
+    case "created":
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    case "status_changed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    case "updated":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    case "confirmed":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    case "finalized":
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
+function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) {
+  const formattedDate = formatVancouverDateTime(entry.created_at, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  return (
+    <div className={`px-3 sm:px-4 py-3 ${!isLast ? "border-b" : ""}`}>
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <div
+          className={`p-1.5 rounded-full flex-shrink-0 ${getReservationHistoryColor(entry.action)}`}
+        >
+          {getReservationHistoryIcon(entry.action)}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+            <Badge variant="outline" className="w-fit text-[10px] sm:text-xs capitalize">
+              {entry.action.replace(/_/g, " ")}
+            </Badge>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">{formattedDate}</span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words leading-relaxed">
+            {entry.change_summary}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================================
 // Component
@@ -149,7 +234,9 @@ export function Reservations() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithHistory | null>(
+    null
+  );
   const [formData, setFormData] = useState<ReservationFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -276,6 +363,25 @@ export function Reservations() {
     }
   }, [startDate, endDate]);
 
+  // SSE Integration: Auto-refresh on reservation events
+  const { reservationEvents } = useSSE();
+  const lastReservationEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only refresh if we have new reservation events since last check
+    if (reservationEvents.length > 0) {
+      const latestEventId = reservationEvents[0].id;
+      if (lastReservationEventRef.current !== latestEventId) {
+        lastReservationEventRef.current = latestEventId;
+        // Skip refresh on initial mount
+        if (reservations.length > 0) {
+          console.log("SSE: Reservation event received, refreshing reservations...");
+          fetchReservations();
+        }
+      }
+    }
+  }, [reservationEvents, fetchReservations, reservations.length]);
+
   // ============================================================================
   // Handlers
   // ============================================================================
@@ -342,48 +448,53 @@ export function Reservations() {
     const errors: Record<string, string> = {};
 
     // Date/time validation
-    // Parse the datetime-local value
-    const [datePart, timePart] = formData.date_time.split("T");
-    if (!datePart || !timePart) {
-      errors.date_time = "Please enter a valid date and time";
+    if (!formData.date_time) {
+      errors.date_time = "Date and time is required";
     } else {
-      // Convert Vancouver local time to ISO for proper comparison
-      const isoString = vancouverDateTimeToISO(formData.date_time);
-      const selectedDate = new Date(isoString);
-      const now = new Date();
-
-      if (!isEditMode && selectedDate < now) {
-        errors.date_time = "Reservation date cannot be in the past";
-      }
-      if (isNaN(selectedDate.getTime())) {
+      // Parse the datetime-local value
+      const [datePart, timePart] = formData.date_time.split("T");
+      if (!datePart || !timePart) {
         errors.date_time = "Please enter a valid date and time";
-      }
+      } else {
+        // Convert Vancouver local time to ISO for proper comparison
+        const isoString = vancouverDateTimeToISO(formData.date_time);
+        const selectedDate = new Date(isoString);
+        const now = new Date();
 
-      // Check opening hours (optional - can be expanded with restaurant data)
-      // Using typical restaurant hours as fallback: 10:00-22:00
-      const openingTime = "10:00";
-      const closingTime = "22:00";
-      if (!isWithinOpeningHours(timePart, openingTime, closingTime)) {
-        errors.date_time = `Reservations can only be made between ${openingTime} and ${closingTime}`;
+        if (isNaN(selectedDate.getTime())) {
+          errors.date_time = "Please enter a valid date and time";
+        } else if (!isEditMode && selectedDate < now) {
+          errors.date_time = "Reservation date cannot be in the past";
+        } else {
+          // Check opening hours (optional - can be expanded with restaurant data)
+          // Using typical restaurant hours as fallback: 10:00-22:00
+          const openingTime = "10:00";
+          const closingTime = "22:00";
+          if (!isWithinOpeningHours(timePart, openingTime, closingTime)) {
+            errors.date_time = `Reservations can only be made between ${openingTime} and ${closingTime}`;
+          }
+        }
       }
     }
 
     // Party size validation
-    const partySize = parseInt(formData.party_size, 10);
     if (!formData.party_size) {
       errors.party_size = "Party size is required";
-    } else if (isNaN(partySize)) {
-      errors.party_size = "Please enter a valid number";
-    } else if (partySize < 1) {
-      errors.party_size = "Party size must be at least 1";
-    } else if (partySize > 20) {
-      errors.party_size = "Party size cannot exceed 20";
+    } else {
+      const partySize = parseInt(formData.party_size, 10);
+      if (isNaN(partySize)) {
+        errors.party_size = "Please enter a valid number";
+      } else if (partySize < 1) {
+        errors.party_size = "Party size must be at least 1";
+      } else if (partySize > 20) {
+        errors.party_size = "Party size cannot exceed 20 (contact for larger groups)";
+      }
     }
 
     // Name and phone validation (only for create mode)
     if (!isEditMode) {
       if (!formData.name.trim()) {
-        errors.name = "Name is required";
+        errors.name = "Customer name is required";
       } else if (formData.name.trim().length < 2) {
         errors.name = "Name must be at least 2 characters";
       } else if (formData.name.trim().length > 100) {
@@ -1316,6 +1427,30 @@ export function Reservations() {
                   </p>
                 </div>
               </div>
+
+              {/* Reservation History */}
+              {selectedReservation.history && selectedReservation.history.length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Reservation History</Label>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedReservation.history.length}
+                    </Badge>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {selectedReservation.history.map((entry, index) => (
+                        <ReservationHistoryItem
+                          key={entry.id}
+                          entry={entry}
+                          isLast={index === selectedReservation.history.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

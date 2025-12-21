@@ -132,7 +132,7 @@ const defaultFormData: MenuFormData = {
   category: "",
   sub_category: "",
   item_desc: "",
-  avg_prep_time: "",
+  avg_prep_time: "15", // Default to 15 minutes
   is_available: true,
   is_special: false,
 };
@@ -298,14 +298,15 @@ export function Menu() {
       errors.sub_category = "Sub-category must be less than 100 characters";
     }
 
-    if (formData.avg_prep_time) {
+    // Prep time is mandatory
+    if (!formData.avg_prep_time || !formData.avg_prep_time.trim()) {
+      errors.avg_prep_time = "Prep time is required";
+    } else {
       const prepTime = parseInt(formData.avg_prep_time);
       if (isNaN(prepTime)) {
         errors.avg_prep_time = "Please enter a valid number";
-      } else if (prepTime < 0) {
-        errors.avg_prep_time = "Prep time cannot be negative";
-      } else if (prepTime === 0) {
-        errors.avg_prep_time = "Prep time must be greater than 0";
+      } else if (prepTime < 1) {
+        errors.avg_prep_time = "Prep time must be at least 1 minute";
       } else if (prepTime > 999) {
         errors.avg_prep_time = "Prep time is too high (max 999 minutes)";
       }
@@ -367,7 +368,7 @@ export function Menu() {
         category: formData.category.trim(),
         ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
         ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
-        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
+        avg_prep_time: parseInt(formData.avg_prep_time), // Now mandatory
         is_available: formData.is_available,
         is_special: formData.is_special,
       };
@@ -395,7 +396,7 @@ export function Menu() {
         category: formData.category.trim(),
         ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
         ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
-        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
+        avg_prep_time: parseInt(formData.avg_prep_time), // Now mandatory
         is_available: formData.is_available,
         is_special: formData.is_special,
       });
@@ -663,13 +664,13 @@ export function Menu() {
               {formErrors.price && <p className="text-sm text-destructive">{formErrors.price}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="avg_prep_time">Prep Time (min)</Label>
+              <Label htmlFor="avg_prep_time">Prep Time (min) *</Label>
               <Input
                 id="avg_prep_time"
                 type="number"
                 min="1"
                 max="999"
-                placeholder="20"
+                placeholder="15"
                 value={formData.avg_prep_time}
                 onChange={(e) => {
                   setFormData({ ...formData, avg_prep_time: e.target.value });
@@ -677,6 +678,7 @@ export function Menu() {
                     setFormErrors({ ...formErrors, avg_prep_time: undefined });
                 }}
                 className={formErrors.avg_prep_time ? "border-destructive" : ""}
+                required
               />
               {formErrors.avg_prep_time && (
                 <p className="text-sm text-destructive">{formErrors.avg_prep_time}</p>
