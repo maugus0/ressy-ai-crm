@@ -42,8 +42,7 @@ const getApiBaseUrl = (): string => {
   }
 };
 
-// Get base path for routing
-// With custom domain, base path is always root
+// Get base path for routing - always returns root path with custom domain configuration
 const getBasePath = (): string => {
   // Custom domain uses root path
   return "";

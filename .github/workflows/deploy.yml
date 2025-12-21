@@ -33,14 +33,17 @@ jobs:
         run: npm run build
         env:
           # Production API URL for dashboard.ressy.ai
-          # Default to localhost:5001 if not set in secrets/variables
+          # NOTE: Defaults to localhost:5001 if not set in secrets/variables.
+          # This is intentional for now - allows local testing of production builds.
+          # When ready for production, set VITE_API_BASE_URL in repository secrets/variables.
+          # The localhost fallback will cause API calls to fail in production if not configured.
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
 
       - name: Copy CNAME and 404.html
         run: |
-          cp public/CNAME dist/CNAME || echo "CNAME file copied"
-          cp public/404.html dist/404.html || echo "404.html file copied"
+          cp public/CNAME dist/CNAME || echo "Warning: CNAME file not found, skipping"
+          cp public/404.html dist/404.html || echo "Warning: 404.html file not found, skipping"
 
       - name: Deploy with gh-pages
         env:
