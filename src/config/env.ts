@@ -42,15 +42,9 @@ const getApiBaseUrl = (): string => {
   }
 };
 
-// Get base path for GitHub Pages or other custom deployments
+// Get base path for routing - always returns root path with custom domain configuration
 const getBasePath = (): string => {
-  try {
-    if (typeof window !== "undefined" && window.location?.pathname?.startsWith("/ressy-ai-crm")) {
-      return "/ressy-ai-crm";
-    }
-  } catch {
-    // Fallback if window access fails during SSR or initialization
-  }
+  // Custom domain uses root path
   return "";
 };
 

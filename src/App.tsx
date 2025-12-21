@@ -22,19 +22,6 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Get base path for GitHub Pages
-const getBasePath = (): string => {
-  try {
-    // Check if we're on GitHub Pages
-    if (typeof window !== "undefined" && window.location?.pathname?.startsWith("/ressy-ai-crm")) {
-      return "/ressy-ai-crm";
-    }
-  } catch {
-    // Fallback if window access fails
-  }
-  return "";
-};
-
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -43,7 +30,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter basename={getBasePath()}>
+            <BrowserRouter basename="/">
               <Routes>
                 {/* Default to login */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
