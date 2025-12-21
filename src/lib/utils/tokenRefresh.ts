@@ -1,96 +1,94 @@
 /**
- * Token Refresh Utility
- * Handles token refresh directly without circular dependencies
+ * Token Refresh Utilities
+ * Centralized token refresh logic to avoid circular dependencies
  */
 
-import { env } from "@/config/env";
 import { ENDPOINTS } from "@/lib/api/endpoints";
-import type { RefreshTokenResponse, StoredAuthData, AuthUser } from "@/types/auth.types";
+import { env } from "@/config/env";
+import type {
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  StoredAuthData,
+  AuthUser,
+} from "@/types/auth.types";
 
-// ============================================================================
-// Storage Keys
-// ============================================================================
+// Storage key for auth data - exported for use in client.ts
+export const STORAGE_KEY = "ressy_auth_data";
 
-const STORAGE_KEY = "ressy_client_auth_data";
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-const getStoredAuthData = (): StoredAuthData | null => {
+// Local storage helpers to avoid circular dependency with client.ts
+const getStoredAuthDataLocal = (): StoredAuthData | null => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : null;
-  } catch (error) {
-    // Helpful during development; avoids swallowing JSON parse/storage errors silently.
-    if (import.meta.env.DEV) {
-      console.warn("[tokenRefresh] Failed to read stored auth data", error);
-    }
+  } catch {
     return null;
   }
 };
 
-const setStoredAuthData = (data: StoredAuthData): void => {
+const setStoredAuthDataLocal = (data: StoredAuthData): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 };
 
-const clearStoredAuthData = (): void => {
+const clearStoredAuthDataLocal = (): void => {
   localStorage.removeItem(STORAGE_KEY);
 };
 
-// ============================================================================
-// Token Refresh
-// ============================================================================
-
-export interface RefreshResult {
+/**
+ * Refresh access token using refresh token
+ * This function is here to avoid circular dependency between client.ts and auth.ts
+ */
+export const refreshTokenDirect = async (): Promise<{
   success: boolean;
   error?: string;
   user?: AuthUser;
-}
-
-/**
- * Directly refresh the access token using the refresh token
- * This function doesn't use the apiRequest to avoid circular dependencies
- */
-export async function refreshTokenDirect(): Promise<RefreshResult> {
-  const authData = getStoredAuthData();
+}> => {
+  const authData = getStoredAuthDataLocal();
 
   if (!authData?.refresh_token) {
-    return { success: false, error: "No refresh token available" };
+    return {
+      success: false,
+      error: "No refresh token available",
+    };
   }
 
+  const payload: RefreshTokenRequest = {
+    refresh_token: authData.refresh_token,
+  };
+
   try {
-    const response = await fetch(`${env.API_URL}${ENDPOINTS.AUTH.REFRESH}`, {
+    const url = `${env.API_URL}${ENDPOINTS.AUTH.REFRESH}`;
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ refresh_token: authData.refresh_token }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      // Token refresh failed - clear auth data
-      clearStoredAuthData();
-      return { success: false, error: "Token refresh failed" };
+      const json = await response.json().catch(() => ({}));
+      clearStoredAuthDataLocal();
+      return {
+        success: false,
+        error: json.detail || json.message || "Token refresh failed",
+      };
     }
 
     const data: RefreshTokenResponse = await response.json();
-
-    // Calculate new expiry time
-    const expiresAt = Date.now() + data.expires_in * 1000;
+    const { access_token, refresh_token: new_refresh_token, expires_in } = data;
 
     // Update stored auth data with new tokens
     const updatedAuthData: StoredAuthData = {
       ...authData,
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: expiresAt,
+      access_token,
+      refresh_token: new_refresh_token,
+      expires_at: Date.now() + expires_in * 1000,
     };
 
-    setStoredAuthData(updatedAuthData);
+    setStoredAuthDataLocal(updatedAuthData);
 
-    // Return the user data
+    // Build user object from stored auth data
     const user: AuthUser = {
       uuid: authData.uuid,
       email: authData.email,
@@ -101,13 +99,15 @@ export async function refreshTokenDirect(): Promise<RefreshResult> {
       user_type: authData.user_type,
     };
 
-    return { success: true, user };
+    return {
+      success: true,
+      user,
+    };
   } catch (error) {
-    console.error("Token refresh error:", error);
-    clearStoredAuthData();
-    return { success: false, error: "Network error during token refresh" };
+    clearStoredAuthDataLocal();
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Token refresh failed",
+    };
   }
-}
-
-// Re-export for convenience
-export { getStoredAuthData, setStoredAuthData, clearStoredAuthData, STORAGE_KEY };
+};

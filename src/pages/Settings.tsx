@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -392,20 +393,18 @@ export function Settings() {
               <Label htmlFor="phone_number" className="text-xs sm:text-sm">
                 Phone Number <span className="text-destructive">*</span>
               </Label>
-              <div className="relative">
-                <Phone className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input
-                  id="phone_number"
-                  value={formData.phone_number}
-                  onChange={(e) => {
-                    updateFormData({ phone_number: e.target.value });
-                    if (formErrors.phone_number)
-                      setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
-                  }}
-                  placeholder="+15551234567"
-                  className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${formErrors.phone_number ? "border-destructive" : ""}`}
-                />
-              </div>
+              <PhoneInput
+                id="phone_number"
+                value={formData.phone_number}
+                onChange={(value) => {
+                  updateFormData({ phone_number: value });
+                  if (formErrors.phone_number)
+                    setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
+                }}
+                placeholder="5551234567"
+                error={!!formErrors.phone_number}
+                className="[&>button]:h-9 sm:[&>button]:h-10 [&>input]:h-9 sm:[&>input]:h-10 [&>button]:text-xs sm:[&>button]:text-sm [&>input]:text-xs sm:[&>input]:text-sm"
+              />
               {formErrors.phone_number && (
                 <p className="text-[10px] sm:text-xs text-destructive">{formErrors.phone_number}</p>
               )}
@@ -624,7 +623,12 @@ export function Settings() {
       {/* Last Updated */}
       {originalData && (
         <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
-          Last updated: {new Date(originalData.updated_at).toLocaleString()}
+          Last updated:{" "}
+          {new Date(originalData.updated_at).toLocaleString("en-US", {
+            timeZone: "America/Vancouver",
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
         </p>
       )}
     </div>

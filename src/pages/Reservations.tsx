@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Table,
   TableBody,
@@ -65,6 +67,12 @@ import {
   Calendar,
   RefreshCw,
 } from "lucide-react";
+import {
+  vancouverDateTimeToISO,
+  isoToVancouverDateTime,
+  formatVancouverDateTime,
+  isWithinOpeningHours,
+} from "@/lib/utils/timezone";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -180,14 +188,14 @@ export function Reservations() {
         params.status = statusFilter as ReservationStatus;
       }
       if (startDate) {
-        const startDateTime = new Date(startDate);
-        startDateTime.setHours(0, 0, 0, 0);
-        params.start_date = startDateTime.toISOString();
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        const startDateTimeLocal = `${startDate}T00:00`;
+        params.start_date = vancouverDateTimeToISO(startDateTimeLocal);
       }
       if (endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        params.end_date = endDateTime.toISOString();
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        const endDateTimeLocal = `${endDate}T23:59`;
+        params.end_date = vancouverDateTimeToISO(endDateTimeLocal);
       }
 
       const data = await getReservations(restaurantId, params);
@@ -291,19 +299,10 @@ export function Reservations() {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
-    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
-    let dateTimeLocal = "";
-    if (reservation.date_time) {
-      const date = new Date(reservation.date_time);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
-      }
-    }
+    // Convert ISO date to datetime-local format in Vancouver timezone
+    const dateTimeLocal = reservation.date_time
+      ? isoToVancouverDateTime(reservation.date_time)
+      : "";
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
@@ -343,16 +342,29 @@ export function Reservations() {
     const errors: Record<string, string> = {};
 
     // Date/time validation
-    if (!formData.date_time) {
-      errors.date_time = "Date and time are required";
+    // Parse the datetime-local value
+    const [datePart, timePart] = formData.date_time.split("T");
+    if (!datePart || !timePart) {
+      errors.date_time = "Please enter a valid date and time";
     } else {
-      const selectedDate = new Date(formData.date_time);
+      // Convert Vancouver local time to ISO for proper comparison
+      const isoString = vancouverDateTimeToISO(formData.date_time);
+      const selectedDate = new Date(isoString);
       const now = new Date();
+
       if (!isEditMode && selectedDate < now) {
         errors.date_time = "Reservation date cannot be in the past";
       }
       if (isNaN(selectedDate.getTime())) {
         errors.date_time = "Please enter a valid date and time";
+      }
+
+      // Check opening hours (optional - can be expanded with restaurant data)
+      // Using typical restaurant hours as fallback: 10:00-22:00
+      const openingTime = "10:00";
+      const closingTime = "22:00";
+      if (!isWithinOpeningHours(timePart, openingTime, closingTime)) {
+        errors.date_time = `Reservations can only be made between ${openingTime} and ${closingTime}`;
       }
     }
 
@@ -418,8 +430,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
+      // Convert Vancouver local time to ISO string
       const payload: ReservationCreateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
@@ -447,8 +460,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
+      // Convert Vancouver local time to ISO string
       const payload: ReservationUpdateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         ...(formData.special_request.trim()
           ? { special_request: formData.special_request.trim() }
@@ -526,17 +540,22 @@ export function Reservations() {
   };
 
   const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime);
+    // Format in Vancouver timezone
+    const formatted = formatVancouverDateTime(dateTime, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    // Split the formatted string to get date and time parts
+    const parts = formatted.split(", ");
+    if (parts.length >= 2) {
+      return {
+        date: parts[0],
+        time: parts[1],
+      };
+    }
     return {
-      date: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      date: formatted,
+      time: "",
     };
   };
 
@@ -605,20 +624,16 @@ export function Reservations() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date_time">Date & Time *</Label>
-          <Input
-            id="date_time"
-            type="datetime-local"
+          <DateTimePicker
+            label="Date & Time *"
             value={formData.date_time}
-            onChange={(e) => {
-              setFormData({ ...formData, date_time: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, date_time: value });
               if (formErrors.date_time) setFormErrors({ ...formErrors, date_time: "" });
             }}
-            className={formErrors.date_time ? "border-destructive" : ""}
+            error={formErrors.date_time}
+            minDate={!isEditMode ? new Date() : undefined}
           />
-          {formErrors.date_time && (
-            <p className="text-sm text-destructive">{formErrors.date_time}</p>
-          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="party_size">Party Size *</Label>
@@ -661,15 +676,15 @@ export function Reservations() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone_number">Phone Number *</Label>
-              <Input
+              <PhoneInput
                 id="phone_number"
-                placeholder="+1234567890"
+                placeholder="1234567890"
                 value={formData.phone_number}
-                onChange={(e) => {
-                  setFormData({ ...formData, phone_number: e.target.value });
+                onChange={(value) => {
+                  setFormData({ ...formData, phone_number: value });
                   if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
                 }}
-                className={formErrors.phone_number ? "border-destructive" : ""}
+                error={!!formErrors.phone_number}
               />
               {formErrors.phone_number && (
                 <p className="text-sm text-destructive">{formErrors.phone_number}</p>
@@ -1285,13 +1300,19 @@ export function Reservations() {
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.created_at).toLocaleString()}
+                    {formatVancouverDateTime(selectedReservation.created_at, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.updated_at).toLocaleString()}
+                    {formatVancouverDateTime(selectedReservation.updated_at, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
               </div>

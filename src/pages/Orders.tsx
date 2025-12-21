@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -112,16 +113,19 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -1082,17 +1086,21 @@ export function Orders() {
                 </>
               )}
             </Label>
-            <Input
+            <PhoneInput
               id="customer_phone"
-              placeholder="+1234567890"
+              placeholder="1234567890"
               value={formData.customer_phone}
-              required={!isEditMode}
-              onChange={(e) => {
-                setFormData({ ...formData, customer_phone: e.target.value });
+              onChange={(value) => {
+                setFormData({ ...formData, customer_phone: value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
               }}
-              className={`${formErrors.customer_phone ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+              error={!!formErrors.customer_phone}
               disabled={isEditMode}
+              className={
+                isEditMode
+                  ? "[&>button]:bg-muted [&>button]:cursor-not-allowed [&>input]:bg-muted [&>input]:cursor-not-allowed"
+                  : ""
+              }
             />
             {formErrors.customer_phone && (
               <p className="text-sm text-destructive">{formErrors.customer_phone}</p>

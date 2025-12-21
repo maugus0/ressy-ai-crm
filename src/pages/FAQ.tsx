@@ -61,6 +61,9 @@ import {
   AlertCircle,
   Loader2,
   FileText,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getFAQs, getFAQ, createFAQ, updateFAQ, deleteFAQ, bulkCreateFAQs } from "@/services/faq";
@@ -108,10 +111,12 @@ const defaultFormData: FAQFormData = {
 // ============================================================================
 
 const formatDate = (dateStr: string) => {
+  // Format in Vancouver timezone
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "America/Vancouver",
   });
 };
 
@@ -126,6 +131,10 @@ export function FAQ() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<"id" | null>("id");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -229,6 +238,44 @@ export function FAQ() {
   const resetForm = () => {
     setFormData(defaultFormData);
     setFormErrors({});
+  };
+
+  // ============================================================================
+  // Sorting
+  // ============================================================================
+
+  // Sort FAQs based on sortColumn and sortDirection
+  const sortedFAQs = [...faqs].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison = 0;
+    if (sortColumn === "id") {
+      comparison = a.id - b.id;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const handleSort = (column: "id") => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      // Set new column with ascending direction
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: "id") => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
+    );
   };
 
   // ============================================================================
@@ -654,8 +701,14 @@ export function FAQ() {
                 <Table className="min-w-full">
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="w-[60px] font-semibold hidden sm:table-cell">
-                        ID
+                      <TableHead className="w-[80px] font-semibold hidden sm:table-cell">
+                        <button
+                          onClick={() => handleSort("id")}
+                          className="flex items-center hover:text-primary transition-colors"
+                        >
+                          ID
+                          {getSortIcon("id")}
+                        </button>
                       </TableHead>
                       <TableHead className="font-semibold">Question</TableHead>
                       <TableHead className="font-semibold hidden md:table-cell max-w-[300px]">
@@ -668,7 +721,7 @@ export function FAQ() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {faqs.map((faq) => (
+                    {sortedFAQs.map((faq) => (
                       <TableRow key={faq.id} className="group hover:bg-muted/30">
                         <TableCell className="font-mono text-sm hidden sm:table-cell">
                           #{faq.id}
@@ -735,7 +788,7 @@ export function FAQ() {
                 </div>
                 <div className="bg-muted/30 rounded-lg p-6 border">
                   <Accordion type="single" collapsible className="w-full space-y-3">
-                    {faqs.map((faq) => (
+                    {sortedFAQs.map((faq) => (
                       <AccordionItem
                         key={faq.id}
                         value={`faq-${faq.id}`}

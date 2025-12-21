@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -75,16 +76,19 @@ import {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -416,15 +420,15 @@ export function Callers() {
               *
             </span>
           </Label>
-          <Input
+          <PhoneInput
             id="phone_number"
-            placeholder="+1234567890"
+            placeholder="1234567890"
             value={formData.phone_number}
-            onChange={(e) => {
-              setFormData({ ...formData, phone_number: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, phone_number: value });
               if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
             }}
-            className={formErrors.phone_number ? "border-destructive" : ""}
+            error={!!formErrors.phone_number}
           />
           {formErrors.phone_number && (
             <p className="text-sm text-destructive">{formErrors.phone_number}</p>

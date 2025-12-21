@@ -83,16 +83,19 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -1218,7 +1221,11 @@ export function Calls() {
                               <p className="whitespace-pre-wrap">{entry.content}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(entry.timestamp).toLocaleTimeString()}
+                              {new Date(entry.timestamp).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "America/Vancouver",
+                              })}
                             </p>
                           </div>
                         </div>

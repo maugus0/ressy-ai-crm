@@ -603,10 +603,12 @@ export function Menu() {
   };
 
   const formatDate = (dateStr: string) => {
+    // Format in Vancouver timezone
     return new Date(dateStr).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     });
   };
 

@@ -30,6 +30,10 @@ export interface LoginResponse {
   user_type: "restaurant" | "admin";
 }
 
+export interface RefreshTokenRequest {
+  refresh_token: string;
+}
+
 export interface RefreshTokenResponse {
   access_token: string;
   refresh_token: string;

@@ -281,11 +281,22 @@ export function Dashboard() {
     try {
       const date = new Date(timestamp);
       const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
+      // Compare dates in Vancouver timezone
+      const dateInVancouver = date.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
+      const nowInVancouver = now.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
+      const isToday = dateInVancouver === nowInVancouver;
       if (isToday) {
-        return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        return date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/Vancouver",
+        });
       }
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/Vancouver",
+      });
     } catch {
       return timestamp;
     }
