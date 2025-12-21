@@ -211,7 +211,7 @@ jobs:
           path: trivy-results.json
 
   deploy-pages:
-    name: Deploy GitHub Pages (gh-pages CLI)
+    name: Deploy GitHub Pages (dashboard.ressy.ai)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [docker-build]
@@ -219,7 +219,7 @@ jobs:
       contents: write
     environment:
       name: github-pages
-      url: https://${{ github.repository_owner }}.github.io/ressy-ai-crm/
+      url: https://dashboard.ressy.ai
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -236,15 +236,20 @@ jobs:
         run: npm ci
 
       - name: Build app
-        run: npm run build:gh-pages
+        run: npm run build
         env:
-          GITHUB_PAGES: true
-          # VITE_API_BASE_URL should be set in:
-          # 1. Repository Secrets (Settings > Secrets and variables > Actions > Secrets)
-          # 2. Environment variables (Settings > Environments > github-pages > Environment variables)
-          # Repository secrets take precedence, then environment variables
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || 'v1' }}
+          # Production API URL for dashboard.ressy.ai
+          # NOTE: Defaults to localhost:5001 if not set in secrets/variables.
+          # This is intentional for now - allows local testing of production builds.
+          # When ready for production, set VITE_API_BASE_URL in repository secrets/variables.
+          # The localhost fallback will cause API calls to fail in production if not configured.
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
+          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
+
+      - name: Copy CNAME and 404.html to dist
+        run: |
+          cp public/CNAME dist/CNAME || echo "Warning: CNAME file not found, skipping"
+          cp public/404.html dist/404.html || echo "Warning: 404.html file not found, skipping"
 
       - name: Record current gh-pages HEAD (for rollback)
         shell: bash
@@ -267,20 +272,18 @@ jobs:
             -r https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
             -u "github-actions <github-actions@github.com>"
 
-      - name: Health check GitHub Pages
+      - name: Health check dashboard.ressy.ai
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://${{ github.repository_owner }}.github.io/ressy-ai-crm/"
+          URL="https://dashboard.ressy.ai/"
           ORIGIN=$(echo "$URL" | sed -E 's#^(https?://[^/]+)/.*#\1#')
           echo "Checking $URL ..."
           for i in {1..24}; do
             if ! curl -fsS -o index_out.html "$URL"; then
               echo "Attempt $i: index fetch failed"; sleep 10; continue
             fi
-            # Match ANY .js file (not just "main")
             MAIN_JS=$(grep -Eo 'src="[^"]*\.js"' index_out.html | head -n1 | sed -E 's/src="([^"]+)"/\1/') || true
-            # Match ANY .css file (not just "main")
             MAIN_CSS=$(grep -Eo 'href="[^"]*\.css"' index_out.html | head -n1 | sed -E 's/href="([^"]+)"/\1/') || true
             make_abs() {
               local p="$1"
@@ -321,7 +324,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          export URL="https://${{ github.repository_owner }}.github.io/ressy-ai-crm/"
+          export URL="https://dashboard.ressy.ai/"
           cat > smoke.cjs << 'JS'
           const { chromium } = require('playwright');
           (async () => {
@@ -363,9 +366,6 @@ jobs:
           fi
           echo "Rolling back gh-pages to $PREV_GHPAGES_SHA"
           git fetch --prune origin gh-pages
-          # Stash or discard any local changes before switching branches
-          git reset --hard HEAD || true
-          git clean -fd || true
           if git show-ref --verify --quiet refs/heads/gh-pages; then
             git checkout gh-pages
           else
@@ -385,7 +385,7 @@ jobs:
       - name: OWASP ZAP Baseline on Production
         run: |
           docker run --rm -v $(pwd):/zap/wrk -t ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t "https://${{ github.repository_owner }}.github.io/ressy-ai-crm/" \
+            zap-baseline.py -t "https://dashboard.ressy.ai/" \
             -J zap-production.json -w zap-production.md -r zap-production.html -a \
             > zap-baseline.log 2>&1 || true
 
