@@ -3,20 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Client Dashboard</title>
+    <title>Ressy Client Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="canonical" href="https://dashboard.ressy.ai/" />
 
-    <meta property="og:title" content="Client Dashboard" />
-    <meta property="og:description" content="Client Dashboard" />
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/ressy-logo.png" />
-    <meta name="description" content="Client Dashboard Ressy" />
-    <meta name="twitter:title" content="Client Dashboard Ressy" />
-    <meta name="twitter:description" content="Client Dashboard Ressy" />
-    <meta name="twitter:image" content="/ressy-logo.png" />
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-    
+    <meta property="og:title" content="Ressy Client Dashboard" />
+    <meta property="og:description" content="Client dashboard for managing restaurant orders, reservations, and menu items" />
+    <meta property="og:image" content="https://dashboard.ressy.ai/ressy-logo.png" />
+    <meta property="og:url" content="https://dashboard.ressy.ai/" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ressy Client Dashboard" />
+    <meta name="twitter:description" content="Client dashboard for managing restaurant orders, reservations, and menu items" />
+    <meta name="twitter:image" content="https://dashboard.ressy.ai/ressy-logo.png" />
+
+    <!-- Meta Description -->
+    <meta name="description" content="Client dashboard for managing restaurant orders, reservations, and menu items" />
     <script>
       // GitHub Pages SPA fallback: convert ?p=/some/path back into the real URL
       (function () {
@@ -59,13 +64,8 @@
             var pathOnly = decodedPath.split("?")[0].split("#")[0];
             var hashOnly = decodedPath.includes("#") ? decodedPath.substring(decodedPath.indexOf("#")) : "";
             
-            // Extract repository name from pathname dynamically
-            var pathSegments = currentPath.split("/").filter(function(segment) {
-              return segment.length > 0;
-            });
-            var repoName = pathSegments.length > 0 ? pathSegments[0] : "";
-            var basePath = repoName ? "/" + repoName : "";
-            var newUrl = basePath + pathOnly + hashOnly;
+            // With custom domain, base path is always root
+            var newUrl = pathOnly + hashOnly;
             
             // Only replace if different to avoid unnecessary history entries
             if (newUrl !== (currentPath + currentHash)) {

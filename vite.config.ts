@@ -5,12 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Base path for GitHub Pages - change this to your repository name
-  // For custom domain, use "/"
-  const base = process.env.GITHUB_PAGES === "true" ? "/ressy-ai-crm/" : "/";
-
+  // Base path for custom domain - always use "/"
   return {
-    base,
+    base: "/",
     server: {
       host: "::",
       port: 8080,
