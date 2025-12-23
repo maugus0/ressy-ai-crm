@@ -14,7 +14,7 @@ const getApiBaseUrl = (): string => {
 
     // In development, use production API as fallback
     if (import.meta.env.DEV) {
-      return envUrl || "http://3.96.174.195:5001";
+      return envUrl || "https://voice.ressy.ai";
     }
 
     // In production, use production API as fallback if not set
@@ -28,7 +28,7 @@ const getApiBaseUrl = (): string => {
         );
       }
       // Fallback to production API server
-      return "http://3.96.174.195:5001";
+      return "https://voice.ressy.ai";
     }
 
     return envUrl;
@@ -39,7 +39,7 @@ const getApiBaseUrl = (): string => {
       console.warn("Failed to read VITE_API_BASE_URL:", err);
     }
     // Fallback to production API server
-    return "http://3.96.174.195:5001";
+    return "https://voice.ressy.ai";
   }
 };
 
@@ -106,6 +106,6 @@ if (import.meta.env.DEV) {
     BASE_PATH: env.BASE_PATH,
     source: import.meta.env.VITE_API_BASE_URL
       ? "environment variable"
-      : "fallback (3.96.174.195:5001)",
+      : "fallback (voice.ressy.ai)",
   });
 }
