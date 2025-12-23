@@ -239,11 +239,8 @@ jobs:
         run: npm run build
         env:
           # Production API URL for dashboard.ressy.ai
-          # NOTE: Defaults to localhost:5001 if not set in secrets/variables.
-          # This is intentional for now - allows local testing of production builds.
-          # When ready for production, set VITE_API_BASE_URL in repository secrets/variables.
-          # The localhost fallback will cause API calls to fail in production if not configured.
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
+          # Default to production API server if not set in secrets/variables
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://3.96.174.195:5001' }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
 
       - name: Copy CNAME and 404.html to dist

@@ -12,14 +12,13 @@ const getApiBaseUrl = (): string => {
   try {
     const envUrl = import.meta.env.VITE_API_BASE_URL;
 
-    // In development, localhost fallback is acceptable
+    // In development, use production API as fallback
     if (import.meta.env.DEV) {
-      return envUrl || "http://localhost:5001";
+      return envUrl || "http://3.96.174.195:5001";
     }
 
-    // In production, silently return empty string if not set
-    // This allows the UI to load but API calls will fail gracefully
-    // We don't log warnings in production to avoid triggering smoke test failures
+    // In production, use production API as fallback if not set
+    // This ensures API calls always have a valid endpoint
     if (!envUrl) {
       // Only log in development mode for debugging
       if (import.meta.env.DEV) {
@@ -28,17 +27,19 @@ const getApiBaseUrl = (): string => {
             "Using fallback. For production, set it in GitHub Actions environment variables or secrets."
         );
       }
-      return "";
+      // Fallback to production API server
+      return "http://3.96.174.195:5001";
     }
 
     return envUrl;
   } catch (err) {
-    // If there's any error accessing env, return empty string
+    // If there's any error accessing env, return production API as fallback
     // Only log in development mode to avoid triggering smoke test failures
     if (import.meta.env.DEV) {
       console.warn("Failed to read VITE_API_BASE_URL:", err);
     }
-    return "";
+    // Fallback to production API server
+    return "http://3.96.174.195:5001";
   }
 };
 
@@ -103,6 +104,8 @@ if (import.meta.env.DEV) {
     API_BASE_URL: env.API_BASE_URL,
     API_URL: env.API_URL,
     BASE_PATH: env.BASE_PATH,
-    source: import.meta.env.VITE_API_BASE_URL ? "environment variable" : "fallback (localhost)",
+    source: import.meta.env.VITE_API_BASE_URL
+      ? "environment variable"
+      : "fallback (3.96.174.195:5001)",
   });
 }
