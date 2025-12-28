@@ -17,6 +17,8 @@ import { Orders } from "@/pages/Orders";
 import { Reservations } from "@/pages/Reservations";
 import { Settings } from "@/pages/Settings";
 import { Escalations } from "@/pages/Escalations";
+import { OrderEvents } from "@/pages/OrderEvents";
+import { ReservationEvents } from "@/pages/ReservationEvents";
 import { Login } from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
@@ -54,6 +56,8 @@ const App = () => (
                   <Route path="faqs" element={<FAQ />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="escalations" element={<Escalations />} />
+                  <Route path="order-events" element={<OrderEvents />} />
+                  <Route path="reservation-events" element={<ReservationEvents />} />
                 </Route>
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

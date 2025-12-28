@@ -16,6 +16,8 @@ import {
   Settings,
   LogOut,
   AlertTriangle,
+  Receipt,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +34,19 @@ const menuItems = [
     icon: CalendarDays,
     path: "/dashboard/reservations",
   },
+  {
+    id: "reservation-events",
+    label: "Reservation Events",
+    icon: CalendarCheck,
+    path: "/dashboard/reservation-events",
+  },
   { id: "orders", label: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
+  {
+    id: "order-events",
+    label: "Order Events",
+    icon: Receipt,
+    path: "/dashboard/order-events",
+  },
   { id: "menu", label: "Menu", icon: UtensilsCrossed, path: "/dashboard/menu" },
   { id: "faqs", label: "FAQs", icon: HelpCircle, path: "/dashboard/faqs" },
   {
@@ -62,9 +76,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const escalationCount = escalations.length;
 
   return (
-    <div className="w-64 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shadow-lg">
+    <div className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col shadow-lg overflow-hidden">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border flex items-center justify-center">
+      <div className="p-6 flex items-center justify-center flex-shrink-0">
         <img
           src={`${import.meta.env.BASE_URL}ressy-white.png`}
           alt="Ressy Logo"
@@ -72,9 +86,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         />
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin scrollbar-thumb-transparent scrollbar-track-transparent">
-        <ul className="space-y-2">
+      {/* Navigation - Scrollable */}
+      <nav className="flex-1 overflow-y-auto p-4 min-h-0">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const showBadge = item.id === "escalations" && escalationCount > 0;
@@ -87,10 +101,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      "group w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
                       isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-md"
-                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground text-sidebar-foreground",
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       // Highlight escalations when there are active ones
                       item.id === "escalations" && escalationCount > 0 && "text-destructive"
                     )
@@ -98,7 +112,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 >
                   <Icon
                     className={cn(
-                      "w-5 h-5 transition-transform duration-200 group-hover:scale-110",
+                      "w-4 h-4 flex-shrink-0",
                       item.id === "escalations" && escalationCount > 0 && "text-destructive"
                     )}
                   />
@@ -106,7 +120,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   {showBadge && (
                     <Badge
                       variant="destructive"
-                      className="h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center"
+                      className="h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center flex-shrink-0"
                     >
                       {escalationCount > 99 ? "99+" : escalationCount}
                     </Badge>
@@ -118,22 +132,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* Logout action */}
-      <div className="px-4 pb-2">
+      {/* Logout action - Fixed at bottom */}
+      <div className="px-4 pb-2 flex-shrink-0">
         <button
           onClick={handleLogout}
           className={cn(
-            "group w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground text-sidebar-foreground"
+            "group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
+            "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
         >
-          <LogOut className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
+          <LogOut className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
           <span>Logout</span>
         </button>
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border text-center bg-gradient-to-t from-sidebar/90 to-transparent">
+      <div className="p-4 text-center bg-gradient-to-t from-sidebar/90 to-transparent flex-shrink-0">
         <p className="text-xs text-sidebar-foreground/60 tracking-wide">
           &copy; 2025 <span className="font-semibold">Ressy</span>
         </p>

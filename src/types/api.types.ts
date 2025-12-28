@@ -1331,6 +1331,18 @@ export interface SSEEscalationData {
   caller_phone?: string;
   call_id?: string;
   summary?: string;
+  /** Reason for escalation (e.g., "Customer requested to speak with manager about billing issue") */
+  reason?: string;
+  /** Urgency level (e.g., "urgent", "critical", "high", "medium") */
+  urgency?: string;
+  /** Error message if this is an error escalation */
+  error_message?: string;
+  /** Error code if this is an error escalation */
+  error_code?: string;
+  /** Spam score (0-1) if this is a spam escalation */
+  spam_score?: number;
+  /** Array of spam indicators (e.g., ["rapid_hangup", "known_spam_number"]) */
+  indicators?: string[];
 }
 
 /**
@@ -1342,6 +1354,12 @@ export interface SSEOrderData {
   status?: string;
   total_amount?: number;
   customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  delivery?: boolean;
+  table_number?: string;
+  notes?: string;
+  item_count?: number;
 }
 
 /**
@@ -1352,8 +1370,13 @@ export interface SSEReservationData {
   reservation_id?: number;
   confirmation_number?: string;
   customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
   party_size?: number;
   date_time?: string;
+  status?: string;
+  special_request?: string;
+  notes?: string;
 }
 
 /**

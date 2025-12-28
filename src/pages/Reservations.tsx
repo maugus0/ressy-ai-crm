@@ -71,9 +71,8 @@ import {
 } from "lucide-react";
 import {
   vancouverDateTimeToISO,
-  isoToVancouverDateTime,
-  formatVancouverDateTime,
   isWithinOpeningHours,
+  getTimeFromDateTime,
 } from "@/lib/utils/timezone";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -168,10 +167,49 @@ const getReservationHistoryColor = (action: string) => {
 };
 
 function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) {
-  const formattedDate = formatVancouverDateTime(entry.created_at, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const formatDateTime = (dateTime: string) => {
+    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+    // Format it directly without timezone conversion since it's already in Vancouver time
+    const [datePart, timePart] = dateTime.split("T");
+    if (!datePart || !timePart) {
+      return { date: "", time: "" };
+    }
+
+    // Parse the date parts
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+
+    // Format date: "Dec 28, 2025"
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+
+    // Format time: "7:00 PM" (12-hour format)
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const minuteStr = minute.toString().padStart(2, "0");
+    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
+
+    return {
+      date: dateStr,
+      time: timeStr,
+    };
+  };
+
+  const { date, time } = formatDateTime(entry.created_at);
+  const formattedDate = `${date}, ${time}`;
 
   return (
     <div className={`px-3 sm:px-4 py-3 ${!isLast ? "border-b" : ""}`}>
@@ -404,11 +442,20 @@ export function Reservations() {
   };
 
   const openEditDialog = (reservation: Reservation) => {
-    setSelectedReservation(reservation);
-    // Convert ISO date to datetime-local format in Vancouver timezone
-    const dateTimeLocal = reservation.date_time
-      ? isoToVancouverDateTime(reservation.date_time)
-      : "";
+    setSelectedReservation({ ...reservation, history: [] } as ReservationWithHistory);
+    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+    // Convert to datetime-local format (YYYY-MM-DDTHH:mm) by extracting parts directly
+    let dateTimeLocal = "";
+    if (reservation.date_time) {
+      // The API string is already in Vancouver time, extract date/time parts directly
+      // Format: "2025-12-28T19:00:00" -> "2025-12-28T19:00"
+      const [datePart, timePart] = reservation.date_time.split("T");
+      if (datePart && timePart) {
+        // Extract just HH:mm from HH:mm:ss
+        const [hour, minute] = timePart.split(":");
+        dateTimeLocal = `${datePart}T${hour}:${minute}`;
+      }
+    }
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
@@ -434,12 +481,12 @@ export function Reservations() {
   };
 
   const openFinalizeDialog = (reservation: Reservation) => {
-    setSelectedReservation(reservation);
+    setSelectedReservation({ ...reservation, history: [] } as ReservationWithHistory);
     setIsFinalizeDialogOpen(true);
   };
 
   const openCancelDialog = (reservation: Reservation) => {
-    setSelectedReservation(reservation);
+    setSelectedReservation({ ...reservation, history: [] } as ReservationWithHistory);
     setIsCancelDialogOpen(true);
   };
 
@@ -456,24 +503,21 @@ export function Reservations() {
       if (!datePart || !timePart) {
         errors.date_time = "Please enter a valid date and time";
       } else {
-        // Convert Vancouver local time to ISO for proper comparison
-        const isoString = vancouverDateTimeToISO(formData.date_time);
-        const selectedDate = new Date(isoString);
+        const [year, month, day] = datePart.split("-").map(Number);
+        const selectedDate = new Date(year, month - 1, day);
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        selectedDate.setHours(0, 0, 0, 0);
 
-        if (isNaN(selectedDate.getTime())) {
-          errors.date_time = "Please enter a valid date and time";
-        } else if (!isEditMode && selectedDate < now) {
+        // For create mode, don't allow past dates
+        // For edit mode, allow past dates (for historical records)
+        if (!isEditMode && selectedDate < now) {
           errors.date_time = "Reservation date cannot be in the past";
-        } else {
-          // Check opening hours (optional - can be expanded with restaurant data)
-          // Using typical restaurant hours as fallback: 10:00-22:00
-          const openingTime = "10:00";
-          const closingTime = "22:00";
-          if (!isWithinOpeningHours(timePart, openingTime, closingTime)) {
-            errors.date_time = `Reservations can only be made between ${openingTime} and ${closingTime}`;
-          }
         }
+
+        // Validate opening hours if restaurant is selected
+        // Note: This would need restaurant data to check actual opening hours
+        // For now, we skip this validation as restaurant data isn't available in this context
       }
     }
 
@@ -651,22 +695,43 @@ export function Reservations() {
   };
 
   const formatDateTime = (dateTime: string) => {
-    // Format in Vancouver timezone
-    const formatted = formatVancouverDateTime(dateTime, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-    // Split the formatted string to get date and time parts
-    const parts = formatted.split(", ");
-    if (parts.length >= 2) {
-      return {
-        date: parts[0],
-        time: parts[1],
-      };
+    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+    // Format it directly without timezone conversion since it's already in Vancouver time
+    const [datePart, timePart] = dateTime.split("T");
+    if (!datePart || !timePart) {
+      return { date: "", time: "" };
     }
+
+    // Parse the date parts
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+
+    // Format date: "Dec 28, 2025"
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+
+    // Format time: "7:00 PM" (12-hour format)
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const minuteStr = minute.toString().padStart(2, "0");
+    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
+
     return {
-      date: formatted,
-      time: "",
+      date: dateStr,
+      time: timeStr,
     };
   };
 
@@ -1411,19 +1476,15 @@ export function Reservations() {
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {formatVancouverDateTime(selectedReservation.created_at, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    {formatDateTime(selectedReservation.created_at).date}{" "}
+                    {formatDateTime(selectedReservation.created_at).time}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {formatVancouverDateTime(selectedReservation.updated_at, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    {formatDateTime(selectedReservation.updated_at).date}{" "}
+                    {formatDateTime(selectedReservation.updated_at).time}
                   </p>
                 </div>
               </div>

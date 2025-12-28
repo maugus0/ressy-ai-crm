@@ -3,10 +3,11 @@
  * Authentication page for the CRM dashboard
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -16,7 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Mail, Lock, Eye, EyeOff, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -26,12 +28,19 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [showBotCheck, setShowBotCheck] = useState(false);
+  const [botCheckConfirmed, setBotCheckConfirmed] = useState(false);
+  const attemptsResetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Get redirect location from state (set by ProtectedRoute)
   const from = location.state?.from?.pathname || "/dashboard";
+
+  const BOT_CHECK_THRESHOLD = 3; // Show bot check after 3 failed attempts
+  const ATTEMPTS_RESET_TIME = 30000; // Reset attempts after 30 seconds
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -40,21 +49,79 @@ export function Login() {
     }
   }, [isAuthenticated, authLoading, navigate, from]);
 
+  // Reset attempts after a period of inactivity
+  useEffect(() => {
+    if (loginAttempts > 0) {
+      // Clear existing timeout
+      if (attemptsResetTimeoutRef.current) {
+        clearTimeout(attemptsResetTimeoutRef.current);
+      }
+
+      // Set new timeout to reset attempts
+      attemptsResetTimeoutRef.current = setTimeout(() => {
+        setLoginAttempts(0);
+        setShowBotCheck(false);
+        setBotCheckConfirmed(false);
+      }, ATTEMPTS_RESET_TIME);
+
+      return () => {
+        if (attemptsResetTimeoutRef.current) {
+          clearTimeout(attemptsResetTimeoutRef.current);
+        }
+      };
+    }
+  }, [loginAttempts]);
+
+  // Show bot check when threshold is reached (only reset on first threshold hit)
+  useEffect(() => {
+    if (loginAttempts === BOT_CHECK_THRESHOLD) {
+      setShowBotCheck(true);
+      setBotCheckConfirmed(false);
+    }
+  }, [loginAttempts]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if bot check is required and confirmed
+    if (showBotCheck && !botCheckConfirmed) {
+      setError("Please confirm you are not a bot");
+      toast.error("Please confirm you are not a bot");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+
     try {
-      if (!email || !password) throw new Error("Email and password are required");
+      if (!email || !password) {
+        setError("Email and password are required");
+        toast.error("Email and password are required");
+        return;
+      }
+
       const result = await login({ email, password });
+
       if (result.success) {
         toast.success("Logged in successfully");
+        // Reset attempts and bot check on success
+        setLoginAttempts(0);
+        setShowBotCheck(false);
+        setBotCheckConfirmed(false);
+        if (attemptsResetTimeoutRef.current) {
+          clearTimeout(attemptsResetTimeoutRef.current);
+        }
         navigate(from, { replace: true });
       } else {
-        setError(result.error || "Login failed");
-        toast.error(result.error || "Login failed");
+        // Increment login attempts only on failed login attempt (actual API call failed)
+        setLoginAttempts((prev) => prev + 1);
+        const msg = result.error || "Invalid credentials";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err: unknown) {
+      // Increment login attempts on exception during API call
+      setLoginAttempts((prev) => prev + 1);
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);
       toast.error(msg);
@@ -85,8 +152,8 @@ export function Login() {
               />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your CRM dashboard</p>
+          <h1 className="text-2xl font-bold text-foreground">Ressy Client Dashboard</h1>
+          <p className="text-muted-foreground">Sign in to manage orders, reservations, and more.</p>
         </div>
 
         <Card className="border-border shadow-lg">
@@ -110,6 +177,7 @@ export function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -126,34 +194,47 @@ export function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10"
                     required
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="rounded border-border text-primary focus:ring-primary"
-                />
-                <Label htmlFor="remember" className="text-sm">
-                  Remember me
-                </Label>
-              </div>
+              {/* Bot Check */}
+              {showBotCheck && (
+                <div className="p-4 bg-muted/50 rounded-lg border border-muted">
+                  <div className="flex items-center space-x-3">
+                    <Shield className="h-5 w-5 text-primary flex-shrink-0" />
+                    <Label htmlFor="bot-check" className="text-sm font-medium cursor-pointer">
+                      Bot Check
+                    </Label>
+                    <Checkbox
+                      id="bot-check"
+                      checked={botCheckConfirmed}
+                      onCheckedChange={(checked) => {
+                        setBotCheckConfirmed(checked === true);
+                        if (checked) {
+                          setError(null);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
 
-            <CardFooter>
+            <CardFooter className="flex flex-col space-y-4">
               <Button
                 type="submit"
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={isLoading}
+                disabled={isLoading || (showBotCheck && !botCheckConfirmed)}
               >
                 {isLoading ? (
                   <>
@@ -164,6 +245,11 @@ export function Login() {
                   "Sign in"
                 )}
               </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+              </div>
             </CardFooter>
           </form>
         </Card>

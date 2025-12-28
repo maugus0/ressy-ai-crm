@@ -141,7 +141,19 @@ export function DashboardLayout() {
     navigate("/dashboard/escalations");
   };
 
+  const handleViewOrderEvents = () => {
+    setIsNotificationsOpen(false);
+    navigate("/dashboard/order-events");
+  };
+
+  const handleViewReservationEvents = () => {
+    setIsNotificationsOpen(false);
+    navigate("/dashboard/reservation-events");
+  };
+
   const hasEscalations = events.some((e) => e.event_type === "escalation");
+  const hasOrderEvents = events.some((e) => e.event_type === "order");
+  const hasReservationEvents = events.some((e) => e.event_type === "reservation");
 
   // Accessibility: trap focus inside mobile sidebar and lock body scroll
   useEffect(() => {
@@ -229,7 +241,7 @@ export function DashboardLayout() {
           <div className="relative h-full w-auto max-w-[80vw]">
             <div
               ref={sidebarRef}
-              className="absolute left-0 top-0 h-full w-72 max-w-[80vw] bg-sidebar z-50 outline-none shadow-xl transform transition-transform duration-300 translate-x-0"
+              className="absolute left-0 top-0 h-full w-72 max-w-[80vw] bg-sidebar z-50 outline-none shadow-xl transform transition-transform duration-300 translate-x-0 overflow-hidden"
               tabIndex={-1}
             >
               <Sidebar onNavigate={() => setSidebarOpen(false)} />
@@ -241,7 +253,14 @@ export function DashboardLayout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header with hamburger */}
-        <div className="md:hidden flex items-center justify-between bg-card border-b border-border px-4 py-3">
+        <div className="md:hidden flex items-center justify-between bg-card border-b border-border px-4 py-3 gap-2">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 text-foreground hover:bg-muted rounded-md transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <h1 className="text-lg font-semibold text-foreground truncate flex-1">{companyName}</h1>
           <div className="flex items-center gap-2">
             {/* Connection Status */}
@@ -288,24 +307,33 @@ export function DashboardLayout() {
                     events={events}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
+                    hasOrderEvents={hasOrderEvents}
+                    hasReservationEvents={hasReservationEvents}
                     toggleSounds={toggleSounds}
                     clearEvents={clearEvents}
                     dismissEvent={dismissEvent}
                     onViewEscalations={handleViewEscalations}
+                    onViewOrderEvents={handleViewOrderEvents}
+                    onViewReservationEvents={handleViewReservationEvents}
                     isMobile={true}
                   />
                 </PopoverContent>
               </Popover>
             )}
 
-            {/* Menu Button */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="text-foreground p-1"
-              aria-label="Open menu"
+            {/* Logout Button (Mobile) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={async () => {
+                await logout();
+                navigate("/login");
+              }}
+              title="Logout"
             >
-              <Menu className="h-6 w-6" />
-            </button>
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -318,7 +346,7 @@ export function DashboardLayout() {
           <div className="flex items-center gap-3">
             {/* Connection Status Indicator */}
             <div
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              className="flex items-center"
               title={isConnected ? "Live updates connected" : "Live updates disconnected"}
             >
               {isConnected ? (
@@ -326,7 +354,6 @@ export function DashboardLayout() {
               ) : (
                 <WifiOff className="h-4 w-4 text-destructive" />
               )}
-              <span className="hidden lg:inline">{isConnected ? "Live" : "Offline"}</span>
             </div>
 
             {/* Notifications Bell (Desktop) */}
@@ -355,10 +382,14 @@ export function DashboardLayout() {
                     events={events}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
+                    hasOrderEvents={hasOrderEvents}
+                    hasReservationEvents={hasReservationEvents}
                     toggleSounds={toggleSounds}
                     clearEvents={clearEvents}
                     dismissEvent={dismissEvent}
                     onViewEscalations={handleViewEscalations}
+                    onViewOrderEvents={handleViewOrderEvents}
+                    onViewReservationEvents={handleViewReservationEvents}
                     isMobile={false}
                   />
                 </PopoverContent>
@@ -375,14 +406,16 @@ export function DashboardLayout() {
             </div>
 
             {/* Logout Button */}
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-2"
               aria-label="Logout"
             >
               <LogOut className="h-4 w-4" />
               Logout
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -414,10 +447,14 @@ function NotificationDropdown({
   events,
   soundsEnabled,
   hasEscalations,
+  hasOrderEvents,
+  hasReservationEvents,
   toggleSounds,
   clearEvents,
   dismissEvent,
   onViewEscalations,
+  onViewOrderEvents,
+  onViewReservationEvents,
   isMobile = false,
 }: NotificationDropdownProps) {
   return (
@@ -518,24 +555,50 @@ function NotificationDropdown({
         </div>
       )}
 
-      {/* Footer - View Escalations Link */}
-      <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t bg-muted/30">
-        <Button
-          variant={hasEscalations ? "default" : "outline"}
-          size="sm"
-          className="w-full text-xs sm:text-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewEscalations();
-          }}
-        >
-          <AlertTriangle
-            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2 ${hasEscalations ? "" : "text-muted-foreground"}`}
-          />
-          {hasEscalations
-            ? `View Escalations (${events.filter((e) => e.event_type === "escalation").length})`
-            : "View Escalations"}
-        </Button>
+      {/* Footer - View Event Pages Links */}
+      <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t bg-muted/30 space-y-2">
+        {hasEscalations && (
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full text-xs sm:text-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewEscalations();
+            }}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+            View Escalations ({events.filter((e) => e.event_type === "escalation").length})
+          </Button>
+        )}
+        {hasOrderEvents && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-xs sm:text-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewOrderEvents();
+            }}
+          >
+            <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+            View Order Events ({events.filter((e) => e.event_type === "order").length})
+          </Button>
+        )}
+        {hasReservationEvents && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-xs sm:text-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewReservationEvents();
+            }}
+          >
+            <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+            View Reservation Events ({events.filter((e) => e.event_type === "reservation").length})
+          </Button>
+        )}
       </div>
     </>
   );

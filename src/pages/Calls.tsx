@@ -4,7 +4,7 @@
  * Auto-scoped to the authenticated restaurant via JWT token
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -59,10 +59,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSSE } from "@/contexts/SSEContext";
+import { getVancouverTimeComponents, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
 import {
   getCalls,
   getCallDetails,
-  getCallAnalytics,
   searchCalls,
   exportCalls,
   downloadCallsCSV,
@@ -78,8 +78,10 @@ import {
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  // Truncate to whole seconds to avoid decimal places
+  const wholeSeconds = Math.floor(seconds);
+  const mins = Math.floor(wholeSeconds / 60);
+  const secs = wholeSeconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
@@ -91,12 +93,12 @@ const formatDateTime = (dateTime: string) => {
       month: "short",
       day: "numeric",
       year: "numeric",
-      timeZone: "America/Vancouver",
+      timeZone: VANCOUVER_TIMEZONE,
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "America/Vancouver",
+      timeZone: VANCOUVER_TIMEZONE,
     }),
   };
 };
@@ -154,18 +156,6 @@ const formatCost = (cost: number | null | undefined): string => {
   return `$${cost.toFixed(4)}`;
 };
 
-// Get default date range (last 30 days)
-const getDefaultDateRange = () => {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  return {
-    start: thirtyDaysAgo.toISOString().split("T")[0],
-    end: now.toISOString().split("T")[0],
-  };
-};
-
 // ============================================================================
 // Component
 // ============================================================================
@@ -177,8 +167,8 @@ export function Calls() {
   const [isLoadingCalls, setIsLoadingCalls] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Analytics state
-  const [analytics, setAnalytics] = useState<ClientCallAnalyticsResponse | null>(null);
+  // Analytics state - computed from calls data
+  const [analyticsCalls, setAnalyticsCalls] = useState<ClientCallListItem[]>([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   // Filter state
@@ -278,24 +268,35 @@ export function Calls() {
     searchQuery,
   ]);
 
-  const fetchAnalytics = useCallback(async () => {
+  // Fetch all calls for analytics computation (with max limit of 200)
+  const fetchAnalyticsCalls = useCallback(async () => {
     try {
       setIsLoadingAnalytics(true);
 
-      // Use filter dates or default to last 30 days
-      const dateRange = getDefaultDateRange();
-      const fromDate = startDate || dateRange.start;
-      const toDate = endDate || dateRange.end;
+      const params: ClientCallListParams = {
+        page: 1,
+        limit: 200, // API max limit is 200
+        sort_by: "created_at",
+        sort_order: "desc",
+      };
 
-      const data = await getCallAnalytics(fromDate, toDate);
-      setAnalytics(data);
+      // Only apply filters that are explicitly set by the user
+      // If no date filters are set, don't apply them - get all calls matching other filters
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (startDate) params.date_from = startDate;
+      if (endDate) params.date_to = endDate;
+      if (durationMin) params.duration_min = parseInt(durationMin);
+      if (durationMax) params.duration_max = parseInt(durationMax);
+
+      const data = await getCalls(params);
+      setAnalyticsCalls(data.items);
     } catch (err) {
-      console.error("Failed to load analytics:", err);
-      setAnalytics(null);
+      console.error("Failed to load analytics calls:", err);
+      setAnalyticsCalls([]);
     } finally {
       setIsLoadingAnalytics(false);
     }
-  }, [startDate, endDate]);
+  }, [statusFilter, startDate, endDate, durationMin, durationMax]);
 
   // ============================================================================
   // Effects
@@ -346,10 +347,9 @@ export function Calls() {
     fetchCalls();
   }, [fetchCalls]);
 
-  // Fetch analytics on mount and when date range changes
   useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchAnalyticsCalls();
+  }, [fetchAnalyticsCalls]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -376,10 +376,10 @@ export function Calls() {
         lastEscalationEventRef.current = latestEventId;
         console.log("SSE: Escalation event received, refreshing calls...");
         fetchCalls();
-        fetchAnalytics();
+        fetchAnalyticsCalls();
       }
     }
-  }, [escalations, fetchCalls, fetchAnalytics]);
+  }, [escalations, fetchCalls, fetchAnalyticsCalls]);
 
   // ============================================================================
   // Handlers
@@ -440,12 +440,86 @@ export function Calls() {
 
   const handleRefresh = () => {
     fetchCalls();
-    fetchAnalytics();
+    fetchAnalyticsCalls();
   };
 
   // ============================================================================
   // Computed Values
   // ============================================================================
+
+  // Compute analytics from calls data
+  const computeAnalytics = useCallback((): ClientCallAnalyticsResponse | null => {
+    if (analyticsCalls.length === 0) {
+      return {
+        total_calls: 0,
+        average_call_duration: 0,
+        status_breakdown: {},
+        time_of_day_distribution: [],
+        calls_by_day_of_week: [],
+        conversion_rates: { orders: 0, reservations: 0, rate: 0 },
+      };
+    }
+
+    // Total calls
+    const totalCalls = analyticsCalls.length;
+
+    // Average duration
+    const totalDuration = analyticsCalls.reduce((sum, call) => sum + call.duration_seconds, 0);
+    const avgDuration = totalCalls > 0 ? totalDuration / totalCalls : 0;
+
+    // Status breakdown
+    const statusBreakdown: Record<string, number> = {};
+    analyticsCalls.forEach((call) => {
+      statusBreakdown[call.status] = (statusBreakdown[call.status] || 0) + 1;
+    });
+
+    // Time of day distribution (using Vancouver timezone)
+    const timeOfDayMap: Record<number, number> = {};
+    analyticsCalls.forEach((call) => {
+      const date = new Date(call.started_at);
+      const { hour } = getVancouverTimeComponents(date);
+      timeOfDayMap[hour] = (timeOfDayMap[hour] || 0) + 1;
+    });
+    const timeOfDayDistribution = Object.entries(timeOfDayMap)
+      .map(([hour_bucket, count]) => ({
+        hour_bucket: parseInt(hour_bucket),
+        count,
+      }))
+      .sort((a, b) => a.hour_bucket - b.hour_bucket);
+
+    // Calls by day of week (using Vancouver timezone)
+    const dayOfWeekMap: Record<number, number> = {};
+    analyticsCalls.forEach((call) => {
+      const date = new Date(call.started_at);
+      const { dayOfWeek } = getVancouverTimeComponents(date);
+      dayOfWeekMap[dayOfWeek] = (dayOfWeekMap[dayOfWeek] || 0) + 1;
+    });
+    const callsByDayOfWeek = Object.entries(dayOfWeekMap).map(([day_of_week, count]) => ({
+      day_of_week: parseInt(day_of_week),
+      count,
+    }));
+
+    // Conversion rates (simplified - can be enhanced with order/reservation data)
+    const conversionRates = { orders: 0, reservations: 0, rate: 0 };
+
+    return {
+      total_calls: totalCalls,
+      average_call_duration: avgDuration,
+      status_breakdown: statusBreakdown,
+      time_of_day_distribution: timeOfDayDistribution,
+      calls_by_day_of_week: callsByDayOfWeek,
+      conversion_rates: conversionRates,
+    };
+  }, [analyticsCalls]);
+
+  const analytics = computeAnalytics();
+
+  // Calculate unique callers from analytics calls
+  const uniqueCallers = useMemo(() => {
+    if (analyticsCalls.length === 0) return 0;
+    const uniquePhones = new Set(analyticsCalls.map((call) => call.caller_phone));
+    return uniquePhones.size;
+  }, [analyticsCalls]);
 
   const totalPages = Math.ceil(total / limit);
   const hasActiveFilters =
@@ -506,7 +580,7 @@ export function Calls() {
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 truncate pr-2">
-              Total Calls
+              Recent Calls
             </CardTitle>
             <div className="p-1.5 sm:p-2 rounded-full bg-blue-500/10 shrink-0">
               <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
@@ -516,9 +590,14 @@ export function Calls() {
             {isLoadingAnalytics ? (
               <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">
-                {analytics?.total_calls ?? 0}
-              </div>
+              <>
+                <div className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">
+                  {analytics?.total_calls ?? 0}
+                </div>
+                <p className="text-[10px] sm:text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                  Based on current filters (max 200)
+                </p>
+              </>
             )}
           </CardContent>
         </Card>
@@ -537,7 +616,7 @@ export function Calls() {
               <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
               <div className="text-2xl sm:text-3xl font-bold text-violet-900 dark:text-violet-100">
-                {formatDuration(Math.round(analytics?.average_call_duration ?? 0))}
+                {formatDuration(analytics?.average_call_duration ?? 0)}
               </div>
             )}
           </CardContent>
@@ -546,35 +625,25 @@ export function Calls() {
         <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200/50 dark:border-emerald-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium text-emerald-700 dark:text-emerald-300 truncate pr-2">
-              Conversion Rate
+              Unique Callers
             </CardTitle>
             <div className="p-1.5 sm:p-2 rounded-full bg-emerald-500/10 shrink-0">
-              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingAnalytics ? (
               <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-bold text-emerald-900 dark:text-emerald-100">
-                {(() => {
-                  const rawRate = analytics?.conversion_rates?.rate;
-                  if (
-                    typeof rawRate !== "number" ||
-                    !Number.isFinite(rawRate) ||
-                    rawRate < 0 ||
-                    rawRate > 1
-                  ) {
-                    return "N/A";
-                  }
-                  return `${(rawRate * 100).toFixed(1)}%`;
-                })()}
-              </div>
+              <>
+                <div className="text-2xl sm:text-3xl font-bold text-emerald-900 dark:text-emerald-100">
+                  {uniqueCallers}
+                </div>
+                <p className="text-[10px] sm:text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                  Based on current filters
+                </p>
+              </>
             )}
-            <p className="text-[10px] sm:text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
-              {analytics?.conversion_rates?.orders ?? 0} orders,{" "}
-              {analytics?.conversion_rates?.reservations ?? 0} reservations
-            </p>
           </CardContent>
         </Card>
 
@@ -1250,7 +1319,7 @@ export function Calls() {
                               {new Date(entry.timestamp).toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: "America/Vancouver",
+                                timeZone: VANCOUVER_TIMEZONE,
                               })}
                             </p>
                           </div>

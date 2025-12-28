@@ -134,14 +134,28 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       case "escalation":
         {
           soundType = "escalation";
+          // Extract reason and urgency from event data
+          const reason = data?.reason as string;
+          const urgency = data?.urgency as string;
           const escalationMessages: Record<string, string> = {
             user_requested: "Customer requested human assistance",
             internal_server_error: "System error during call",
             suspected_spam: "Call flagged as potential spam",
           };
-          toast.error(`⚠️ Escalation Alert`, {
-            description: escalationMessages[subtype] || "Unknown escalation",
-            duration: 10000, // 10 seconds for important alerts
+          const baseMessage = escalationMessages[subtype] || "Unknown escalation";
+
+          // Build title with urgency if available
+          let title = "⚠️ Escalation Alert";
+          if (urgency) {
+            title = `⚠️ Escalation Alert (${urgency})`;
+          }
+
+          // Use reason as description if available, otherwise use base message
+          const description = reason || baseMessage;
+
+          toast.error(title, {
+            description: description,
+            duration: reason ? 12000 : 10000, // 12 seconds if reason is present, 10 otherwise
           });
         }
         break;
