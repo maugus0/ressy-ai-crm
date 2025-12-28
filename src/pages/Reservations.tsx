@@ -69,20 +69,13 @@ import {
   RefreshCw,
   History,
   ArrowRight,
-  Edit,
-  Trash2,
-  FileText,
 } from "lucide-react";
 import {
   vancouverDateTimeToISO,
   isWithinOpeningHours,
   getTimeFromDateTime,
 } from "@/lib/utils/timezone";
-import {
-  formatVancouverDateTimeDirect,
-  formatDateTime,
-  formatRelativeTime,
-} from "@/lib/utils/format";
+import { formatVancouverDateTimeDirect } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -103,8 +96,6 @@ import type {
   ReservationUpdateRequest,
   ReservationHistoryEntry,
   ClientRestaurant,
-  SSEEvent,
-  SSEReservationSubtype,
 } from "@/types/api.types";
 
 // ============================================================================

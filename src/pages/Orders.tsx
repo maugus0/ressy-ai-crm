@@ -86,7 +86,6 @@ import {
   DollarSign,
   History,
   ArrowRight,
-  Edit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -113,10 +112,8 @@ import type {
   ClientMenuItem,
   MenuCategoriesResponse,
   OrderHistoryEntry,
-  SSEEvent,
-  SSEOrderSubtype,
 } from "@/types/api.types";
-import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
+import { formatDateTime } from "@/lib/utils/format";
 
 // ============================================================================
 // Helper Functions
@@ -299,6 +296,7 @@ const defaultFormData: OrderFormData = {
 // ============================================================================
 
 export function Orders() {
+  const navigate = useNavigate();
   const { restaurantId } = useAuth();
 
   // Orders state
@@ -1285,8 +1283,6 @@ export function Orders() {
     </div>
   );
 
-  // ============================================================================
-  // Order Event Card Component
   // ============================================================================
   // Main Render
   // ============================================================================
