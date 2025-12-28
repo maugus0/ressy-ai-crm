@@ -70,6 +70,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { vancouverDateTimeToISO, isWithinOpeningHours } from "@/lib/utils/timezone";
+import { formatVancouverDateTimeDirect } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -182,34 +183,7 @@ const getReservationHistoryColor = (action: string) => {
 };
 
 function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) {
-  const formatDateTime = (dateTime: string) => {
-    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
-    // Format it directly without timezone conversion since it's already in Vancouver time
-    const [datePart, timePart] = dateTime.split("T");
-    if (!datePart || !timePart) {
-      return { date: "", time: "" };
-    }
-
-    // Parse the date parts
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-
-    // Format date: "Dec 28, 2025"
-    const dateStr = `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
-
-    // Format time: "7:00 PM" (12-hour format)
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const minuteStr = minute.toString().padStart(2, "0");
-    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
-
-    return {
-      date: dateStr,
-      time: timeStr,
-    };
-  };
-
-  const { date, time } = formatDateTime(entry.created_at);
+  const { date, time } = formatVancouverDateTimeDirect(entry.created_at, MONTH_NAMES);
   const formattedDate = `${date}, ${time}`;
 
   return (
@@ -720,33 +694,6 @@ export function Reservations() {
     return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  const formatDateTime = (dateTime: string) => {
-    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
-    // Format it directly without timezone conversion since it's already in Vancouver time
-    const [datePart, timePart] = dateTime.split("T");
-    if (!datePart || !timePart) {
-      return { date: "", time: "" };
-    }
-
-    // Parse the date parts
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-
-    // Format date: "Dec 28, 2025"
-    const dateStr = `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
-
-    // Format time: "7:00 PM" (12-hour format)
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const minuteStr = minute.toString().padStart(2, "0");
-    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
-
-    return {
-      date: dateStr,
-      time: timeStr,
-    };
-  };
-
   // Calculate stats
   const pendingCount = reservations.filter((r) => r.status === "pending").length;
   const confirmedCount = reservations.filter((r) => r.status === "confirmed").length;
@@ -1177,7 +1124,10 @@ export function Reservations() {
                     </TableHeader>
                     <TableBody>
                       {reservations.map((reservation) => {
-                        const { date, time } = formatDateTime(reservation.date_time);
+                        const { date, time } = formatVancouverDateTimeDirect(
+                          reservation.date_time,
+                          MONTH_NAMES
+                        );
                         return (
                           <TableRow
                             key={reservation.id}
@@ -1447,8 +1397,9 @@ export function Reservations() {
               <div>
                 <Label className="text-muted-foreground">Date & Time</Label>
                 <p className="font-medium">
-                  {formatDateTime(selectedReservation.date_time).date} at{" "}
-                  {formatDateTime(selectedReservation.date_time).time}
+                  {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
+                  at{" "}
+                  {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
                 </p>
               </div>
 
@@ -1488,15 +1439,27 @@ export function Reservations() {
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {formatDateTime(selectedReservation.created_at).date}{" "}
-                    {formatDateTime(selectedReservation.created_at).time}
+                    {
+                      formatVancouverDateTimeDirect(selectedReservation.created_at, MONTH_NAMES)
+                        .date
+                    }{" "}
+                    {
+                      formatVancouverDateTimeDirect(selectedReservation.created_at, MONTH_NAMES)
+                        .time
+                    }
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {formatDateTime(selectedReservation.updated_at).date}{" "}
-                    {formatDateTime(selectedReservation.updated_at).time}
+                    {
+                      formatVancouverDateTimeDirect(selectedReservation.updated_at, MONTH_NAMES)
+                        .date
+                    }{" "}
+                    {
+                      formatVancouverDateTimeDirect(selectedReservation.updated_at, MONTH_NAMES)
+                        .time
+                    }
                   </p>
                 </div>
               </div>
@@ -1558,8 +1521,9 @@ export function Reservations() {
                 <div className="mt-2 p-3 bg-muted rounded-lg">
                   <p className="font-medium text-sm">{selectedReservation.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatDateTime(selectedReservation.date_time).date} at{" "}
-                    {formatDateTime(selectedReservation.date_time).time}
+                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
+                    at{" "}
+                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
                   </p>
                 </div>
               )}
@@ -1586,8 +1550,9 @@ export function Reservations() {
                 <div className="mt-2 p-3 bg-muted rounded-lg">
                   <p className="font-medium text-sm">{selectedReservation.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatDateTime(selectedReservation.date_time).date} at{" "}
-                    {formatDateTime(selectedReservation.date_time).time}
+                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
+                    at{" "}
+                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
                   </p>
                 </div>
               )}

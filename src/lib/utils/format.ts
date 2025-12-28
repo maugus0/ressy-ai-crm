@@ -43,3 +43,54 @@ export const formatRelativeTime = (timestamp: string) => {
   if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 };
+
+/**
+ * Format a date/time string that's already in Vancouver local time
+ * Assumes the input is in format "YYYY-MM-DDTHH:mm:ss" (Vancouver local time, no timezone)
+ * Formats as "Dec 28, 2025" and "7:00 PM" (12-hour format)
+ * @param dateTime - Date/time string in format "YYYY-MM-DDTHH:mm:ss" (Vancouver local time)
+ * @param monthNames - Array of month abbreviations (default: English months)
+ * @returns Object with date and time strings
+ */
+export const formatVancouverDateTimeDirect = (
+  dateTime: string,
+  monthNames: readonly string[] = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ]
+) => {
+  // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+  // Format it directly without timezone conversion since it's already in Vancouver time
+  const [datePart, timePart] = dateTime.split("T");
+  if (!datePart || !timePart) {
+    return { date: "", time: "" };
+  }
+
+  // Parse the date parts
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  // Format date: "Dec 28, 2025"
+  const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+
+  // Format time: "7:00 PM" (12-hour format)
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const minuteStr = minute.toString().padStart(2, "0");
+  const timeStr = `${hour12}:${minuteStr} ${ampm}`;
+
+  return {
+    date: dateStr,
+    time: timeStr,
+  };
+};
