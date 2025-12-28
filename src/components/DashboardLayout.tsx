@@ -152,8 +152,6 @@ export function DashboardLayout() {
   };
 
   const hasEscalations = events.some((e) => e.event_type === "escalation");
-  const hasOrderEvents = events.some((e) => e.event_type === "order");
-  const hasReservationEvents = events.some((e) => e.event_type === "reservation");
 
   // Accessibility: trap focus inside mobile sidebar and lock body scroll
   useEffect(() => {
@@ -307,8 +305,6 @@ export function DashboardLayout() {
                     events={events}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
-                    hasOrderEvents={hasOrderEvents}
-                    hasReservationEvents={hasReservationEvents}
                     toggleSounds={toggleSounds}
                     clearEvents={clearEvents}
                     dismissEvent={dismissEvent}
@@ -385,8 +381,6 @@ export function DashboardLayout() {
                     events={events}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
-                    hasOrderEvents={hasOrderEvents}
-                    hasReservationEvents={hasReservationEvents}
                     toggleSounds={toggleSounds}
                     clearEvents={clearEvents}
                     dismissEvent={dismissEvent}
@@ -443,6 +437,8 @@ interface NotificationDropdownProps {
   clearEvents: () => void;
   dismissEvent: (eventId: string) => void;
   onViewEscalations: () => void;
+  onViewOrderEvents: () => void;
+  onViewReservationEvents: () => void;
   isMobile?: boolean;
 }
 
@@ -450,8 +446,6 @@ function NotificationDropdown({
   events,
   soundsEnabled,
   hasEscalations,
-  hasOrderEvents,
-  hasReservationEvents,
   toggleSounds,
   clearEvents,
   dismissEvent,
@@ -558,7 +552,7 @@ function NotificationDropdown({
         </div>
       )}
 
-      {/* Footer - View Event Pages Links */}
+      {/* Footer - View Links */}
       <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t bg-muted/30 space-y-2">
         <Button
           variant="default"
@@ -572,7 +566,7 @@ function NotificationDropdown({
           <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
           View Escalations ({events.filter((e) => e.event_type === "escalation").length})
         </Button>
-        {hasOrderEvents && (
+        {events.some((e) => e.event_type === "order") && (
           <Button
             variant="outline"
             size="sm"
@@ -583,10 +577,10 @@ function NotificationDropdown({
             }}
           >
             <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-            View Order Events ({events.filter((e) => e.event_type === "order").length})
+            Order Updates ({events.filter((e) => e.event_type === "order").length})
           </Button>
         )}
-        {hasReservationEvents && (
+        {events.some((e) => e.event_type === "reservation") && (
           <Button
             variant="outline"
             size="sm"
@@ -597,7 +591,7 @@ function NotificationDropdown({
             }}
           >
             <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-            View Reservation Events ({events.filter((e) => e.event_type === "reservation").length})
+            Reservation Updates ({events.filter((e) => e.event_type === "reservation").length})
           </Button>
         )}
       </div>
