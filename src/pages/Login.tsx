@@ -17,7 +17,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Eye, EyeOff, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -90,16 +89,18 @@ export function Login() {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
-    try {
-      if (!email || !password) {
-        setError("Email and password are required");
-        toast.error("Email and password are required");
-        return;
-      }
+    // Validate inputs before setting loading state
+    if (!email || !password) {
+      setError("Email and password are required");
+      toast.error("Email and password are required");
+      return;
+    }
 
+    setIsLoading(true);
+
+    try {
       const result = await login({ email, password });
 
       if (result.success) {
@@ -245,11 +246,6 @@ export function Login() {
                   "Sign in"
                 )}
               </Button>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
-                </div>
-              </div>
             </CardFooter>
           </form>
         </Card>

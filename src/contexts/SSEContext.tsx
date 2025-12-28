@@ -155,7 +155,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
           toast.error(title, {
             description: description,
-            duration: reason ? 12000 : 10000, // 12 seconds if reason is present, 10 otherwise
+            duration: reason && reason.trim() ? 12000 : 10000, // 12 seconds if reason is present, 10 otherwise
           });
         }
         break;

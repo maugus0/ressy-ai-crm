@@ -101,7 +101,11 @@ const formatReservationDateTime = (dateTime: string | undefined) => {
         timeZone: "America/Vancouver",
       }),
     };
-  } catch {
+  } catch (error) {
+    console.error("Failed to format reservation date/time", {
+      error,
+      dateTime,
+    });
     return { date: dateTime, time: "" };
   }
 };

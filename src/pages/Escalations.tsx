@@ -390,13 +390,13 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
                           Spam Score
                         </span>
                         <span className="text-xs font-semibold text-orange-900 dark:text-orange-100">
-                          {Math.round(spamScore * 100)}%
+                          {Math.round(Math.max(0, Math.min(1, spamScore)) * 100)}%
                         </span>
                       </div>
                       <div className="w-full bg-orange-200 dark:bg-orange-800 rounded-full h-2">
                         <div
                           className="bg-orange-600 dark:bg-orange-400 h-2 rounded-full transition-all"
-                          style={{ width: `${spamScore * 100}%` }}
+                          style={{ width: `${Math.max(0, Math.min(1, spamScore)) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -436,7 +436,10 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
             </div>
             {callId && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
-                <span className="truncate font-mono text-[10px] sm:text-xs break-all">
+                <span
+                  className="font-mono text-[10px] sm:text-xs max-w-[140px] sm:max-w-[200px] truncate"
+                  title={callId}
+                >
                   Call: {callId}
                 </span>
               </div>

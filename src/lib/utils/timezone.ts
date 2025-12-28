@@ -208,7 +208,7 @@ export const getVancouverTimeComponents = (date: Date): { hour: number; dayOfWee
   const weekday = parts.find((p) => p.type === "weekday")?.value || "";
 
   // Convert weekday name to ISO day of week (1=Monday, 7=Sunday)
-  const weekdayMap: Record<string, number> = {
+  const WEEKDAY_MAP: Record<string, number> = {
     Monday: 1,
     Tuesday: 2,
     Wednesday: 3,
@@ -217,7 +217,7 @@ export const getVancouverTimeComponents = (date: Date): { hour: number; dayOfWee
     Saturday: 6,
     Sunday: 7,
   };
-  const dayOfWeek = weekdayMap[weekday] || 1;
+  const dayOfWeek = WEEKDAY_MAP[weekday] || 1;
 
   return { hour, dayOfWeek };
 };

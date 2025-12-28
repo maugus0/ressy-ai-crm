@@ -580,7 +580,7 @@ export function Calls() {
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 truncate pr-2">
-              Recent Calls
+              Filtered Calls
             </CardTitle>
             <div className="p-1.5 sm:p-2 rounded-full bg-blue-500/10 shrink-0">
               <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />

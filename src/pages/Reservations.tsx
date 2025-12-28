@@ -69,11 +69,7 @@ import {
   History,
   ArrowRight,
 } from "lucide-react";
-import {
-  vancouverDateTimeToISO,
-  isWithinOpeningHours,
-  getTimeFromDateTime,
-} from "@/lib/utils/timezone";
+import { vancouverDateTimeToISO, isWithinOpeningHours } from "@/lib/utils/timezone";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -118,6 +114,25 @@ const defaultFormData: ReservationFormData = {
   special_request: "",
   notes: "",
 };
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
 
 // ============================================================================
 // Reservation History Item Component
@@ -180,21 +195,7 @@ function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) 
     const [hour, minute] = timePart.split(":").map(Number);
 
     // Format date: "Dec 28, 2025"
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+    const dateStr = `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
 
     // Format time: "7:00 PM" (12-hour format)
     const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
@@ -504,15 +505,40 @@ export function Reservations() {
         errors.date_time = "Please enter a valid date and time";
       } else {
         const [year, month, day] = datePart.split("-").map(Number);
-        const selectedDate = new Date(year, month - 1, day);
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        selectedDate.setHours(0, 0, 0, 0);
 
-        // For create mode, don't allow past dates
-        // For edit mode, allow past dates (for historical records)
-        if (!isEditMode && selectedDate < now) {
-          errors.date_time = "Reservation date cannot be in the past";
+        // Validate date components
+        if (
+          isNaN(year) ||
+          isNaN(month) ||
+          isNaN(day) ||
+          year < 1900 ||
+          year > 2100 ||
+          month < 1 ||
+          month > 12 ||
+          day < 1 ||
+          day > 31
+        ) {
+          errors.date_time = "Please enter a valid date";
+        } else {
+          const selectedDate = new Date(year, month - 1, day);
+          // Check if date is valid (handles cases like Feb 30)
+          if (
+            selectedDate.getFullYear() !== year ||
+            selectedDate.getMonth() !== month - 1 ||
+            selectedDate.getDate() !== day
+          ) {
+            errors.date_time = "Please enter a valid date";
+          } else {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            // For create mode, don't allow past dates
+            // For edit mode, allow past dates (for historical records)
+            if (!isEditMode && selectedDate < now) {
+              errors.date_time = "Reservation date cannot be in the past";
+            }
+          }
         }
 
         // Validate opening hours if restaurant is selected
@@ -707,21 +733,7 @@ export function Reservations() {
     const [hour, minute] = timePart.split(":").map(Number);
 
     // Format date: "Dec 28, 2025"
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+    const dateStr = `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
 
     // Format time: "7:00 PM" (12-hour format)
     const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;

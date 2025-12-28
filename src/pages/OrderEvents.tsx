@@ -86,7 +86,10 @@ const formatRelativeTime = (timestamp: string) => {
 const formatCurrency = (amount: number | string | undefined) => {
   if (amount === undefined || amount === null) return "N/A";
   const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(numAmount)) return "N/A";
+  if (isNaN(numAmount)) {
+    console.warn("Invalid amount value in formatCurrency:", amount);
+    return "N/A";
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",

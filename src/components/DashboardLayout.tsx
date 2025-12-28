@@ -346,7 +346,7 @@ export function DashboardLayout() {
           <div className="flex items-center gap-3">
             {/* Connection Status Indicator */}
             <div
-              className="flex items-center"
+              className="flex items-center gap-2"
               title={isConnected ? "Live updates connected" : "Live updates disconnected"}
             >
               {isConnected ? (
@@ -354,6 +354,9 @@ export function DashboardLayout() {
               ) : (
                 <WifiOff className="h-4 w-4 text-destructive" />
               )}
+              <span className="hidden lg:inline text-sm text-muted-foreground">
+                {isConnected ? "Live" : "Offline"}
+              </span>
             </div>
 
             {/* Notifications Bell (Desktop) */}
@@ -557,20 +560,18 @@ function NotificationDropdown({
 
       {/* Footer - View Event Pages Links */}
       <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t bg-muted/30 space-y-2">
-        {hasEscalations && (
-          <Button
-            variant="default"
-            size="sm"
-            className="w-full text-xs sm:text-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewEscalations();
-            }}
-          >
-            <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-            View Escalations ({events.filter((e) => e.event_type === "escalation").length})
-          </Button>
-        )}
+        <Button
+          variant="default"
+          size="sm"
+          className="w-full text-xs sm:text-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewEscalations();
+          }}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+          View Escalations ({events.filter((e) => e.event_type === "escalation").length})
+        </Button>
         {hasOrderEvents && (
           <Button
             variant="outline"
