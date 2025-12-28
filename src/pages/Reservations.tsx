@@ -69,7 +69,11 @@ import {
   History,
   ArrowRight,
 } from "lucide-react";
-import { vancouverDateTimeToISO, isWithinOpeningHours } from "@/lib/utils/timezone";
+import {
+  vancouverDateTimeToISO,
+  isWithinOpeningHours,
+  getTimeFromDateTime,
+} from "@/lib/utils/timezone";
 import { formatVancouverDateTimeDirect } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -82,6 +86,7 @@ import {
   finalizeReservation,
   cancelReservation,
 } from "@/services/reservations";
+import { getRestaurant } from "@/services/restaurant";
 import type {
   Reservation,
   ReservationWithHistory,
@@ -89,6 +94,7 @@ import type {
   ReservationCreateRequest,
   ReservationUpdateRequest,
   ReservationHistoryEntry,
+  ClientRestaurant,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -259,6 +265,27 @@ export function Reservations() {
   // Date range validation
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
+  // Restaurant data state
+  const [restaurant, setRestaurant] = useState<ClientRestaurant | null>(null);
+  const [isLoadingRestaurant, setIsLoadingRestaurant] = useState(false);
+
+  // ============================================================================
+  // Fetch Restaurant Data
+  // ============================================================================
+
+  const fetchRestaurant = useCallback(async () => {
+    try {
+      setIsLoadingRestaurant(true);
+      const data = await getRestaurant();
+      setRestaurant(data);
+    } catch (err) {
+      console.error("Failed to fetch restaurant data:", err);
+      // Don't show error toast - just log it, validation will be skipped if restaurant data isn't available
+    } finally {
+      setIsLoadingRestaurant(false);
+    }
+  }, []);
+
   // ============================================================================
   // Fetch Reservations
   // ============================================================================
@@ -335,6 +362,11 @@ export function Reservations() {
   // ============================================================================
   // Effects
   // ============================================================================
+
+  // Fetch restaurant data on mount
+  useEffect(() => {
+    fetchRestaurant();
+  }, [fetchRestaurant]);
 
   // Debounce search query
   useEffect(() => {
@@ -515,9 +547,24 @@ export function Reservations() {
           }
         }
 
-        // Validate opening hours if restaurant is selected
-        // Note: This would need restaurant data to check actual opening hours
-        // For now, we skip this validation as restaurant data isn't available in this context
+        // Validate opening hours if restaurant data is available
+        if (restaurant?.opening_time && restaurant?.closing_time) {
+          const reservationTime = getTimeFromDateTime(formData.date_time);
+          if (
+            !isWithinOpeningHours(reservationTime, restaurant.opening_time, restaurant.closing_time)
+          ) {
+            // Format opening and closing times for error message
+            const formatTime = (timeStr: string) => {
+              const [hours, minutes] = timeStr.split(":");
+              const hour = parseInt(hours, 10);
+              const minute = parseInt(minutes, 10);
+              const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+              const ampm = hour >= 12 ? "PM" : "AM";
+              return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+            };
+            errors.date_time = `Reservation time must be within opening hours (${formatTime(restaurant.opening_time)} - ${formatTime(restaurant.closing_time)})`;
+          }
+        }
       }
     }
 
