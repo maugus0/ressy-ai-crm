@@ -35,6 +35,8 @@ import {
   Bug,
   ShieldAlert,
   RefreshCw,
+  Info,
+  Zap,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
 import type { SSEEvent, SSEEventSubtype } from "@/types/api.types";
@@ -287,10 +289,25 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
   const { date, time } = formatDateTime(escalation.timestamp);
   const relativeTime = formatRelativeTime(escalation.timestamp);
 
-  // Extract data from event
+  // Extract all data from event
   const callerPhone = escalation.data?.caller_phone as string;
   const callId = escalation.data?.call_id as string;
   const summary = escalation.data?.summary as string;
+  const reason = escalation.data?.reason as string;
+  const urgency = escalation.data?.urgency as string;
+  const errorMessage = escalation.data?.error_message as string;
+  const errorCode = escalation.data?.error_code as string;
+  const spamScore = escalation.data?.spam_score as number;
+  const indicators = escalation.data?.indicators as string[];
+
+  // Get urgency badge variant
+  const getUrgencyVariant = (urgency?: string) => {
+    if (!urgency) return "secondary";
+    const lower = urgency.toLowerCase();
+    if (lower === "urgent" || lower === "critical") return "destructive";
+    if (lower === "high") return "default";
+    return "secondary";
+  };
 
   return (
     <div className="border rounded-lg p-3 sm:p-4 hover:bg-muted/30 transition-colors group">
@@ -304,7 +321,14 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 sm:gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm sm:text-base leading-tight">{info.title}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-sm sm:text-base leading-tight">{info.title}</h3>
+                {urgency && (
+                  <Badge variant={getUrgencyVariant(urgency)} className="text-[10px] sm:text-xs">
+                    {urgency}
+                  </Badge>
+                )}
+              </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                 {info.description}
               </p>
@@ -319,6 +343,81 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
               <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </div>
+
+          {/* Reason - Prominently displayed */}
+          {reason && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
+                  {reason}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Error Details */}
+          {(errorMessage || errorCode) && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  {errorCode && (
+                    <p className="text-xs font-mono font-semibold text-red-900 dark:text-red-100 mb-1">
+                      {errorCode}
+                    </p>
+                  )}
+                  {errorMessage && (
+                    <p className="text-xs sm:text-sm text-red-900 dark:text-red-100 leading-relaxed">
+                      {errorMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Spam Details */}
+          {(spamScore !== undefined || (indicators && indicators.length > 0)) && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  {spamScore !== undefined && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-orange-900 dark:text-orange-100">
+                          Spam Score
+                        </span>
+                        <span className="text-xs font-semibold text-orange-900 dark:text-orange-100">
+                          {Math.round(Math.max(0, Math.min(1, spamScore)) * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-orange-200 dark:bg-orange-800 rounded-full h-2">
+                        <div
+                          className="bg-orange-600 dark:bg-orange-400 h-2 rounded-full transition-all"
+                          style={{ width: `${Math.max(0, Math.min(1, spamScore)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {indicators && indicators.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {indicators.map((indicator, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="text-[10px] border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-100"
+                        >
+                          {indicator.replace(/_/g, " ")}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Details Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
@@ -337,8 +436,11 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
             </div>
             {callId && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
-                <span className="truncate font-mono text-[10px] sm:text-xs">
-                  Call: {callId.slice(0, 8)}...
+                <span
+                  className="font-mono text-[10px] sm:text-xs max-w-[140px] sm:max-w-[200px] truncate"
+                  title={callId}
+                >
+                  Call: {callId}
                 </span>
               </div>
             )}
