@@ -76,7 +76,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const escalationCount = escalations.length;
 
   return (
-    <div className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col shadow-lg overflow-hidden">
+    <div className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col shadow-lg border-r border-sidebar-border overflow-hidden">
       {/* Logo */}
       <div className="p-6 flex items-center justify-center flex-shrink-0">
         <img

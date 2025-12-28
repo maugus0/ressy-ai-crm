@@ -78,8 +78,8 @@ import {
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0:00";
-  // Truncate to whole seconds to avoid decimal places
-  const wholeSeconds = Math.floor(seconds);
+  // Round to whole seconds for more accurate display
+  const wholeSeconds = Math.round(seconds);
   const mins = Math.floor(wholeSeconds / 60);
   const secs = wholeSeconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;

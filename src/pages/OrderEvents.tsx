@@ -40,6 +40,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
+import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 import type { SSEEvent, SSEOrderSubtype } from "@/types/api.types";
 
 // ============================================================================
@@ -51,37 +52,6 @@ type OrderEventFilter = "all" | SSEOrderSubtype;
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-const formatDateTime = (timestamp: string) => {
-  const date = new Date(timestamp);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Vancouver",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Vancouver",
-    }),
-  };
-};
-
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = new Date(timestamp);
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-};
 
 const formatCurrency = (amount: number | string | undefined) => {
   if (amount === undefined || amount === null) return "N/A";

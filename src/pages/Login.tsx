@@ -227,6 +227,10 @@ export function Login() {
                       }}
                     />
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This check will reset automatically after 30 seconds of inactivity or when you
+                    successfully sign in.
+                  </p>
                 </div>
               )}
             </CardContent>
