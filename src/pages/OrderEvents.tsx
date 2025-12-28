@@ -1,5 +1,5 @@
 /**
- * Order Events Page
+ * Order Updates Page
  * Displays order SSE events for the Client Dashboard
  *
  * Features:
@@ -29,6 +29,7 @@ import {
   Mail,
   Clock,
   ChevronRight,
+  ChevronLeft,
   Trash2,
   Filter,
   X,
@@ -129,7 +130,7 @@ export function OrderEvents() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg md:text-xl">Order Events</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-xl">Order Updates</CardTitle>
               {orderEvents.length > 0 && (
                 <Badge variant="secondary" className="hidden sm:inline-flex text-xs">
                   {orderEvents.length} total
@@ -148,6 +149,16 @@ export function OrderEvents() {
             </div>
 
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+              {/* Back Button */}
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard/orders")}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back to Orders</span>
+                <span className="sm:hidden">Back</span>
+              </Button>
               {/* Filter */}
               <Select value={filter} onValueChange={(v) => setFilter(v as OrderEventFilter)}>
                 <SelectTrigger className="w-full sm:w-[200px] h-9 sm:h-10">

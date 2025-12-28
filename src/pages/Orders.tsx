@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +86,7 @@ import {
   DollarSign,
   History,
   ArrowRight,
+  Edit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,29 +113,14 @@ import type {
   ClientMenuItem,
   MenuCategoriesResponse,
   OrderHistoryEntry,
+  SSEEvent,
+  SSEOrderSubtype,
 } from "@/types/api.types";
+import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-const formatDateTime = (dateTime: string) => {
-  // Format in Vancouver timezone
-  const date = new Date(dateTime);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Vancouver",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Vancouver",
-    }),
-  };
-};
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("en-US", {
@@ -1299,6 +1286,8 @@ export function Orders() {
   );
 
   // ============================================================================
+  // Order Event Card Component
+  // ============================================================================
   // Main Render
   // ============================================================================
 
@@ -1324,6 +1313,16 @@ export function Orders() {
           <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
           <p className="text-muted-foreground">Manage orders for your restaurant</p>
         </div>
+        {orderEvents.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => navigate("/dashboard/order-events")}
+            className="flex items-center gap-2"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Order Updates ({orderEvents.length})
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}

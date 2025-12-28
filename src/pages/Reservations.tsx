@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,13 +69,20 @@ import {
   RefreshCw,
   History,
   ArrowRight,
+  Edit,
+  Trash2,
+  FileText,
 } from "lucide-react";
 import {
   vancouverDateTimeToISO,
   isWithinOpeningHours,
   getTimeFromDateTime,
 } from "@/lib/utils/timezone";
-import { formatVancouverDateTimeDirect } from "@/lib/utils/format";
+import {
+  formatVancouverDateTimeDirect,
+  formatDateTime,
+  formatRelativeTime,
+} from "@/lib/utils/format";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -95,6 +103,8 @@ import type {
   ReservationUpdateRequest,
   ReservationHistoryEntry,
   ClientRestaurant,
+  SSEEvent,
+  SSEReservationSubtype,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -224,6 +234,7 @@ function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) 
 // ============================================================================
 
 export function Reservations() {
+  const navigate = useNavigate();
   const { restaurantId } = useAuth();
 
   // Reservations state
@@ -334,10 +345,10 @@ export function Reservations() {
         const query = debouncedSearchQuery.toLowerCase().trim();
         filteredReservations = filteredReservations.filter((reservation) => {
           return (
-            reservation.name.toLowerCase().includes(query) ||
-            reservation.phone_number.includes(query) ||
-            reservation.email?.toLowerCase().includes(query) ||
-            reservation.confirmation_number.toLowerCase().includes(query)
+            reservation.name?.toLowerCase()?.includes(query) ||
+            reservation.phone_number?.includes(query) ||
+            reservation.email?.toLowerCase()?.includes(query) ||
+            reservation.confirmation_number?.toLowerCase()?.includes(query)
           );
         });
         filteredTotal = filteredReservations.length;
@@ -958,6 +969,16 @@ export function Reservations() {
           <p className="text-muted-foreground">Manage your restaurant's reservations</p>
         </div>
         <div className="flex items-center gap-2">
+          {reservationEvents.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard/reservation-events")}
+              className="flex items-center gap-2"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Reservation Updates ({reservationEvents.length})
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"

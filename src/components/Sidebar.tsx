@@ -16,8 +16,6 @@ import {
   Settings,
   LogOut,
   AlertTriangle,
-  Receipt,
-  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,19 +32,7 @@ const menuItems = [
     icon: CalendarDays,
     path: "/dashboard/reservations",
   },
-  {
-    id: "reservation-events",
-    label: "Reservation Events",
-    icon: CalendarCheck,
-    path: "/dashboard/reservation-events",
-  },
   { id: "orders", label: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
-  {
-    id: "order-events",
-    label: "Order Events",
-    icon: Receipt,
-    path: "/dashboard/order-events",
-  },
   { id: "menu", label: "Menu", icon: UtensilsCrossed, path: "/dashboard/menu" },
   { id: "faqs", label: "FAQs", icon: HelpCircle, path: "/dashboard/faqs" },
   {

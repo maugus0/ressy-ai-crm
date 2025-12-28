@@ -29,6 +29,7 @@ import {
   Mail,
   Clock,
   ChevronRight,
+  ChevronLeft,
   Trash2,
   Filter,
   X,
@@ -53,8 +54,10 @@ type ReservationEventFilter = "all" | SSEReservationSubtype;
 // Helper Functions
 // ============================================================================
 
-const formatReservationDateTime = (dateTime: string | undefined) => {
-  if (!dateTime) return "N/A";
+const formatReservationDateTime = (
+  dateTime: string | undefined
+): { date: string; time: string } => {
+  if (!dateTime) return { date: "N/A", time: "" };
   try {
     const date = new Date(dateTime);
     return {
@@ -145,7 +148,7 @@ export function ReservationEvents() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg md:text-xl">Reservation Events</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-xl">Reservation Updates</CardTitle>
               {reservationEvents.length > 0 && (
                 <Badge variant="secondary" className="hidden sm:inline-flex text-xs">
                   {reservationEvents.length} total
@@ -164,6 +167,16 @@ export function ReservationEvents() {
             </div>
 
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+              {/* Back Button */}
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard/reservations")}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back to Reservations</span>
+                <span className="sm:hidden">Back</span>
+              </Button>
               {/* Filter */}
               <Select value={filter} onValueChange={(v) => setFilter(v as ReservationEventFilter)}>
                 <SelectTrigger className="w-full sm:w-[200px] h-9 sm:h-10">
