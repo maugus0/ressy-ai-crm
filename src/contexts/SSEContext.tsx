@@ -25,12 +25,14 @@ import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
 import type { SSEEvent } from "@/types/api.types";
 import {
-  playNotificationSound,
   initializeAudio,
   areSoundsEnabled,
   setSoundsEnabled,
+  startLoopingSound,
+  stopLoopingSound,
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
+import { getAccessToken } from "@/lib/api/client";
 
 // ============================================================================
 // Types
@@ -86,6 +88,8 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const currentTokenRef = useRef<string | null>(null);
+  const tokenCheckIntervalRef = useRef<number | null>(null);
 
   // Initialize audio context on mount (for user interaction)
   useEffect(() => {
@@ -111,8 +115,8 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    */
   const showNotification = useCallback((event: SSEEvent) => {
     const { event_type, subtype, data } = event;
+    const toastId = `${event_type}-${event.id || Date.now()}`;
 
-    // Get restaurant info (for Client Dashboard, this is always their own restaurant)
     const getDescription = () => {
       if (event_type === "order" && data?.customer_name) {
         return `Customer: ${data.customer_name}`;
@@ -127,14 +131,17 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       return undefined;
     };
 
-    // Determine sound type based on event
+    const dismissToast = () => {
+      stopLoopingSound(toastId);
+      toast.dismiss(toastId);
+    };
+
     let soundType: NotificationEventType = "generic";
 
     switch (event_type) {
       case "escalation":
         {
           soundType = "escalation";
-          // Extract reason and urgency from event data
           const reason = data?.reason as string;
           const urgency = data?.urgency as string;
           const escalationMessages: Record<string, string> = {
@@ -144,18 +151,21 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           };
           const baseMessage = escalationMessages[subtype] || "Unknown escalation";
 
-          // Build title with urgency if available
           let title = "⚠️ Escalation Alert";
           if (urgency) {
             title = `⚠️ Escalation Alert (${urgency})`;
           }
 
-          // Use reason as description if available, otherwise use base message
           const description = reason || baseMessage;
 
           toast.error(title, {
+            id: toastId,
             description: description,
-            duration: reason && reason.trim() ? 12000 : 10000, // 12 seconds if reason is present, 10 otherwise
+            duration: Infinity,
+            action: {
+              label: "Okay",
+              onClick: dismissToast,
+            },
           });
         }
         break;
@@ -171,8 +181,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           const config = orderMessages[subtype];
           if (config) {
             toast.info(`${config.icon} ${config.title}`, {
+              id: toastId,
               description: getDescription(),
-              duration: 5000,
+              duration: Infinity,
+              action: {
+                label: "Okay",
+                onClick: dismissToast,
+              },
             });
           }
         }
@@ -189,8 +204,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           const config = reservationMessages[subtype];
           if (config) {
             toast.info(`${config.icon} ${config.title}`, {
+              id: toastId,
               description: getDescription(),
-              duration: 5000,
+              duration: Infinity,
+              action: {
+                label: "Okay",
+                onClick: dismissToast,
+              },
             });
           }
         }
@@ -200,8 +220,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         break;
     }
 
-    // Play notification sound
-    playNotificationSound(soundType);
+    startLoopingSound(toastId, soundType);
   }, []);
 
   /**
@@ -229,11 +248,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       disconnectFromSSE(eventSourceRef.current);
     }
 
+    const token = getAccessToken();
+    currentTokenRef.current = token;
+
     const eventSource = connectToSSE({
       onEvent: handleEvent,
       onOpen: () => {
         setIsConnected(true);
-        // Clear reconnect timeout if connection succeeds
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
@@ -242,7 +263,6 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       onError: () => {
         setIsConnected(false);
 
-        // Schedule reconnection (EventSource has built-in reconnection, but we add extra handling)
         if (!reconnectTimeoutRef.current) {
           reconnectTimeoutRef.current = window.setTimeout(() => {
             reconnectTimeoutRef.current = null;
@@ -264,11 +284,24 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isAuthenticated && user) {
       connect();
+
+      tokenCheckIntervalRef.current = window.setInterval(() => {
+        const newToken = getAccessToken();
+        if (newToken && newToken !== currentTokenRef.current) {
+          console.log("SSE: Token changed, reconnecting...");
+          connect();
+        }
+      }, 5000);
     } else {
       if (eventSourceRef.current) {
         disconnectFromSSE(eventSourceRef.current);
         eventSourceRef.current = null;
       }
+      if (tokenCheckIntervalRef.current) {
+        clearInterval(tokenCheckIntervalRef.current);
+        tokenCheckIntervalRef.current = null;
+      }
+      currentTokenRef.current = null;
       setIsConnected(false);
       setEvents([]);
       setUnreadCount(0);
@@ -282,6 +315,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
+      }
+      if (tokenCheckIntervalRef.current) {
+        clearInterval(tokenCheckIntervalRef.current);
+        tokenCheckIntervalRef.current = null;
       }
     };
   }, [isAuthenticated, user, connect]);

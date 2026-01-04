@@ -223,6 +223,70 @@ export const playNotificationSound = (eventType: NotificationEventType): void =>
   }
 };
 
+// ============================================================================
+// Looping Sound for Persistent Notifications
+// ============================================================================
+
+const activeSoundLoops = new Map<string, number>();
+
+const getSoundPlayer = (eventType: NotificationEventType): (() => void) => {
+  switch (eventType) {
+    case "order":
+      return playOrderSound;
+    case "reservation":
+      return playReservationSound;
+    case "escalation":
+      return playEscalationSound;
+    default:
+      return playGenericSound;
+  }
+};
+
+const getSoundInterval = (eventType: NotificationEventType): number => {
+  switch (eventType) {
+    case "escalation":
+      return 3000;
+    case "order":
+      return 2500;
+    case "reservation":
+      return 2500;
+    default:
+      return 2000;
+  }
+};
+
+export const startLoopingSound = (id: string, eventType: NotificationEventType): void => {
+  if (!areSoundsEnabled()) return;
+  
+  if (activeSoundLoops.has(id)) return;
+
+  const soundPlayer = getSoundPlayer(eventType);
+  const interval = getSoundInterval(eventType);
+
+  soundPlayer();
+
+  const intervalId = window.setInterval(() => {
+    if (areSoundsEnabled()) {
+      soundPlayer();
+    }
+  }, interval);
+
+  activeSoundLoops.set(id, intervalId);
+};
+
+export const stopLoopingSound = (id: string): void => {
+  const intervalId = activeSoundLoops.get(id);
+  if (intervalId !== undefined) {
+    clearInterval(intervalId);
+    activeSoundLoops.delete(id);
+  }
+};
+
+export const stopAllLoopingSounds = (): void => {
+  activeSoundLoops.forEach((intervalId) => clearInterval(intervalId));
+  activeSoundLoops.clear();
+};
+
 /**
  * Initialize audio context on first user interaction
  * Call this on any user interaction to enable sounds
