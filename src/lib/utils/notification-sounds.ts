@@ -257,7 +257,7 @@ const getSoundInterval = (eventType: NotificationEventType): number => {
 
 export const startLoopingSound = (id: string, eventType: NotificationEventType): void => {
   if (!areSoundsEnabled()) return;
-  
+
   if (activeSoundLoops.has(id)) return;
 
   const soundPlayer = getSoundPlayer(eventType);
