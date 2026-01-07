@@ -32,7 +32,7 @@ import {
   stopLoopingSound,
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
-import { getAccessToken } from "@/lib/api/client";
+import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
 
 // ============================================================================
 // Types
@@ -88,8 +88,6 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
-  const currentTokenRef = useRef<string | null>(null);
-  const tokenCheckIntervalRef = useRef<number | null>(null);
 
   // Initialize audio context on mount (for user interaction)
   useEffect(() => {
@@ -136,6 +134,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       toast.dismiss(toastId);
     };
 
+    const navigateAndDismiss = (path: string) => {
+      dismissToast();
+      window.location.href = path;
+    };
+
     let soundType: NotificationEventType = "generic";
 
     switch (event_type) {
@@ -163,7 +166,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             description: description,
             duration: Infinity,
             action: {
-              label: "Okay",
+              label: "View",
+              onClick: () => navigateAndDismiss("/dashboard/escalations"),
+            },
+            cancel: {
+              label: "Dismiss",
               onClick: dismissToast,
             },
           });
@@ -185,7 +192,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               description: getDescription(),
               duration: Infinity,
               action: {
-                label: "Okay",
+                label: "View",
+                onClick: () => navigateAndDismiss("/dashboard/orders"),
+              },
+              cancel: {
+                label: "Dismiss",
                 onClick: dismissToast,
               },
             });
@@ -208,7 +219,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               description: getDescription(),
               duration: Infinity,
               action: {
-                label: "Okay",
+                label: "View",
+                onClick: () => navigateAndDismiss("/dashboard/reservations"),
+              },
+              cancel: {
+                label: "Dismiss",
                 onClick: dismissToast,
               },
             });
@@ -248,9 +263,6 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       disconnectFromSSE(eventSourceRef.current);
     }
 
-    const token = getAccessToken();
-    currentTokenRef.current = token;
-
     const eventSource = connectToSSE({
       onEvent: handleEvent,
       onOpen: () => {
@@ -285,42 +297,34 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     if (isAuthenticated && user) {
       connect();
 
-      tokenCheckIntervalRef.current = window.setInterval(() => {
-        const newToken = getAccessToken();
-        if (newToken && newToken !== currentTokenRef.current) {
-          console.log("SSE: Token changed, reconnecting...");
-          connect();
+      // Listen for token refresh events instead of polling
+      const handleTokenRefresh = () => {
+        console.log("SSE: Token refreshed, reconnecting...");
+        connect();
+      };
+
+      window.addEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+
+      return () => {
+        window.removeEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+        if (eventSourceRef.current) {
+          disconnectFromSSE(eventSourceRef.current);
+          eventSourceRef.current = null;
         }
-      }, 5000);
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      };
     } else {
       if (eventSourceRef.current) {
         disconnectFromSSE(eventSourceRef.current);
         eventSourceRef.current = null;
       }
-      if (tokenCheckIntervalRef.current) {
-        clearInterval(tokenCheckIntervalRef.current);
-        tokenCheckIntervalRef.current = null;
-      }
-      currentTokenRef.current = null;
       setIsConnected(false);
       setEvents([]);
       setUnreadCount(0);
     }
-
-    return () => {
-      if (eventSourceRef.current) {
-        disconnectFromSSE(eventSourceRef.current);
-        eventSourceRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (tokenCheckIntervalRef.current) {
-        clearInterval(tokenCheckIntervalRef.current);
-        tokenCheckIntervalRef.current = null;
-      }
-    };
   }, [isAuthenticated, user, connect]);
 
   /**

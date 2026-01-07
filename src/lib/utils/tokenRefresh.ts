@@ -15,6 +15,18 @@ import type {
 // Storage key for auth data - exported for use in client.ts
 export const STORAGE_KEY = "ressy_auth_data";
 
+// Custom event name for token refresh notifications
+export const TOKEN_REFRESHED_EVENT = "ressy:token_refreshed";
+
+/**
+ * Dispatch event when token is refreshed
+ * This allows other parts of the app (like SSE) to react to token changes
+ * without polling
+ */
+export const notifyTokenRefreshed = (): void => {
+  window.dispatchEvent(new CustomEvent(TOKEN_REFRESHED_EVENT));
+};
+
 // Local storage helpers to avoid circular dependency with client.ts
 const getStoredAuthDataLocal = (): StoredAuthData | null => {
   try {
@@ -87,6 +99,9 @@ export const refreshTokenDirect = async (): Promise<{
     };
 
     setStoredAuthDataLocal(updatedAuthData);
+
+    // Notify listeners that the token has been refreshed
+    notifyTokenRefreshed();
 
     // Build user object from stored auth data
     const user: AuthUser = {
