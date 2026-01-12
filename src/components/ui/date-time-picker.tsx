@@ -1,7 +1,7 @@
 /**
  * DateTimePicker Component
  * A combined date and time picker using Calendar and time input
- * Uses Vancouver timezone for proper local time display
+ * Uses local timezone for display
  */
 
 import * as React from "react";

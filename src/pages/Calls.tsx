@@ -59,7 +59,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSSE } from "@/contexts/SSEContext";
-import { getVancouverTimeComponents, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
+import {
+  formatLocalDateTimeParts,
+  getVancouverTimeComponents,
+  parseApiDate,
+} from "@/lib/utils/timezone";
 import {
   getCalls,
   getCallDetails,
@@ -86,21 +90,7 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDateTime = (dateTime: string) => {
-  // Format in Vancouver timezone
-  const date = new Date(dateTime);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: VANCOUVER_TIMEZONE,
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: VANCOUVER_TIMEZONE,
-    }),
-  };
+  return formatLocalDateTimeParts(dateTime);
 };
 
 const getStatusColor = (status: string) => {
@@ -476,7 +466,8 @@ export function Calls() {
     // Time of day distribution (using Vancouver timezone)
     const timeOfDayMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
-      const date = new Date(call.started_at);
+      const date = parseApiDate(call.started_at);
+      if (!date) return;
       const { hour } = getVancouverTimeComponents(date);
       timeOfDayMap[hour] = (timeOfDayMap[hour] || 0) + 1;
     });
@@ -490,7 +481,8 @@ export function Calls() {
     // Calls by day of week (using Vancouver timezone)
     const dayOfWeekMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
-      const date = new Date(call.started_at);
+      const date = parseApiDate(call.started_at);
+      if (!date) return;
       const { dayOfWeek } = getVancouverTimeComponents(date);
       dayOfWeekMap[dayOfWeek] = (dayOfWeekMap[dayOfWeek] || 0) + 1;
     });
@@ -1316,10 +1308,9 @@ export function Calls() {
                               <p className="whitespace-pre-wrap">{entry.content}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(entry.timestamp).toLocaleTimeString("en-US", {
+                              {parseApiDate(entry.timestamp)?.toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: VANCOUVER_TIMEZONE,
                               })}
                             </p>
                           </div>

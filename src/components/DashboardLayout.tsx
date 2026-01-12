@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { parseApiDate } from "@/lib/utils/timezone";
 import type { SSEEvent } from "@/types/api.types";
 
 // ============================================================================
@@ -37,7 +38,8 @@ import type { SSEEvent } from "@/types/api.types";
 // Format relative time for notifications
 const formatRelativeTime = (timestamp: string) => {
   const now = new Date();
-  const eventTime = new Date(timestamp);
+  const eventTime = parseApiDate(timestamp);
+  if (!eventTime) return "";
   const diffMs = now.getTime() - eventTime.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);

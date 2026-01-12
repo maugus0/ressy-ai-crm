@@ -71,11 +71,13 @@ import {
   ArrowRight,
 } from "lucide-react";
 import {
-  vancouverDateTimeToISO,
+  datetimeLocalToUtcIso,
+  formatLocalDateTimeInput,
+  formatLocalDateTimeParts,
   isWithinOpeningHours,
   getTimeFromDateTime,
+  parseApiDate,
 } from "@/lib/utils/timezone";
-import { formatVancouverDateTimeDirect } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -127,21 +129,6 @@ const defaultFormData: ReservationFormData = {
 // Constants
 // ============================================================================
 
-const MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
 // ============================================================================
 // Reservation History Item Component
 // ============================================================================
@@ -190,7 +177,7 @@ const getReservationHistoryColor = (action: string) => {
 };
 
 function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) {
-  const { date, time } = formatVancouverDateTimeDirect(entry.created_at, MONTH_NAMES);
+  const { date, time } = formatLocalDateTimeParts(entry.created_at);
   const formattedDate = `${date}, ${time}`;
 
   return (
@@ -317,14 +304,14 @@ export function Reservations() {
         params.status = statusFilter as ReservationStatus;
       }
       if (startDate) {
-        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to UTC ISO
         const startDateTimeLocal = `${startDate}T00:00`;
-        params.start_date = vancouverDateTimeToISO(startDateTimeLocal);
+        params.start_date = datetimeLocalToUtcIso(startDateTimeLocal);
       }
       if (endDate) {
-        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO in Vancouver timezone
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to UTC ISO
         const endDateTimeLocal = `${endDate}T23:59`;
-        params.end_date = vancouverDateTimeToISO(endDateTimeLocal);
+        params.end_date = datetimeLocalToUtcIso(endDateTimeLocal);
       }
 
       const data = await getReservations(restaurantId, params);
@@ -452,18 +439,9 @@ export function Reservations() {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation({ ...reservation, history: [] } as ReservationWithHistory);
-    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
-    // Convert to datetime-local format (YYYY-MM-DDTHH:mm) by extracting parts directly
     let dateTimeLocal = "";
     if (reservation.date_time) {
-      // The API string is already in Vancouver time, extract date/time parts directly
-      // Format: "2025-12-28T19:00:00" -> "2025-12-28T19:00"
-      const [datePart, timePart] = reservation.date_time.split("T");
-      if (datePart && timePart) {
-        // Extract just HH:mm from HH:mm:ss
-        const [hour, minute] = timePart.split(":");
-        dateTimeLocal = `${datePart}T${hour}:${minute}`;
-      }
+      dateTimeLocal = formatLocalDateTimeInput(reservation.date_time);
     }
     setFormData({
       date_time: dateTimeLocal,
@@ -634,9 +612,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
-      // Convert Vancouver local time to ISO string
+      // Convert local time to UTC ISO string
       const payload: ReservationCreateRequest = {
-        date_time: vancouverDateTimeToISO(formData.date_time),
+        date_time: datetimeLocalToUtcIso(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
@@ -664,9 +642,9 @@ export function Reservations() {
 
     try {
       setIsSubmitting(true);
-      // Convert Vancouver local time to ISO string
+      // Convert local time to UTC ISO string
       const payload: ReservationUpdateRequest = {
-        date_time: vancouverDateTimeToISO(formData.date_time),
+        date_time: datetimeLocalToUtcIso(formData.date_time),
         party_size: parseInt(formData.party_size, 10),
         ...(formData.special_request.trim()
           ? { special_request: formData.special_request.trim() }
@@ -749,7 +727,8 @@ export function Reservations() {
   const todaysGuests = reservations
     .filter((r) => {
       const today = new Date().toDateString();
-      return new Date(r.date_time).toDateString() === today && r.status !== "cancelled";
+      const date = parseApiDate(r.date_time);
+      return date?.toDateString() === today && r.status !== "cancelled";
     })
     .reduce((sum, r) => sum + r.party_size, 0);
 
@@ -1183,10 +1162,7 @@ export function Reservations() {
                     </TableHeader>
                     <TableBody>
                       {reservations.map((reservation) => {
-                        const { date, time } = formatVancouverDateTimeDirect(
-                          reservation.date_time,
-                          MONTH_NAMES
-                        );
+                        const { date, time } = formatLocalDateTimeParts(reservation.date_time);
                         return (
                           <TableRow
                             key={reservation.id}
@@ -1456,9 +1432,8 @@ export function Reservations() {
               <div>
                 <Label className="text-muted-foreground">Date & Time</Label>
                 <p className="font-medium">
-                  {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
-                  at{" "}
-                  {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
+                  {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
+                  {formatLocalDateTimeParts(selectedReservation.date_time).time}
                 </p>
               </div>
 
@@ -1498,27 +1473,15 @@ export function Reservations() {
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {
-                      formatVancouverDateTimeDirect(selectedReservation.created_at, MONTH_NAMES)
-                        .date
-                    }{" "}
-                    {
-                      formatVancouverDateTimeDirect(selectedReservation.created_at, MONTH_NAMES)
-                        .time
-                    }
+                    {formatLocalDateTimeParts(selectedReservation.created_at).date}{" "}
+                    {formatLocalDateTimeParts(selectedReservation.created_at).time}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {
-                      formatVancouverDateTimeDirect(selectedReservation.updated_at, MONTH_NAMES)
-                        .date
-                    }{" "}
-                    {
-                      formatVancouverDateTimeDirect(selectedReservation.updated_at, MONTH_NAMES)
-                        .time
-                    }
+                    {formatLocalDateTimeParts(selectedReservation.updated_at).date}{" "}
+                    {formatLocalDateTimeParts(selectedReservation.updated_at).time}
                   </p>
                 </div>
               </div>
@@ -1580,9 +1543,8 @@ export function Reservations() {
                 <div className="mt-2 p-3 bg-muted rounded-lg">
                   <p className="font-medium text-sm">{selectedReservation.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
-                    at{" "}
-                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
+                    {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
+                    {formatLocalDateTimeParts(selectedReservation.date_time).time}
                   </p>
                 </div>
               )}
@@ -1609,9 +1571,8 @@ export function Reservations() {
                 <div className="mt-2 p-3 bg-muted rounded-lg">
                   <p className="font-medium text-sm">{selectedReservation.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).date}{" "}
-                    at{" "}
-                    {formatVancouverDateTimeDirect(selectedReservation.date_time, MONTH_NAMES).time}
+                    {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
+                    {formatLocalDateTimeParts(selectedReservation.date_time).time}
                   </p>
                 </div>
               )}

@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
 import { formatTimeForApi, formatTimeForInput } from "@/lib/utils/time";
+import { formatLocalDateTime, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
 import type { ClientRestaurant, ClientRestaurantUpdateRequest } from "@/types/api.types";
 
 // Phone number validation regex (E.164 format)
@@ -301,6 +302,10 @@ export function Settings() {
     );
   }
 
+  const forwardEscalationsEnabled = originalData?.forward_escalations ?? false;
+  const escalationPhoneNumber = originalData?.escalation_phone_number ?? "";
+  const restaurantTimezone = originalData?.timezone || VANCOUVER_TIMEZONE;
+
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Page Header */}
@@ -437,7 +442,7 @@ export function Settings() {
           {formData.twilio_phone_number && (
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="twilio_phone" className="text-xs sm:text-sm">
-                Twilio Phone Number{" "}
+                RessyAI Phone Number{" "}
                 <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
               </Label>
               <div className="relative">
@@ -455,6 +460,37 @@ export function Settings() {
               </p>
             </div>
           )}
+
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="forward_escalations" className="text-xs sm:text-sm">
+              Forward Escalations{" "}
+              <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
+            </Label>
+            <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg border bg-muted/30">
+              <span className="text-[10px] sm:text-xs text-muted-foreground">
+                {forwardEscalationsEnabled ? "Enabled" : "Disabled"}
+              </span>
+              <Switch id="forward_escalations" checked={forwardEscalationsEnabled} disabled />
+            </div>
+          </div>
+
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="escalation_phone" className="text-xs sm:text-sm">
+              Escalation Phone Number{" "}
+              <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
+            </Label>
+            <div className="relative">
+              <Phone className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+              <Input
+                id="escalation_phone"
+                value={escalationPhoneNumber}
+                placeholder="Not set"
+                readOnly
+                disabled
+                className="pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm bg-muted cursor-not-allowed"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -501,6 +537,22 @@ export function Settings() {
                 <p className="text-[10px] sm:text-xs text-destructive">{formErrors.closing_time}</p>
               )}
             </div>
+          </div>
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="restaurant_timezone" className="text-xs sm:text-sm">
+              Restaurant Timezone{" "}
+              <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
+            </Label>
+            <Input
+              id="restaurant_timezone"
+              value={restaurantTimezone}
+              readOnly
+              disabled
+              className="h-9 sm:h-10 text-xs sm:text-sm bg-muted cursor-not-allowed"
+            />
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
+              Timezone for your restaurant. Contact support to change it.
+            </p>
           </div>
           {formData.opening_time && formData.closing_time && (
             <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-green-50 border border-green-200">
@@ -624,8 +676,7 @@ export function Settings() {
       {originalData && (
         <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
           Last updated:{" "}
-          {new Date(originalData.updated_at).toLocaleString("en-US", {
-            timeZone: "America/Vancouver",
+          {formatLocalDateTime(originalData.updated_at, {
             dateStyle: "medium",
             timeStyle: "short",
           })}

@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
+import { formatLocalDateTimeParts, parseApiDate } from "@/lib/utils/timezone";
 import type { SSEEvent, SSEReservationSubtype } from "@/types/api.types";
 
 // ============================================================================
@@ -59,21 +60,17 @@ const formatReservationDateTime = (
 ): { date: string; time: string } => {
   if (!dateTime) return { date: "N/A", time: "" };
   try {
-    const date = new Date(dateTime);
-    return {
-      date: date.toLocaleDateString("en-US", {
+    const date = parseApiDate(dateTime);
+    if (!date) return { date: dateTime, time: "" };
+    const parts = formatLocalDateTimeParts(dateTime, {
+      date: {
         weekday: "short",
         month: "short",
         day: "numeric",
         year: "numeric",
-        timeZone: "America/Vancouver",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "America/Vancouver",
-      }),
-    };
+      },
+    });
+    return parts;
   } catch (error) {
     console.error("Failed to format reservation date/time", {
       error,

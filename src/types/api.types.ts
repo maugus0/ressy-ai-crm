@@ -47,6 +47,8 @@ export interface ClientRestaurant {
   address: string;
   phone_number: string;
   twilio_phone_number: string | null;
+  forward_escalations: boolean | null;
+  escalation_phone_number: string | null;
   /** Forward minutes for reservation booking window */
   forward_minutes: number;
   /** Backward minutes for cancellation window */
@@ -57,6 +59,8 @@ export interface ClientRestaurant {
   opening_time: string | null;
   /** Closing time in HH:MM:SS format */
   closing_time: string | null;
+  /** Restaurant timezone (IANA name) */
+  timezone: string | null;
   created_at: string;
   updated_at: string;
   // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
