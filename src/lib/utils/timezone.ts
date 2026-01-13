@@ -8,7 +8,7 @@ export const VANCOUVER_TIMEZONE = "America/Vancouver";
 
 /**
  * Normalize API timestamps.
- * If no timezone info is present, treat as UTC by appending "Z".
+ * Backend now returns UTC timestamps with a trailing "Z"; keep a fallback for older/naive values.
  */
 export const normalizeApiTimestamp = (value: string): string => {
   let normalized = value.trim();
@@ -26,6 +26,7 @@ export const normalizeApiTimestamp = (value: string): string => {
   return normalized;
 };
 
+// API timestamps are UTC; parse via normalized ISO so local display stays accurate.
 export const parseApiDate = (value: string): Date | null => {
   const normalized = normalizeApiTimestamp(value);
   if (!normalized) return null;
@@ -300,5 +301,16 @@ export const getVancouverTimeComponents = (date: Date): { hour: number; dayOfWee
   };
   const dayOfWeek = WEEKDAY_MAP[weekday] || 1;
 
+  return { hour, dayOfWeek };
+};
+
+/**
+ * Get local time components (hour and day of week) from a date.
+ * Returns hour (0-23) and dayOfWeek (1=Monday, 7=Sunday) in ISO format.
+ */
+export const getLocalTimeComponents = (date: Date): { hour: number; dayOfWeek: number } => {
+  const hour = date.getHours();
+  const day = date.getDay();
+  const dayOfWeek = ((day + 6) % 7) + 1;
   return { hour, dayOfWeek };
 };
