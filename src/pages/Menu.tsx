@@ -89,6 +89,7 @@ import {
   validateCSVFileSize,
   MAX_CSV_FILE_SIZE,
 } from "@/lib/utils/csv";
+import { formatLocalDate } from "@/lib/utils/timezone";
 import type {
   ClientMenuItem,
   ClientMenuItemCreateRequest,
@@ -603,15 +604,12 @@ export function Menu() {
     return Object.keys(categories.categories).sort();
   };
 
-  const formatDate = (dateStr: string) => {
-    // Format in Vancouver timezone
-    return new Date(dateStr).toLocaleDateString("en-US", {
+  const formatDate = (dateStr: string) =>
+    formatLocalDate(dateStr, {
       month: "short",
       day: "numeric",
       year: "numeric",
-      timeZone: "America/Vancouver",
     });
-  };
 
   // ============================================================================
   // Render Form

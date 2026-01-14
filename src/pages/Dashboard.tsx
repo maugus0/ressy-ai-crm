@@ -58,6 +58,7 @@ import {
 } from "@/services/analytics";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { parseApiDate } from "@/lib/utils/timezone";
 
 // ============================================================================
 // Stat Card Component
@@ -279,23 +280,19 @@ export function Dashboard() {
   // Format timestamp to readable format
   const formatTimestamp = (timestamp: string) => {
     try {
-      const date = new Date(timestamp);
+      const date = parseApiDate(timestamp);
+      if (!date) return timestamp;
       const now = new Date();
-      // Compare dates in Vancouver timezone
-      const dateInVancouver = date.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
-      const nowInVancouver = now.toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
-      const isToday = dateInVancouver === nowInVancouver;
+      const isToday = date.toDateString() === now.toDateString();
       if (isToday) {
         return date.toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
-          timeZone: "America/Vancouver",
         });
       }
       return date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-        timeZone: "America/Vancouver",
       });
     } catch {
       return timestamp;
