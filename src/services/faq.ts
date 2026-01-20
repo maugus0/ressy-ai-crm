@@ -25,7 +25,17 @@ import type {
  * Get paginated list of FAQs for the authenticated restaurant
  */
 export async function getFAQs(params?: FAQListParams): Promise<ClientFAQListResponse> {
-  const response = await api.get<ClientFAQListResponse>(ENDPOINTS.FAQ.LIST, { params });
+  // Build query string
+  const queryParams = new URLSearchParams();
+
+  if (params?.page) queryParams.append("page", params.page.toString());
+  if (params?.limit) queryParams.append("limit", params.limit.toString());
+  if (params?.search) queryParams.append("search", params.search);
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `${ENDPOINTS.FAQ.LIST}?${queryString}` : ENDPOINTS.FAQ.LIST;
+
+  const response = await api.get<ClientFAQListResponse>(endpoint);
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch FAQs");
   }
