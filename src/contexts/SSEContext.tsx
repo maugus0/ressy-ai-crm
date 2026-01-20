@@ -30,6 +30,7 @@ import {
   setSoundsEnabled,
   startLoopingSound,
   stopLoopingSound,
+  stopAllLoopingSounds,
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
 import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
@@ -140,6 +141,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     };
 
     let soundType: NotificationEventType = "generic";
+    let toastShown = false;
 
     switch (event_type) {
       case "escalation":
@@ -174,6 +176,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               onClick: dismissToast,
             },
           });
+          toastShown = true;
         }
         break;
 
@@ -200,6 +203,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
                 onClick: dismissToast,
               },
             });
+            toastShown = true;
           }
         }
         break;
@@ -227,6 +231,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
                 onClick: dismissToast,
               },
             });
+            toastShown = true;
           }
         }
         break;
@@ -235,7 +240,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         break;
     }
 
-    startLoopingSound(toastId, soundType);
+    // Only start looping sound if a toast was actually shown
+    // This prevents orphaned sound loops for unrecognized event types
+    if (toastShown) {
+      startLoopingSound(toastId, soundType);
+    }
   }, []);
 
   /**
@@ -315,6 +324,8 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
         }
+        // Stop all active sound loops on unmount to prevent orphaned sounds
+        stopAllLoopingSounds();
       };
     } else {
       if (eventSourceRef.current) {
@@ -324,6 +335,8 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       setIsConnected(false);
       setEvents([]);
       setUnreadCount(0);
+      // Stop all active sound loops when disconnecting
+      stopAllLoopingSounds();
     }
   }, [isAuthenticated, user, connect]);
 
