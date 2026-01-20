@@ -153,6 +153,25 @@ export function DashboardLayout() {
     navigate("/dashboard/reservation-events");
   };
 
+  const handleNotificationClick = (event: SSEEvent) => {
+    setIsNotificationsOpen(false);
+    // Navigate to the appropriate page based on event type
+    switch (event.event_type) {
+      case "escalation":
+        navigate("/dashboard/escalations");
+        break;
+      case "order":
+        navigate("/dashboard/orders");
+        break;
+      case "reservation":
+        navigate("/dashboard/reservations");
+        break;
+      default:
+        // For unknown event types, do nothing
+        break;
+    }
+  };
+
   const hasEscalations = events.some((e) => e.event_type === "escalation");
 
   // Accessibility: trap focus inside mobile sidebar and lock body scroll
@@ -313,6 +332,7 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onNotificationClick={handleNotificationClick}
                     isMobile={true}
                   />
                 </PopoverContent>
@@ -389,6 +409,7 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onNotificationClick={handleNotificationClick}
                     isMobile={false}
                   />
                 </PopoverContent>
@@ -441,6 +462,7 @@ interface NotificationDropdownProps {
   onViewEscalations: () => void;
   onViewOrderEvents: () => void;
   onViewReservationEvents: () => void;
+  onNotificationClick?: (event: SSEEvent) => void;
   isMobile?: boolean;
 }
 
@@ -454,6 +476,7 @@ function NotificationDropdown({
   onViewEscalations,
   onViewOrderEvents,
   onViewReservationEvents,
+  onNotificationClick,
   isMobile = false,
 }: NotificationDropdownProps) {
   return (
@@ -509,9 +532,14 @@ function NotificationDropdown({
             {events.map((event) => (
               <div
                 key={event.id}
-                className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors ${
+                className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                   event.event_type === "escalation" ? "bg-destructive/5" : ""
                 }`}
+                onClick={() => {
+                  if (onNotificationClick) {
+                    onNotificationClick(event);
+                  }
+                }}
               >
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>

@@ -344,6 +344,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    * Clear all events
    */
   const clearEvents = useCallback(() => {
+    // Stop all active sound loops
+    stopAllLoopingSounds();
+    // Dismiss all toasts
+    toast.dismiss();
+    // Clear events and reset unread count
     setEvents([]);
     setUnreadCount(0);
   }, []);
@@ -359,7 +364,20 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    * Dismiss a specific event
    */
   const dismissEvent = useCallback((eventId: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setEvents((prev) => {
+      // Find the event being dismissed to get its type for toast/sound cleanup
+      const eventToDismiss = prev.find((e) => e.id === eventId);
+      if (eventToDismiss) {
+        // Construct the same toastId format used in showNotification
+        const toastId = `${eventToDismiss.event_type}-${eventToDismiss.id || Date.now()}`;
+        // Stop the sound loop for this specific notification
+        stopLoopingSound(toastId);
+        // Dismiss the toast
+        toast.dismiss(toastId);
+      }
+      // Remove the event from the list
+      return prev.filter((e) => e.id !== eventId);
+    });
   }, []);
 
   /**
