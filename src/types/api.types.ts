@@ -61,10 +61,10 @@ export interface ClientRestaurant {
   closing_time: string | null;
   /** Restaurant timezone (IANA name) */
   timezone: string | null;
-  /** Maximum seating capacity for the restaurant */
-  reservation_seating_capacity: number;
-  /** How many days in advance reservations can be made */
-  reservation_advance_days: number;
+  /** Maximum seating capacity for the restaurant (null if not configured) */
+  reservation_seating_capacity: number | null;
+  /** How many days in advance reservations can be made (null if not configured) */
+  reservation_advance_days: number | null;
   created_at: string;
   updated_at: string;
   // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
