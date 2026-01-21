@@ -50,6 +50,8 @@ interface SSEContextType {
   isConnected: boolean;
   /** Number of unread notifications */
   unreadCount: number;
+  /** Set of event IDs that have been read (clicked) */
+  readEventIds: Set<string>;
   /** Whether notification sounds are enabled */
   soundsEnabled: boolean;
   /** Toggle notification sounds on/off */
@@ -58,6 +60,8 @@ interface SSEContextType {
   clearEvents: () => void;
   /** Mark all as read (reset unread count) */
   markAsRead: () => void;
+  /** Mark a specific event as read */
+  markEventAsRead: (eventId: string) => void;
   /** Dismiss a specific event */
   dismissEvent: (eventId: string) => void;
   /** Stop sound for a specific event without dismissing it */
@@ -102,6 +106,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [readEventIds, setReadEventIds] = useState<Set<string>>(new Set());
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -195,6 +200,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Connect to SSE stream
    * Using refs to avoid dependency on handleEvent which changes frequently
+   * This function is stable (empty dependency array) so it won't cause unnecessary reconnections
    */
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -228,17 +234,24 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     eventSourceRef.current = eventSource;
   }, []);
 
+  // Store connect in a ref to avoid including it in useEffect dependencies
+  // Since connect is stable (empty deps), we can safely reference it via ref
+  const connectRef = useRef(connect);
+  connectRef.current = connect;
+
   /**
    * Connect when authenticated, disconnect when not
+   * Note: connect is intentionally excluded from dependencies since it's stable
+   * and uses refs internally to access the latest handleEvent and isAuthenticated
    */
   useEffect(() => {
     if (isAuthenticated && user) {
-      connect();
+      connectRef.current();
 
       // Listen for token refresh events instead of polling
       const handleTokenRefresh = () => {
         console.log("SSE: Token refreshed, reconnecting...");
-        connect();
+        connectRef.current();
       };
 
       window.addEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
@@ -264,10 +277,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       setIsConnected(false);
       setEvents([]);
       setUnreadCount(0);
+      setReadEventIds(new Set());
       // Stop all active sound loops when disconnecting
       stopAllLoopingSounds();
     }
-  }, [isAuthenticated, user, connect]);
+  }, [isAuthenticated, user]);
 
   /**
    * Clear all events
@@ -278,6 +292,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     // Clear events and reset unread count
     setEvents([]);
     setUnreadCount(0);
+    setReadEventIds(new Set());
   }, []);
 
   /**
@@ -285,6 +300,28 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    */
   const markAsRead = useCallback(() => {
     setUnreadCount(0);
+    setReadEventIds((prev) => {
+      const newSet = new Set(prev);
+      events.forEach((event) => {
+        if (event.id) {
+          newSet.add(event.id);
+        }
+      });
+      return newSet;
+    });
+  }, [events]);
+
+  /**
+   * Mark a specific event as read
+   */
+  const markEventAsRead = useCallback((eventId: string) => {
+    setReadEventIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(eventId);
+      return newSet;
+    });
+    // Decrement unread count if this event was unread
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   }, []);
 
   /**
@@ -346,10 +383,12 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         reservationEvents,
         isConnected,
         unreadCount,
+        readEventIds,
         soundsEnabled,
         toggleSounds: toggleSoundsHandler,
         clearEvents,
         markAsRead,
+        markEventAsRead,
         dismissEvent,
         stopEventSound,
       }}
