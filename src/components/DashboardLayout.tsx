@@ -117,6 +117,7 @@ export function DashboardLayout() {
     markAsRead,
     dismissEvent,
     clearEvents,
+    stopEventSound,
   } = useSSE();
 
   const companyName = restaurantName || "Your Restaurant";
@@ -155,6 +156,8 @@ export function DashboardLayout() {
 
   const handleNotificationClick = (event: SSEEvent) => {
     setIsNotificationsOpen(false);
+    // Stop the sound for this notification (but keep it in the panel)
+    stopEventSound(event.id);
     // Navigate to the appropriate page based on event type
     switch (event.event_type) {
       case "escalation":

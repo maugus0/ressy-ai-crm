@@ -5,7 +5,6 @@
  *
  * Features:
  * - Real-time event streaming for orders, reservations, and escalations
- * - Toast notifications for incoming events
  * - Audio notifications (respects user preferences)
  * - Automatic reconnection on connection loss
  * - Event storage for notification dropdown
@@ -20,10 +19,8 @@ import {
   useRef,
   ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
 import { connectToSSE, disconnectFromSSE } from "@/services/sse";
 import { useAuth } from "./AuthContext";
-import { toast } from "sonner";
 import type { SSEEvent } from "@/types/api.types";
 import {
   initializeAudio,
@@ -63,6 +60,8 @@ interface SSEContextType {
   markAsRead: () => void;
   /** Dismiss a specific event */
   dismissEvent: (eventId: string) => void;
+  /** Stop sound for a specific event without dismissing it */
+  stopEventSound: (eventId: string) => void;
 }
 
 // ============================================================================
@@ -84,7 +83,6 @@ const RECONNECT_DELAY = 5000; // 5 seconds
 
 export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
-  const navigate = useNavigate();
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -112,145 +110,46 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   /**
-   * Show toast notification based on event type and play appropriate sound
+   * Play notification sound based on event type
+   * Sound loops until notification is clicked or cleared from the panel
    */
-  const showNotification = useCallback(
-    (event: SSEEvent) => {
-      const { event_type, subtype, data } = event;
-      const toastId = `${event_type}-${event.id || Date.now()}`;
+  const playEventSound = useCallback((event: SSEEvent) => {
+    const { event_type, subtype } = event;
+    const soundId = `${event_type}-${event.id || Date.now()}`;
 
-      const getDescription = () => {
-        if (event_type === "order" && data?.customer_name) {
-          return `Customer: ${data.customer_name}`;
-        }
-        if (event_type === "reservation" && data?.customer_name) {
-          const partySize = data.party_size ? ` (Party of ${data.party_size})` : "";
-          return `${data.customer_name}${partySize}`;
-        }
-        if (event_type === "escalation" && data?.caller_phone) {
-          return `Caller: ${data.caller_phone}`;
-        }
-        return undefined;
-      };
+    let soundType: NotificationEventType = "generic";
+    let shouldPlaySound = false;
 
-      const dismissToast = () => {
-        stopLoopingSound(toastId);
-        toast.dismiss(toastId);
-      };
+    switch (event_type) {
+      case "escalation":
+        soundType = "escalation";
+        shouldPlaySound = true;
+        break;
 
-      const navigateAndDismiss = (path: string) => {
-        dismissToast();
-        navigate(path);
-      };
+      case "order":
+        soundType = "order";
+        // Only play for recognized order subtypes
+        shouldPlaySound = ["new_order", "order_updated", "order_cancelled"].includes(subtype);
+        break;
 
-      let soundType: NotificationEventType = "generic";
-      let toastShown = false;
+      case "reservation":
+        soundType = "reservation";
+        // Only play for recognized reservation subtypes
+        shouldPlaySound = [
+          "new_reservation",
+          "reservation_updated",
+          "reservation_cancelled",
+        ].includes(subtype);
+        break;
 
-      switch (event_type) {
-        case "escalation":
-          {
-            soundType = "escalation";
-            const reason = data?.reason as string;
-            const urgency = data?.urgency as string;
-            const escalationMessages: Record<string, string> = {
-              user_requested: "Customer requested human assistance",
-              internal_server_error: "System error during call",
-              suspected_spam: "Call flagged as potential spam",
-            };
-            const baseMessage = escalationMessages[subtype] || "Unknown escalation";
+      default:
+        break;
+    }
 
-            let title = "⚠️ Escalation Alert";
-            if (urgency) {
-              title = `⚠️ Escalation Alert (${urgency})`;
-            }
-
-            const description = reason || baseMessage;
-
-            toast.error(title, {
-              id: toastId,
-              description: description,
-              duration: Infinity,
-              action: {
-                label: "View",
-                onClick: () => navigateAndDismiss("/dashboard/escalations"),
-              },
-              cancel: {
-                label: "Dismiss",
-                onClick: dismissToast,
-              },
-            });
-            toastShown = true;
-          }
-          break;
-
-        case "order":
-          {
-            soundType = "order";
-            const orderMessages: Record<string, { icon: string; title: string }> = {
-              new_order: { icon: "🛍️", title: "New Order" },
-              order_updated: { icon: "📝", title: "Order Updated" },
-              order_cancelled: { icon: "❌", title: "Order Cancelled" },
-            };
-            const config = orderMessages[subtype];
-            if (config) {
-              toast.info(`${config.icon} ${config.title}`, {
-                id: toastId,
-                description: getDescription(),
-                duration: Infinity,
-                action: {
-                  label: "View",
-                  onClick: () => navigateAndDismiss("/dashboard/orders"),
-                },
-                cancel: {
-                  label: "Dismiss",
-                  onClick: dismissToast,
-                },
-              });
-              toastShown = true;
-            }
-          }
-          break;
-
-        case "reservation":
-          {
-            soundType = "reservation";
-            const reservationMessages: Record<string, { icon: string; title: string }> = {
-              new_reservation: { icon: "📅", title: "New Reservation" },
-              reservation_updated: { icon: "📝", title: "Reservation Updated" },
-              reservation_cancelled: { icon: "❌", title: "Reservation Cancelled" },
-            };
-            const config = reservationMessages[subtype];
-            if (config) {
-              toast.info(`${config.icon} ${config.title}`, {
-                id: toastId,
-                description: getDescription(),
-                duration: Infinity,
-                action: {
-                  label: "View",
-                  onClick: () => navigateAndDismiss("/dashboard/reservations"),
-                },
-                cancel: {
-                  label: "Dismiss",
-                  onClick: dismissToast,
-                },
-              });
-              toastShown = true;
-            }
-          }
-          break;
-
-        default:
-          break;
-      }
-
-      // Only start looping sound if a toast was actually shown
-      // This prevents orphaned sound loops for unrecognized event types
-      if (toastShown) {
-        startLoopingSound(toastId, soundType);
-      }
-    },
-    [navigate]
-  );
+    if (shouldPlaySound) {
+      startLoopingSound(soundId, soundType);
+    }
+  }, []);
 
   /**
    * Handle incoming SSE event
@@ -263,10 +162,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       // Increment unread count
       setUnreadCount((prev) => prev + 1);
 
-      // Show toast notification
-      showNotification(event);
+      // Play notification sound (loops until dismissed)
+      playEventSound(event);
     },
-    [showNotification]
+    [playEventSound]
   );
 
   /**
@@ -351,8 +250,6 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const clearEvents = useCallback(() => {
     // Stop all active sound loops
     stopAllLoopingSounds();
-    // Dismiss all toasts
-    toast.dismiss();
     // Clear events and reset unread count
     setEvents([]);
     setUnreadCount(0);
@@ -366,20 +263,35 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   /**
+   * Stop sound for a specific event without dismissing it
+   */
+  const stopEventSound = useCallback((eventId: string) => {
+    // Find the event to get its type for sound cleanup
+    setEvents((prev) => {
+      const event = prev.find((e) => e.id === eventId);
+      if (event && event.id) {
+        // Construct the same soundId format used in playEventSound
+        const soundId = `${event.event_type}-${event.id}`;
+        // Stop the sound loop for this specific notification
+        stopLoopingSound(soundId);
+      }
+      // Return events unchanged (don't remove the event)
+      return prev;
+    });
+  }, []);
+
+  /**
    * Dismiss a specific event
    */
   const dismissEvent = useCallback((eventId: string) => {
     setEvents((prev) => {
-      // Find the event being dismissed to get its type for toast/sound cleanup
+      // Find the event being dismissed to get its type for sound cleanup
       const eventToDismiss = prev.find((e) => e.id === eventId);
       if (eventToDismiss && eventToDismiss.id) {
-        // Only perform toast/sound cleanup when we have a stable event id
-        // Construct the same toastId format used in showNotification
-        const toastId = `${eventToDismiss.event_type}-${eventToDismiss.id}`;
+        // Construct the same soundId format used in playEventSound
+        const soundId = `${eventToDismiss.event_type}-${eventToDismiss.id}`;
         // Stop the sound loop for this specific notification
-        stopLoopingSound(toastId);
-        // Dismiss the toast
-        toast.dismiss(toastId);
+        stopLoopingSound(soundId);
       }
       // Remove the event from the list
       return prev.filter((e) => e.id !== eventId);
@@ -414,6 +326,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         clearEvents,
         markAsRead,
         dismissEvent,
+        stopEventSound,
       }}
     >
       {children}
