@@ -81,20 +81,19 @@ const SSEContext = createContext<SSEContextType | undefined>(undefined);
 const MAX_EVENTS = 100; // Keep last 100 events in memory
 const RECONNECT_DELAY = 5000; // 5 seconds
 
-// Counter for generating unique fallback IDs when event.id is missing
-let eventIdCounter = 0;
-
 /**
  * Generate a consistent sound ID for an event
- * Uses event.id if available, otherwise generates a unique fallback ID
+ * Uses event.id if available, otherwise uses timestamp + event_type for stability
+ * This ensures the same event always gets the same sound ID, even without an ID field
  */
 const getSoundId = (event: SSEEvent): string => {
   // If event has an id, use it for consistent sound tracking
   if (event.id) {
     return `${event.event_type}-${event.id}`;
   }
-  // Fallback: generate a unique ID (this shouldn't happen with proper backend)
-  return `${event.event_type}-fallback-${++eventIdCounter}`;
+  // Fallback: use timestamp + event_type as a stable identifier
+  // This ensures the same event object always gets the same sound ID
+  return `${event.event_type}-fallback-${event.timestamp}`;
 };
 
 // ============================================================================
@@ -316,12 +315,18 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    */
   const markEventAsRead = useCallback((eventId: string) => {
     setReadEventIds((prev) => {
+      // Check if event was already read before adding it
+      const wasAlreadyRead = prev.has(eventId);
       const newSet = new Set(prev);
       newSet.add(eventId);
+
+      // Only decrement unread count if this event was not already read
+      if (!wasAlreadyRead) {
+        setUnreadCount((count) => Math.max(0, count - 1));
+      }
+
       return newSet;
     });
-    // Decrement unread count if this event was unread
-    setUnreadCount((prev) => Math.max(0, prev - 1));
   }, []);
 
   /**
