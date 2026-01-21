@@ -13,6 +13,7 @@ import type { StoredAuthData } from "@/types/auth.types";
 
 interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
+  params?: Record<string, string | number | boolean | undefined>;
 }
 
 interface ApiResponse<T> {
@@ -68,7 +69,7 @@ export async function apiRequest<T>(
   endpoint: string,
   config: RequestConfig = {}
 ): Promise<ApiResponse<T>> {
-  const { skipAuth = false, headers = {}, ...restConfig } = config;
+  const { skipAuth = false, headers = {}, params, ...restConfig } = config;
 
   // Build headers
   const requestHeaders: HeadersInit = {
@@ -86,7 +87,21 @@ export async function apiRequest<T>(
   }
 
   try {
-    const url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
+    // Build URL with query parameters if provided
+    let url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
+
+    if (params) {
+      const queryParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      }
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += (url.includes("?") ? "&" : "?") + queryString;
+      }
+    }
 
     let response = await fetch(url, {
       ...restConfig,
@@ -199,6 +214,33 @@ export const api = {
   delete: <T>(endpoint: string, config?: RequestConfig) =>
     apiRequest<T>(endpoint, { ...config, method: "DELETE" }),
 };
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Build a query string from a params object.
+ *
+ * Note: This function intentionally duplicates the query string logic from apiRequest.
+ * It exists for special cases where the standard api methods cannot be used, such as:
+ * - Blob/file downloads that require direct fetch with custom Accept headers
+ * - External URLs that bypass the API client
+ *
+ * For standard API calls, prefer using the `params` option in api.get/post/etc.
+ */
+export function buildQueryString(
+  params?: Record<string, string | number | boolean | undefined>
+): string {
+  if (!params) return "";
+  const queryParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, String(value));
+    }
+  }
+  return queryParams.toString();
+}
 
 // ============================================================================
 // Export Types

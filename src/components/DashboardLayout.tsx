@@ -20,6 +20,8 @@ import {
   WifiOff,
   Volume2,
   VolumeX,
+  Circle,
+  CheckCircle2,
 } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,12 +113,15 @@ export function DashboardLayout() {
   const {
     events,
     unreadCount,
+    readEventIds,
     isConnected,
     soundsEnabled,
     toggleSounds,
     markAsRead,
+    markEventAsRead,
     dismissEvent,
     clearEvents,
+    stopEventSound,
   } = useSSE();
 
   const companyName = restaurantName || "Your Restaurant";
@@ -128,14 +133,8 @@ export function DashboardLayout() {
 
   const handleNotificationsOpen = (open: boolean) => {
     setIsNotificationsOpen(open);
-    // Delay markAsRead to avoid interfering with popover open state
-    if (open) {
-      // Use setTimeout to ensure popover is fully open before marking as read
-      // This prevents state updates from closing the popover immediately
-      setTimeout(() => {
-        markAsRead();
-      }, 300);
-    }
+    // Note: We don't mark notifications as read when opening the panel
+    // They are only marked as read when individually clicked
   };
 
   const handleViewEscalations = () => {
@@ -151,6 +150,29 @@ export function DashboardLayout() {
   const handleViewReservationEvents = () => {
     setIsNotificationsOpen(false);
     navigate("/dashboard/reservation-events");
+  };
+
+  const handleNotificationClick = (event: SSEEvent) => {
+    setIsNotificationsOpen(false);
+    // Stop the sound for this notification (but keep it in the panel)
+    stopEventSound(event.id);
+    // Mark the event as read
+    markEventAsRead(event.id);
+    // Navigate to the appropriate page based on event type
+    switch (event.event_type) {
+      case "escalation":
+        navigate("/dashboard/escalations");
+        break;
+      case "order":
+        navigate("/dashboard/orders");
+        break;
+      case "reservation":
+        navigate("/dashboard/reservations");
+        break;
+      default:
+        // For unknown event types, do nothing
+        break;
+    }
   };
 
   const hasEscalations = events.some((e) => e.event_type === "escalation");
@@ -305,6 +327,7 @@ export function DashboardLayout() {
                 >
                   <NotificationDropdown
                     events={events}
+                    readEventIds={readEventIds}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
                     toggleSounds={toggleSounds}
@@ -313,6 +336,7 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onNotificationClick={handleNotificationClick}
                     isMobile={true}
                   />
                 </PopoverContent>
@@ -381,6 +405,7 @@ export function DashboardLayout() {
                 <PopoverContent className="w-96 p-0" align="end" sideOffset={8}>
                   <NotificationDropdown
                     events={events}
+                    readEventIds={readEventIds}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
                     toggleSounds={toggleSounds}
@@ -389,6 +414,7 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onNotificationClick={handleNotificationClick}
                     isMobile={false}
                   />
                 </PopoverContent>
@@ -433,6 +459,7 @@ export function DashboardLayout() {
 
 interface NotificationDropdownProps {
   events: SSEEvent[];
+  readEventIds: Set<string>;
   soundsEnabled: boolean;
   hasEscalations: boolean;
   toggleSounds: () => void;
@@ -441,11 +468,13 @@ interface NotificationDropdownProps {
   onViewEscalations: () => void;
   onViewOrderEvents: () => void;
   onViewReservationEvents: () => void;
+  onNotificationClick?: (event: SSEEvent) => void;
   isMobile?: boolean;
 }
 
 function NotificationDropdown({
   events,
+  readEventIds,
   soundsEnabled,
   hasEscalations,
   toggleSounds,
@@ -454,6 +483,7 @@ function NotificationDropdown({
   onViewEscalations,
   onViewOrderEvents,
   onViewReservationEvents,
+  onNotificationClick,
   isMobile = false,
 }: NotificationDropdownProps) {
   return (
@@ -506,44 +536,59 @@ function NotificationDropdown({
       {events.length > 0 ? (
         <ScrollArea className={isMobile ? "h-[calc(100vh-200px)] max-h-[500px]" : "h-[350px]"}>
           <div className="divide-y">
-            {events.map((event) => (
-              <div
-                key={event.id}
-                className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors ${
-                  event.event_type === "escalation" ? "bg-destructive/5" : ""
-                }`}
-              >
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs sm:text-sm font-medium break-words">
-                        {getEventTitle(event)}
+            {events.map((event) => {
+              const isRead = event.id ? readEventIds.has(event.id) : false;
+              return (
+                <div
+                  key={event.id}
+                  className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+                    event.event_type === "escalation" ? "bg-destructive/5" : ""
+                  } ${isRead ? "opacity-75" : ""}`}
+                  onClick={() => {
+                    if (onNotificationClick) {
+                      onNotificationClick(event);
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-medium break-words">
+                            {getEventTitle(event)}
+                          </p>
+                          {isRead ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                          ) : (
+                            <Circle className="h-3.5 w-3.5 text-primary flex-shrink-0 fill-primary" />
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100 mt-0.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dismissEvent(event.id);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {getEventDescription(event) && (
+                        <p className="text-xs text-muted-foreground break-words mt-0.5">
+                          {getEventDescription(event)}
+                        </p>
+                      )}
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                        {formatRelativeTime(event.timestamp)}
                       </p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100 mt-0.5"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          dismissEvent(event.id);
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
                     </div>
-                    {getEventDescription(event) && (
-                      <p className="text-xs text-muted-foreground break-words mt-0.5">
-                        {getEventDescription(event)}
-                      </p>
-                    )}
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                      {formatRelativeTime(event.timestamp)}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       ) : (

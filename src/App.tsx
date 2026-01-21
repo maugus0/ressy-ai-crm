@@ -28,11 +28,11 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SSEProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter basename="/">
+        <BrowserRouter basename="/">
+          <SSEProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
               <Routes>
                 {/* Default to login */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
@@ -63,9 +63,9 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </SSEProvider>
+            </TooltipProvider>
+          </SSEProvider>
+        </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>

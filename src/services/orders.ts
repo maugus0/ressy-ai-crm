@@ -33,22 +33,18 @@ export async function getOrders(
   restaurantId: number,
   params?: DashboardOrderListParams
 ): Promise<DashboardOrderListResponse> {
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (params?.status) queryParams.set("status", params.status);
-  if (params?.start_date) queryParams.set("start_date", params.start_date);
-  if (params?.end_date) queryParams.set("end_date", params.end_date);
-  if (params?.include_deleted !== undefined)
-    queryParams.set("include_deleted", String(params.include_deleted));
-  if (params?.limit) queryParams.set("limit", String(params.limit));
-  if (params?.offset) queryParams.set("offset", String(params.offset));
-
-  const query = queryParams.toString();
-  const url = query
-    ? `${ENDPOINTS.ORDERS.LIST(restaurantId)}?${query}`
-    : ENDPOINTS.ORDERS.LIST(restaurantId);
-
-  const response = await api.get<DashboardOrderListResponse>(url);
+  const response = await api.get<DashboardOrderListResponse>(ENDPOINTS.ORDERS.LIST(restaurantId), {
+    params: params
+      ? {
+          status: params.status,
+          start_date: params.start_date,
+          end_date: params.end_date,
+          include_deleted: params.include_deleted,
+          limit: params.limit,
+          offset: params.offset,
+        }
+      : undefined,
+  });
 
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch orders");

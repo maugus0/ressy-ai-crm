@@ -25,7 +25,15 @@ import type {
  * Get paginated list of FAQs for the authenticated restaurant
  */
 export async function getFAQs(params?: FAQListParams): Promise<ClientFAQListResponse> {
-  const response = await api.get<ClientFAQListResponse>(ENDPOINTS.FAQ.LIST, { params });
+  const response = await api.get<ClientFAQListResponse>(ENDPOINTS.FAQ.LIST, {
+    params: params
+      ? {
+          page: params.page,
+          limit: params.limit,
+          search: params.search,
+        }
+      : undefined,
+  });
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch FAQs");
   }

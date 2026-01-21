@@ -98,7 +98,7 @@ export const playOrderSound = (): void => {
       { frequency: 1046.5, duration: 0.5, delay: 1.7 }, // C6 (octave higher)
     ],
     "sine",
-    0.35
+    0.7
   );
 };
 
@@ -119,7 +119,7 @@ export const playReservationSound = (): void => {
       { frequency: 659.25, duration: 0.5, delay: 1.7 }, // E5 (longer sustain)
     ],
     "triangle",
-    0.35
+    0.7
   );
 };
 
@@ -144,7 +144,7 @@ export const playEscalationSound = (): void => {
       { frequency: 523.25, duration: 0.5, delay: 2.2 }, // C5 (resolution)
     ],
     "square",
-    0.25
+    0.6
   );
 };
 
@@ -152,7 +152,7 @@ export const playEscalationSound = (): void => {
  * Generic notification sound - Simple ping
  */
 export const playGenericSound = (): void => {
-  playTone(587.33, 0.2, "sine", 0.25); // D5
+  playTone(587.33, 0.2, "sine", 0.6); // D5
 };
 
 // ============================================================================
@@ -176,10 +176,15 @@ export const areSoundsEnabled = (): boolean => {
 
 /**
  * Enable or disable notification sounds
+ * When disabled, stops all active sound loops
  */
 export const setSoundsEnabled = (enabled: boolean): void => {
   try {
     localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+    // Stop all active sound loops when sounds are disabled
+    if (!enabled) {
+      stopAllLoopingSounds();
+    }
   } catch {
     // Ignore localStorage errors
   }
@@ -221,6 +226,73 @@ export const playNotificationSound = (eventType: NotificationEventType): void =>
       playGenericSound();
       break;
   }
+};
+
+// ============================================================================
+// Looping Sound for Persistent Notifications
+// ============================================================================
+
+const activeSoundLoops = new Map<string, number>();
+
+const getSoundPlayer = (eventType: NotificationEventType): (() => void) => {
+  switch (eventType) {
+    case "order":
+      return playOrderSound;
+    case "reservation":
+      return playReservationSound;
+    case "escalation":
+      return playEscalationSound;
+    default:
+      return playGenericSound;
+  }
+};
+
+const getSoundInterval = (eventType: NotificationEventType): number => {
+  switch (eventType) {
+    case "escalation":
+      return 3000;
+    case "order":
+      return 2500;
+    case "reservation":
+      return 2500;
+    default:
+      return 2000;
+  }
+};
+
+export const startLoopingSound = (id: string, eventType: NotificationEventType): void => {
+  if (!areSoundsEnabled()) return;
+
+  if (activeSoundLoops.has(id)) return;
+
+  const soundPlayer = getSoundPlayer(eventType);
+  const interval = getSoundInterval(eventType);
+
+  soundPlayer();
+
+  const intervalId = window.setInterval(() => {
+    if (!areSoundsEnabled()) {
+      clearInterval(intervalId);
+      activeSoundLoops.delete(id);
+      return;
+    }
+    soundPlayer();
+  }, interval);
+
+  activeSoundLoops.set(id, intervalId);
+};
+
+export const stopLoopingSound = (id: string): void => {
+  const intervalId = activeSoundLoops.get(id);
+  if (intervalId !== undefined) {
+    clearInterval(intervalId);
+    activeSoundLoops.delete(id);
+  }
+};
+
+export const stopAllLoopingSounds = (): void => {
+  activeSoundLoops.forEach((intervalId) => clearInterval(intervalId));
+  activeSoundLoops.clear();
 };
 
 /**

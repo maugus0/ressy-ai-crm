@@ -1536,18 +1536,20 @@ export function Reservations() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Reservation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to confirm this reservation? This will change the status from
-              "pending" to "confirmed".
-              {selectedReservation && (
-                <div className="mt-2 p-3 bg-muted rounded-lg">
-                  <p className="font-medium text-sm">{selectedReservation.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
-                    {formatLocalDateTimeParts(selectedReservation.date_time).time}
-                  </p>
-                </div>
-              )}
+            <AlertDialogDescription asChild>
+              <div>
+                Are you sure you want to confirm this reservation? This will change the status from
+                "pending" to "confirmed".
+                {selectedReservation && (
+                  <div className="mt-2 p-3 bg-muted rounded-lg">
+                    <p className="font-medium text-sm">{selectedReservation.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
+                      {formatLocalDateTimeParts(selectedReservation.date_time).time}
+                    </p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1564,18 +1566,20 @@ export function Reservations() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Reservation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel this reservation? This action cannot be undone and
-              will release the time slot.
-              {selectedReservation && (
-                <div className="mt-2 p-3 bg-muted rounded-lg">
-                  <p className="font-medium text-sm">{selectedReservation.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
-                    {formatLocalDateTimeParts(selectedReservation.date_time).time}
-                  </p>
-                </div>
-              )}
+            <AlertDialogDescription asChild>
+              <div>
+                Are you sure you want to cancel this reservation? This action cannot be undone and
+                will release the time slot.
+                {selectedReservation && (
+                  <div className="mt-2 p-3 bg-muted rounded-lg">
+                    <p className="font-medium text-sm">{selectedReservation.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatLocalDateTimeParts(selectedReservation.date_time).date} at{" "}
+                      {formatLocalDateTimeParts(selectedReservation.date_time).time}
+                    </p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
