@@ -4,7 +4,7 @@
  * All endpoints are auto-scoped to the authenticated restaurant via JWT token
  */
 
-import { api, getAccessToken } from "@/lib/api/client";
+import { api, getAccessToken, buildQueryString } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
 import { env } from "@/config/env";
 import type {
@@ -26,26 +26,22 @@ import type {
  * GET /api/v1/client/calls
  */
 export async function getCalls(params?: ClientCallListParams): Promise<ClientCallListResponse> {
-  // Build query string
-  const queryParams = new URLSearchParams();
-
-  if (params?.date_from) queryParams.append("date_from", params.date_from);
-  if (params?.date_to) queryParams.append("date_to", params.date_to);
-  if (params?.status) queryParams.append("status", params.status);
-  if (params?.duration_min !== undefined)
-    queryParams.append("duration_min", params.duration_min.toString());
-  if (params?.duration_max !== undefined)
-    queryParams.append("duration_max", params.duration_max.toString());
-  if (params?.caller_phone) queryParams.append("caller_phone", params.caller_phone);
-  if (params?.page) queryParams.append("page", params.page.toString());
-  if (params?.limit) queryParams.append("limit", params.limit.toString());
-  if (params?.sort_by) queryParams.append("sort_by", params.sort_by);
-  if (params?.sort_order) queryParams.append("sort_order", params.sort_order);
-
-  const queryString = queryParams.toString();
-  const endpoint = queryString ? `${ENDPOINTS.CALLS.LIST}?${queryString}` : ENDPOINTS.CALLS.LIST;
-
-  const response = await api.get<ClientCallListResponse>(endpoint);
+  const response = await api.get<ClientCallListResponse>(ENDPOINTS.CALLS.LIST, {
+    params: params
+      ? {
+          date_from: params.date_from,
+          date_to: params.date_to,
+          status: params.status,
+          duration_min: params.duration_min,
+          duration_max: params.duration_max,
+          caller_phone: params.caller_phone,
+          page: params.page,
+          limit: params.limit,
+          sort_by: params.sort_by,
+          sort_order: params.sort_order,
+        }
+      : undefined,
+  });
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch calls");
   }
@@ -80,12 +76,12 @@ export async function getCallAnalytics(
   dateFrom: string,
   dateTo: string
 ): Promise<ClientCallAnalyticsResponse> {
-  const queryParams = new URLSearchParams();
-  queryParams.append("date_from", dateFrom);
-  queryParams.append("date_to", dateTo);
-
-  const endpoint = `${ENDPOINTS.CALLS.ANALYTICS}?${queryParams.toString()}`;
-  const response = await api.get<ClientCallAnalyticsResponse>(endpoint);
+  const response = await api.get<ClientCallAnalyticsResponse>(ENDPOINTS.CALLS.ANALYTICS, {
+    params: {
+      date_from: dateFrom,
+      date_to: dateTo,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch call analytics");
@@ -102,18 +98,17 @@ export async function getCallAnalytics(
  * GET /api/v1/client/calls/search
  */
 export async function searchCalls(params: ClientCallSearchParams): Promise<ClientCallListResponse> {
-  const queryParams = new URLSearchParams();
-  queryParams.append("q", params.q);
-
-  if (params.date_from) queryParams.append("date_from", params.date_from);
-  if (params.date_to) queryParams.append("date_to", params.date_to);
-  if (params.page) queryParams.append("page", params.page.toString());
-  if (params.limit) queryParams.append("limit", params.limit.toString());
-  if (params.sort_by) queryParams.append("sort_by", params.sort_by);
-  if (params.sort_order) queryParams.append("sort_order", params.sort_order);
-
-  const endpoint = `${ENDPOINTS.CALLS.SEARCH}?${queryParams.toString()}`;
-  const response = await api.get<ClientCallListResponse>(endpoint);
+  const response = await api.get<ClientCallListResponse>(ENDPOINTS.CALLS.SEARCH, {
+    params: {
+      q: params.q,
+      date_from: params.date_from,
+      date_to: params.date_to,
+      page: params.page,
+      limit: params.limit,
+      sort_by: params.sort_by,
+      sort_order: params.sort_order,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to search calls");
@@ -131,26 +126,25 @@ export async function searchCalls(params: ClientCallSearchParams): Promise<Clien
  * Returns a Blob for download
  */
 export async function exportCalls(params?: ClientCallExportParams): Promise<Blob> {
-  const queryParams = new URLSearchParams();
-
-  if (params?.date_from) queryParams.append("date_from", params.date_from);
-  if (params?.date_to) queryParams.append("date_to", params.date_to);
-  if (params?.status) queryParams.append("status", params.status);
-  if (params?.duration_min !== undefined)
-    queryParams.append("duration_min", params.duration_min.toString());
-  if (params?.duration_max !== undefined)
-    queryParams.append("duration_max", params.duration_max.toString());
-  if (params?.caller_phone) queryParams.append("caller_phone", params.caller_phone);
-  if (params?.sort_by) queryParams.append("sort_by", params.sort_by);
-  if (params?.sort_order) queryParams.append("sort_order", params.sort_order);
-  if (params?.page) queryParams.append("page", params.page.toString());
-  if (params?.limit) queryParams.append("limit", params.limit.toString());
-
-  const queryString = queryParams.toString();
+  const queryString = buildQueryString(
+    params
+      ? {
+          date_from: params.date_from,
+          date_to: params.date_to,
+          status: params.status,
+          duration_min: params.duration_min,
+          duration_max: params.duration_max,
+          caller_phone: params.caller_phone,
+          sort_by: params.sort_by,
+          sort_order: params.sort_order,
+          page: params.page,
+          limit: params.limit,
+        }
+      : undefined
+  );
   const endpoint = queryString
     ? `${ENDPOINTS.CALLS.EXPORT}?${queryString}`
     : ENDPOINTS.CALLS.EXPORT;
-
   const url = `${env.API_URL}${endpoint}`;
   const token = getAccessToken();
 

@@ -28,21 +28,19 @@ import type {
  * GET /api/v1/client/menu
  */
 export async function getMenuItems(params?: MenuListParams): Promise<ClientMenuListResponse> {
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (params?.page) queryParams.set("page", String(params.page));
-  if (params?.limit) queryParams.set("limit", String(params.limit));
-  if (params?.category) queryParams.set("category", params.category);
-  if (params?.sub_category) queryParams.set("sub_category", params.sub_category);
-  if (params?.is_available !== undefined)
-    queryParams.set("is_available", String(params.is_available));
-  if (params?.is_special !== undefined) queryParams.set("is_special", String(params.is_special));
-  if (params?.search) queryParams.set("search", params.search);
-
-  const query = queryParams.toString();
-  const url = query ? `${ENDPOINTS.MENU.LIST}?${query}` : ENDPOINTS.MENU.LIST;
-
-  const response = await api.get<ClientMenuListResponse>(url);
+  const response = await api.get<ClientMenuListResponse>(ENDPOINTS.MENU.LIST, {
+    params: params
+      ? {
+          page: params.page,
+          limit: params.limit,
+          category: params.category,
+          sub_category: params.sub_category,
+          is_available: params.is_available,
+          is_special: params.is_special,
+          search: params.search,
+        }
+      : undefined,
+  });
 
   if (response.error || !response.data) {
     throw new Error(response.error || "Failed to fetch menu items");
