@@ -20,6 +20,7 @@ import {
   useRef,
   ReactNode,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { connectToSSE, disconnectFromSSE } from "@/services/sse";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ const RECONNECT_DELAY = 5000; // 5 seconds
 
 export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -112,91 +114,65 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Show toast notification based on event type and play appropriate sound
    */
-  const showNotification = useCallback((event: SSEEvent) => {
-    const { event_type, subtype, data } = event;
-    const toastId = `${event_type}-${event.id || Date.now()}`;
+  const showNotification = useCallback(
+    (event: SSEEvent) => {
+      const { event_type, subtype, data } = event;
+      const toastId = `${event_type}-${event.id || Date.now()}`;
 
-    const getDescription = () => {
-      if (event_type === "order" && data?.customer_name) {
-        return `Customer: ${data.customer_name}`;
-      }
-      if (event_type === "reservation" && data?.customer_name) {
-        const partySize = data.party_size ? ` (Party of ${data.party_size})` : "";
-        return `${data.customer_name}${partySize}`;
-      }
-      if (event_type === "escalation" && data?.caller_phone) {
-        return `Caller: ${data.caller_phone}`;
-      }
-      return undefined;
-    };
-
-    const dismissToast = () => {
-      stopLoopingSound(toastId);
-      toast.dismiss(toastId);
-    };
-
-    const navigateAndDismiss = (path: string) => {
-      dismissToast();
-      window.location.href = path;
-    };
-
-    let soundType: NotificationEventType = "generic";
-    let toastShown = false;
-
-    switch (event_type) {
-      case "escalation":
-        {
-          soundType = "escalation";
-          const reason = data?.reason as string;
-          const urgency = data?.urgency as string;
-          const escalationMessages: Record<string, string> = {
-            user_requested: "Customer requested human assistance",
-            internal_server_error: "System error during call",
-            suspected_spam: "Call flagged as potential spam",
-          };
-          const baseMessage = escalationMessages[subtype] || "Unknown escalation";
-
-          let title = "⚠️ Escalation Alert";
-          if (urgency) {
-            title = `⚠️ Escalation Alert (${urgency})`;
-          }
-
-          const description = reason || baseMessage;
-
-          toast.error(title, {
-            id: toastId,
-            description: description,
-            duration: Infinity,
-            action: {
-              label: "View",
-              onClick: () => navigateAndDismiss("/dashboard/escalations"),
-            },
-            cancel: {
-              label: "Dismiss",
-              onClick: dismissToast,
-            },
-          });
-          toastShown = true;
+      const getDescription = () => {
+        if (event_type === "order" && data?.customer_name) {
+          return `Customer: ${data.customer_name}`;
         }
-        break;
+        if (event_type === "reservation" && data?.customer_name) {
+          const partySize = data.party_size ? ` (Party of ${data.party_size})` : "";
+          return `${data.customer_name}${partySize}`;
+        }
+        if (event_type === "escalation" && data?.caller_phone) {
+          return `Caller: ${data.caller_phone}`;
+        }
+        return undefined;
+      };
 
-      case "order":
-        {
-          soundType = "order";
-          const orderMessages: Record<string, { icon: string; title: string }> = {
-            new_order: { icon: "🛍️", title: "New Order" },
-            order_updated: { icon: "📝", title: "Order Updated" },
-            order_cancelled: { icon: "❌", title: "Order Cancelled" },
-          };
-          const config = orderMessages[subtype];
-          if (config) {
-            toast.info(`${config.icon} ${config.title}`, {
+      const dismissToast = () => {
+        stopLoopingSound(toastId);
+        toast.dismiss(toastId);
+      };
+
+      const navigateAndDismiss = (path: string) => {
+        dismissToast();
+        navigate(path);
+      };
+
+      let soundType: NotificationEventType = "generic";
+      let toastShown = false;
+
+      switch (event_type) {
+        case "escalation":
+          {
+            soundType = "escalation";
+            const reason = data?.reason as string;
+            const urgency = data?.urgency as string;
+            const escalationMessages: Record<string, string> = {
+              user_requested: "Customer requested human assistance",
+              internal_server_error: "System error during call",
+              suspected_spam: "Call flagged as potential spam",
+            };
+            const baseMessage = escalationMessages[subtype] || "Unknown escalation";
+
+            let title = "⚠️ Escalation Alert";
+            if (urgency) {
+              title = `⚠️ Escalation Alert (${urgency})`;
+            }
+
+            const description = reason || baseMessage;
+
+            toast.error(title, {
               id: toastId,
-              description: getDescription(),
+              description: description,
               duration: Infinity,
               action: {
                 label: "View",
-                onClick: () => navigateAndDismiss("/dashboard/orders"),
+                onClick: () => navigateAndDismiss("/dashboard/escalations"),
               },
               cancel: {
                 label: "Dismiss",
@@ -205,47 +181,76 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             });
             toastShown = true;
           }
-        }
-        break;
+          break;
 
-      case "reservation":
-        {
-          soundType = "reservation";
-          const reservationMessages: Record<string, { icon: string; title: string }> = {
-            new_reservation: { icon: "📅", title: "New Reservation" },
-            reservation_updated: { icon: "📝", title: "Reservation Updated" },
-            reservation_cancelled: { icon: "❌", title: "Reservation Cancelled" },
-          };
-          const config = reservationMessages[subtype];
-          if (config) {
-            toast.info(`${config.icon} ${config.title}`, {
-              id: toastId,
-              description: getDescription(),
-              duration: Infinity,
-              action: {
-                label: "View",
-                onClick: () => navigateAndDismiss("/dashboard/reservations"),
-              },
-              cancel: {
-                label: "Dismiss",
-                onClick: dismissToast,
-              },
-            });
-            toastShown = true;
+        case "order":
+          {
+            soundType = "order";
+            const orderMessages: Record<string, { icon: string; title: string }> = {
+              new_order: { icon: "🛍️", title: "New Order" },
+              order_updated: { icon: "📝", title: "Order Updated" },
+              order_cancelled: { icon: "❌", title: "Order Cancelled" },
+            };
+            const config = orderMessages[subtype];
+            if (config) {
+              toast.info(`${config.icon} ${config.title}`, {
+                id: toastId,
+                description: getDescription(),
+                duration: Infinity,
+                action: {
+                  label: "View",
+                  onClick: () => navigateAndDismiss("/dashboard/orders"),
+                },
+                cancel: {
+                  label: "Dismiss",
+                  onClick: dismissToast,
+                },
+              });
+              toastShown = true;
+            }
           }
-        }
-        break;
+          break;
 
-      default:
-        break;
-    }
+        case "reservation":
+          {
+            soundType = "reservation";
+            const reservationMessages: Record<string, { icon: string; title: string }> = {
+              new_reservation: { icon: "📅", title: "New Reservation" },
+              reservation_updated: { icon: "📝", title: "Reservation Updated" },
+              reservation_cancelled: { icon: "❌", title: "Reservation Cancelled" },
+            };
+            const config = reservationMessages[subtype];
+            if (config) {
+              toast.info(`${config.icon} ${config.title}`, {
+                id: toastId,
+                description: getDescription(),
+                duration: Infinity,
+                action: {
+                  label: "View",
+                  onClick: () => navigateAndDismiss("/dashboard/reservations"),
+                },
+                cancel: {
+                  label: "Dismiss",
+                  onClick: dismissToast,
+                },
+              });
+              toastShown = true;
+            }
+          }
+          break;
 
-    // Only start looping sound if a toast was actually shown
-    // This prevents orphaned sound loops for unrecognized event types
-    if (toastShown) {
-      startLoopingSound(toastId, soundType);
-    }
-  }, []);
+        default:
+          break;
+      }
+
+      // Only start looping sound if a toast was actually shown
+      // This prevents orphaned sound loops for unrecognized event types
+      if (toastShown) {
+        startLoopingSound(toastId, soundType);
+      }
+    },
+    [navigate]
+  );
 
   /**
    * Handle incoming SSE event
@@ -367,9 +372,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     setEvents((prev) => {
       // Find the event being dismissed to get its type for toast/sound cleanup
       const eventToDismiss = prev.find((e) => e.id === eventId);
-      if (eventToDismiss) {
+      if (eventToDismiss && eventToDismiss.id) {
+        // Only perform toast/sound cleanup when we have a stable event id
         // Construct the same toastId format used in showNotification
-        const toastId = `${eventToDismiss.event_type}-${eventToDismiss.id || Date.now()}`;
+        const toastId = `${eventToDismiss.event_type}-${eventToDismiss.id}`;
         // Stop the sound loop for this specific notification
         stopLoopingSound(toastId);
         // Dismiss the toast

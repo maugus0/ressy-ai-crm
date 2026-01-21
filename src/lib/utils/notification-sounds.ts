@@ -176,10 +176,15 @@ export const areSoundsEnabled = (): boolean => {
 
 /**
  * Enable or disable notification sounds
+ * When disabled, stops all active sound loops
  */
 export const setSoundsEnabled = (enabled: boolean): void => {
   try {
     localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+    // Stop all active sound loops when sounds are disabled
+    if (!enabled) {
+      stopAllLoopingSounds();
+    }
   } catch {
     // Ignore localStorage errors
   }
@@ -266,9 +271,12 @@ export const startLoopingSound = (id: string, eventType: NotificationEventType):
   soundPlayer();
 
   const intervalId = window.setInterval(() => {
-    if (areSoundsEnabled()) {
-      soundPlayer();
+    if (!areSoundsEnabled()) {
+      clearInterval(intervalId);
+      activeSoundLoops.delete(id);
+      return;
     }
+    soundPlayer();
   }, interval);
 
   activeSoundLoops.set(id, intervalId);

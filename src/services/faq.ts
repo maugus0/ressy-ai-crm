@@ -23,6 +23,10 @@ import type {
 
 /**
  * Get paginated list of FAQs for the authenticated restaurant
+ *
+ * Note: Manual query string building is used here for consistency with other services
+ * (e.g., calls.ts, menu.ts). Consider enhancing the API client to support params
+ * in the future for better maintainability.
  */
 export async function getFAQs(params?: FAQListParams): Promise<ClientFAQListResponse> {
   // Build query string

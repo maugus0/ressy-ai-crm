@@ -9,8 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/utils/__tests__/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}", "src/**/*.tests.{ts,tsx}"],
-    // Use forks pool to avoid inspector module dependency issues
-    // This helps when running on Node.js versions that don't fully support node:inspector/promises
+    // Use forks pool for test process isolation
     pool: "forks",
     coverage: {
       provider: "v8",
