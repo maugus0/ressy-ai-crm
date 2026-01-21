@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
   Building,
   Clock,
@@ -26,6 +27,8 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
+  Users,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
@@ -45,6 +48,8 @@ interface FormErrors {
   backward_minutes?: string;
   opening_time?: string;
   closing_time?: string;
+  reservation_seating_capacity?: string;
+  reservation_advance_days?: string;
 }
 
 // Form data structure for editing
@@ -58,6 +63,8 @@ interface SettingsFormData {
   is_credit_card_required_for_reservation: boolean;
   opening_time: string;
   closing_time: string;
+  reservation_seating_capacity: number;
+  reservation_advance_days: number;
 }
 
 export function Settings() {
@@ -68,6 +75,44 @@ export function Settings() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<ClientRestaurant | null>(null);
+
+  // Collapsible section states - Restaurant Info open by default, persist to localStorage
+  const [sectionsOpen, setSectionsOpen] = useState(() => {
+    const defaultState = {
+      restaurantInfo: true,
+      operatingHours: false,
+      reservationCapacity: false,
+      reservationTiming: false,
+    };
+    if (typeof window === "undefined") {
+      return defaultState;
+    }
+    try {
+      const stored = window.localStorage.getItem("settingsSectionsOpen");
+      if (!stored) {
+        return defaultState;
+      }
+      const parsed = JSON.parse(stored) as Partial<typeof defaultState>;
+      return {
+        restaurantInfo: parsed.restaurantInfo ?? defaultState.restaurantInfo,
+        operatingHours: parsed.operatingHours ?? defaultState.operatingHours,
+        reservationCapacity: parsed.reservationCapacity ?? defaultState.reservationCapacity,
+        reservationTiming: parsed.reservationTiming ?? defaultState.reservationTiming,
+      };
+    } catch {
+      return defaultState;
+    }
+  });
+
+  // Persist section open states to localStorage
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("settingsSectionsOpen", JSON.stringify(sectionsOpen));
+    } catch {
+      // Ignore persistence errors (e.g., private mode or disabled storage)
+    }
+  }, [sectionsOpen]);
+
   const [formData, setFormData] = useState<SettingsFormData>({
     name: "",
     address: "",
@@ -78,6 +123,8 @@ export function Settings() {
     is_credit_card_required_for_reservation: false,
     opening_time: "",
     closing_time: "",
+    reservation_seating_capacity: 50,
+    reservation_advance_days: 30,
   });
 
   // Fetch restaurant data
@@ -98,6 +145,8 @@ export function Settings() {
         is_credit_card_required_for_reservation: data.is_credit_card_required_for_reservation,
         opening_time: formatTimeForInput(data.opening_time),
         closing_time: formatTimeForInput(data.closing_time),
+        reservation_seating_capacity: data.reservation_seating_capacity ?? 50,
+        reservation_advance_days: data.reservation_advance_days ?? 30,
       });
       setHasChanges(false);
     } catch (err) {
@@ -126,7 +175,10 @@ export function Settings() {
           newData.is_credit_card_required_for_reservation !==
             originalData.is_credit_card_required_for_reservation ||
           newData.opening_time !== formatTimeForInput(originalData.opening_time) ||
-          newData.closing_time !== formatTimeForInput(originalData.closing_time);
+          newData.closing_time !== formatTimeForInput(originalData.closing_time) ||
+          newData.reservation_seating_capacity !==
+            (originalData.reservation_seating_capacity ?? 50) ||
+          newData.reservation_advance_days !== (originalData.reservation_advance_days ?? 30);
         setHasChanges(hasChanged);
       }
       return newData;
@@ -168,6 +220,16 @@ export function Settings() {
       errors.backward_minutes = "Must be between 1 and 1440 minutes";
     }
 
+    // Seating capacity validation
+    if (formData.reservation_seating_capacity < 1 || formData.reservation_seating_capacity > 1000) {
+      errors.reservation_seating_capacity = "Must be between 1 and 1000 seats";
+    }
+
+    // Advance days validation
+    if (formData.reservation_advance_days < 1 || formData.reservation_advance_days > 365) {
+      errors.reservation_advance_days = "Must be between 1 and 365 days";
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -191,6 +253,8 @@ export function Settings() {
         is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
         opening_time: formatTimeForApi(formData.opening_time),
         closing_time: formatTimeForApi(formData.closing_time),
+        reservation_seating_capacity: formData.reservation_seating_capacity,
+        reservation_advance_days: formData.reservation_advance_days,
       };
 
       const updatedData = await updateRestaurant(payload);
@@ -206,6 +270,8 @@ export function Settings() {
           updatedData.is_credit_card_required_for_reservation,
         opening_time: formatTimeForInput(updatedData.opening_time),
         closing_time: formatTimeForInput(updatedData.closing_time),
+        reservation_seating_capacity: updatedData.reservation_seating_capacity ?? 50,
+        reservation_advance_days: updatedData.reservation_advance_days ?? 30,
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -230,6 +296,8 @@ export function Settings() {
           originalData.is_credit_card_required_for_reservation,
         opening_time: formatTimeForInput(originalData.opening_time),
         closing_time: formatTimeForInput(originalData.closing_time),
+        reservation_seating_capacity: originalData.reservation_seating_capacity ?? 50,
+        reservation_advance_days: originalData.reservation_advance_days ?? 30,
       });
       setFormErrors({});
       setHasChanges(false);
@@ -363,18 +431,16 @@ export function Settings() {
         </Alert>
       )}
 
-      {/* Restaurant Information */}
-      <Card>
-        <CardHeader className="pb-3 sm:pb-4">
-          <div className="flex items-center gap-2">
-            <Building className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-            <CardTitle className="text-base sm:text-lg">Restaurant Information</CardTitle>
-          </div>
-          <CardDescription className="text-xs sm:text-sm mt-1">
-            Basic information about your restaurant
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
+      {/* All Sections Container */}
+      <div className="space-y-4">
+        {/* Restaurant Information */}
+        <CollapsibleSection
+          icon={Building}
+          title="Restaurant Information"
+          description="Basic information about your restaurant"
+          isOpen={sectionsOpen.restaurantInfo}
+          onOpenChange={(open) => setSectionsOpen((prev) => ({ ...prev, restaurantInfo: open }))}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="name" className="text-xs sm:text-sm">
@@ -461,51 +527,80 @@ export function Settings() {
             </div>
           )}
 
-          <div className="space-y-1.5 sm:space-y-2">
-            <Label htmlFor="forward_escalations" className="text-xs sm:text-sm">
-              Forward Escalations{" "}
-              <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
-            </Label>
-            <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg border bg-muted/30">
-              <span className="text-[10px] sm:text-xs text-muted-foreground">
-                {forwardEscalationsEnabled ? "Enabled" : "Disabled"}
-              </span>
-              <Switch id="forward_escalations" checked={forwardEscalationsEnabled} disabled />
+          {/* Call Escalation Settings - Read-only card */}
+          <div className="rounded-lg border bg-gradient-to-br from-muted/50 to-muted/30 overflow-hidden">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b bg-muted/40">
+              <div className="flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                <span className="text-xs sm:text-sm font-medium">Call Escalation Settings</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  Read-only
+                </span>
+              </div>
+            </div>
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+              {/* Forward Escalations Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs sm:text-sm font-medium">Forward Escalations</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Automatically forward urgent calls to staff
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium ${
+                      forwardEscalationsEnabled
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                  >
+                    {forwardEscalationsEnabled ? "Enabled" : "Disabled"}
+                  </span>
+                  <Switch
+                    id="forward_escalations"
+                    checked={forwardEscalationsEnabled}
+                    disabled
+                    className="cursor-not-allowed opacity-60"
+                  />
+                </div>
+              </div>
+
+              {/* Escalation Phone Number */}
+              <div className="space-y-1.5">
+                <p className="text-xs sm:text-sm font-medium">Escalation Phone Number</p>
+                <div
+                  className={`flex items-center gap-2 p-2.5 sm:p-3 rounded-md ${
+                    escalationPhoneNumber
+                      ? "bg-background border"
+                      : "bg-muted/50 border border-dashed"
+                  }`}
+                >
+                  <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                  <span
+                    className={`text-xs sm:text-sm ${
+                      escalationPhoneNumber ? "font-mono" : "text-muted-foreground italic"
+                    }`}
+                  >
+                    {escalationPhoneNumber || "Not configured"}
+                  </span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  Contact support to update escalation settings
+                </p>
+              </div>
             </div>
           </div>
+        </CollapsibleSection>
 
-          <div className="space-y-1.5 sm:space-y-2">
-            <Label htmlFor="escalation_phone" className="text-xs sm:text-sm">
-              Escalation Phone Number{" "}
-              <span className="text-[10px] sm:text-xs text-muted-foreground">(Read-only)</span>
-            </Label>
-            <div className="relative">
-              <Phone className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-              <Input
-                id="escalation_phone"
-                value={escalationPhoneNumber}
-                placeholder="Not set"
-                readOnly
-                disabled
-                className="pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm bg-muted cursor-not-allowed"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Operating Hours */}
-      <Card>
-        <CardHeader className="pb-3 sm:pb-4">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-            <CardTitle className="text-base sm:text-lg">Operating Hours</CardTitle>
-          </div>
-          <CardDescription className="text-xs sm:text-sm mt-1">
-            Set your restaurant's opening and closing times
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
+        {/* Operating Hours */}
+        <CollapsibleSection
+          icon={Clock}
+          title="Operating Hours"
+          description="Set your restaurant's opening and closing times"
+          isOpen={sectionsOpen.operatingHours}
+          onOpenChange={(open) => setSectionsOpen((prev) => ({ ...prev, operatingHours: open }))}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="opening_time" className="text-xs sm:text-sm">
@@ -555,86 +650,179 @@ export function Settings() {
             </p>
           </div>
           {formData.opening_time && formData.closing_time && (
-            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-green-50 border border-green-200">
-              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
-              <span className="text-xs sm:text-sm text-green-700">
+            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400 shrink-0" />
+              <span className="text-xs sm:text-sm text-green-700 dark:text-green-300">
                 Open from {formData.opening_time} to {formData.closing_time}
               </span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </CollapsibleSection>
 
-      {/* Reservation Settings */}
-      <Card>
-        <CardHeader className="pb-3 sm:pb-4">
-          <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-            <CardTitle className="text-base sm:text-lg">Reservation Settings</CardTitle>
+        {/* Reservation Capacity Settings */}
+        <CollapsibleSection
+          icon={Users}
+          title="Reservation Capacity"
+          description="Configure your restaurant's seating capacity and booking limits"
+          isOpen={sectionsOpen.reservationCapacity}
+          onOpenChange={(open) =>
+            setSectionsOpen((prev) => ({ ...prev, reservationCapacity: open }))
+          }
+          contentClassName="space-y-4 sm:space-y-6"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            {/* Maximum Seating Capacity */}
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="seating_capacity" className="text-xs sm:text-sm">
+                Maximum Seating Capacity
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="seating_capacity"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={formData.reservation_seating_capacity}
+                  onChange={(e) => {
+                    updateFormData({
+                      reservation_seating_capacity: Number(e.target.value) || 1,
+                    });
+                    if (formErrors.reservation_seating_capacity)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        reservation_seating_capacity: undefined,
+                      }));
+                  }}
+                  className={`h-9 sm:h-10 text-xs sm:text-sm w-24 sm:w-32 ${formErrors.reservation_seating_capacity ? "border-destructive" : ""}`}
+                />
+                <span className="text-xs sm:text-sm text-muted-foreground">seats</span>
+              </div>
+              {formErrors.reservation_seating_capacity ? (
+                <p className="text-[10px] sm:text-xs text-destructive">
+                  {formErrors.reservation_seating_capacity}
+                </p>
+              ) : (
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  Maximum number of guests your restaurant can accommodate at any time
+                </p>
+              )}
+            </div>
+
+            {/* Advance Booking Window */}
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="advance_days" className="text-xs sm:text-sm">
+                Advance Booking Window
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="advance_days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={formData.reservation_advance_days}
+                  onChange={(e) => {
+                    updateFormData({ reservation_advance_days: Number(e.target.value) || 1 });
+                    if (formErrors.reservation_advance_days)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        reservation_advance_days: undefined,
+                      }));
+                  }}
+                  className={`h-9 sm:h-10 text-xs sm:text-sm w-24 sm:w-32 ${formErrors.reservation_advance_days ? "border-destructive" : ""}`}
+                />
+                <span className="text-xs sm:text-sm text-muted-foreground">days</span>
+              </div>
+              {formErrors.reservation_advance_days ? (
+                <p className="text-[10px] sm:text-xs text-destructive">
+                  {formErrors.reservation_advance_days}
+                </p>
+              ) : (
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  How far in advance customers can make reservations
+                </p>
+              )}
+            </div>
           </div>
-          <CardDescription className="text-xs sm:text-sm mt-1">
-            Configure reservation booking and cancellation windows
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 sm:space-y-6">
+
+          {/* Summary */}
+          {formData.reservation_seating_capacity > 0 && formData.reservation_advance_days > 0 && (
+            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900">
+              <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
+                Accepting reservations for up to {formData.reservation_seating_capacity} guests per
+                slot, up to {formData.reservation_advance_days} days in advance
+              </span>
+            </div>
+          )}
+        </CollapsibleSection>
+
+        {/* Reservation Timing Settings */}
+        <CollapsibleSection
+          icon={Timer}
+          title="Reservation Timing"
+          description="Configure booking and cancellation time buffers"
+          isOpen={sectionsOpen.reservationTiming}
+          onOpenChange={(open) => setSectionsOpen((prev) => ({ ...prev, reservationTiming: open }))}
+          contentClassName="space-y-4 sm:space-y-6"
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="forward_minutes" className="text-xs sm:text-sm">
-                Forward Window (minutes)
-                <span className="text-[10px] sm:text-xs text-muted-foreground ml-1 sm:ml-2">
-                  Booking ahead
-                </span>
+                Minimum Booking Notice
               </Label>
-              <Input
-                id="forward_minutes"
-                type="number"
-                min="0"
-                max="1440"
-                value={formData.forward_minutes}
-                onChange={(e) => {
-                  updateFormData({ forward_minutes: Number(e.target.value) || 0 });
-                  if (formErrors.forward_minutes)
-                    setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
-                }}
-                className={`h-9 sm:h-10 text-xs sm:text-sm ${formErrors.forward_minutes ? "border-destructive" : ""}`}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="forward_minutes"
+                  type="number"
+                  min="0"
+                  max="1440"
+                  value={formData.forward_minutes}
+                  onChange={(e) => {
+                    updateFormData({ forward_minutes: Number(e.target.value) || 0 });
+                    if (formErrors.forward_minutes)
+                      setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
+                  }}
+                  className={`h-9 sm:h-10 text-xs sm:text-sm w-24 sm:w-32 ${formErrors.forward_minutes ? "border-destructive" : ""}`}
+                />
+                <span className="text-xs sm:text-sm text-muted-foreground">minutes</span>
+              </div>
               {formErrors.forward_minutes ? (
                 <p className="text-[10px] sm:text-xs text-destructive">
                   {formErrors.forward_minutes}
                 </p>
               ) : (
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  Customers can book up to {formData.forward_minutes} minutes ahead
+                  Minimum time before a reservation can be booked
                 </p>
               )}
             </div>
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="backward_minutes" className="text-xs sm:text-sm">
-                Backward Window (minutes)
-                <span className="text-[10px] sm:text-xs text-muted-foreground ml-1 sm:ml-2">
-                  Cancellation
-                </span>
+                Cancellation Window
               </Label>
-              <Input
-                id="backward_minutes"
-                type="number"
-                min="0"
-                max="1440"
-                value={formData.backward_minutes}
-                onChange={(e) => {
-                  updateFormData({ backward_minutes: Number(e.target.value) || 0 });
-                  if (formErrors.backward_minutes)
-                    setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
-                }}
-                className={`h-9 sm:h-10 text-xs sm:text-sm ${formErrors.backward_minutes ? "border-destructive" : ""}`}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="backward_minutes"
+                  type="number"
+                  min="0"
+                  max="1440"
+                  value={formData.backward_minutes}
+                  onChange={(e) => {
+                    updateFormData({ backward_minutes: Number(e.target.value) || 0 });
+                    if (formErrors.backward_minutes)
+                      setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
+                  }}
+                  className={`h-9 sm:h-10 text-xs sm:text-sm w-24 sm:w-32 ${formErrors.backward_minutes ? "border-destructive" : ""}`}
+                />
+                <span className="text-xs sm:text-sm text-muted-foreground">minutes</span>
+              </div>
               {formErrors.backward_minutes ? (
                 <p className="text-[10px] sm:text-xs text-destructive">
                   {formErrors.backward_minutes}
                 </p>
               ) : (
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  Cancellations allowed up to {formData.backward_minutes} minutes before
+                  Minimum time before reservation to allow free cancellation
                 </p>
               )}
             </div>
@@ -669,8 +857,8 @@ export function Settings() {
               className="shrink-0"
             />
           </div>
-        </CardContent>
-      </Card>
+        </CollapsibleSection>
+      </div>
 
       {/* Last Updated */}
       {originalData && (
