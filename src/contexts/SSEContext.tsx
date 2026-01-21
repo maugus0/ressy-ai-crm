@@ -77,6 +77,22 @@ const SSEContext = createContext<SSEContextType | undefined>(undefined);
 const MAX_EVENTS = 100; // Keep last 100 events in memory
 const RECONNECT_DELAY = 5000; // 5 seconds
 
+// Counter for generating unique fallback IDs when event.id is missing
+let eventIdCounter = 0;
+
+/**
+ * Generate a consistent sound ID for an event
+ * Uses event.id if available, otherwise generates a unique fallback ID
+ */
+const getSoundId = (event: SSEEvent): string => {
+  // If event has an id, use it for consistent sound tracking
+  if (event.id) {
+    return `${event.event_type}-${event.id}`;
+  }
+  // Fallback: generate a unique ID (this shouldn't happen with proper backend)
+  return `${event.event_type}-fallback-${++eventIdCounter}`;
+};
+
 // ============================================================================
 // Provider
 // ============================================================================
@@ -115,7 +131,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    */
   const playEventSound = useCallback((event: SSEEvent) => {
     const { event_type, subtype } = event;
-    const soundId = `${event_type}-${event.id || Date.now()}`;
+    const soundId = getSoundId(event);
 
     let soundType: NotificationEventType = "generic";
     let shouldPlaySound = false;
@@ -168,8 +184,17 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     [playEventSound]
   );
 
+  // Store handleEvent in a ref to avoid recreating connect on every render
+  const handleEventRef = useRef(handleEvent);
+  handleEventRef.current = handleEvent;
+
+  // Store isAuthenticated in a ref for use in reconnect timeout
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
+
   /**
    * Connect to SSE stream
+   * Using refs to avoid dependency on handleEvent which changes frequently
    */
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -177,7 +202,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const eventSource = connectToSSE({
-      onEvent: handleEvent,
+      onEvent: (event) => handleEventRef.current(event),
       onOpen: () => {
         setIsConnected(true);
         if (reconnectTimeoutRef.current) {
@@ -191,7 +216,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         if (!reconnectTimeoutRef.current) {
           reconnectTimeoutRef.current = window.setTimeout(() => {
             reconnectTimeoutRef.current = null;
-            if (isAuthenticated) {
+            if (isAuthenticatedRef.current) {
               console.log("SSE: Attempting to reconnect...");
               connect();
             }
@@ -201,7 +226,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     });
 
     eventSourceRef.current = eventSource;
-  }, [handleEvent, isAuthenticated]);
+  }, []);
 
   /**
    * Connect when authenticated, disconnect when not
@@ -269,9 +294,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     // Find the event to get its type for sound cleanup
     setEvents((prev) => {
       const event = prev.find((e) => e.id === eventId);
-      if (event && event.id) {
-        // Construct the same soundId format used in playEventSound
-        const soundId = `${event.event_type}-${event.id}`;
+      if (event) {
+        // Use the same getSoundId function for consistency
+        const soundId = getSoundId(event);
         // Stop the sound loop for this specific notification
         stopLoopingSound(soundId);
       }
@@ -287,9 +312,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     setEvents((prev) => {
       // Find the event being dismissed to get its type for sound cleanup
       const eventToDismiss = prev.find((e) => e.id === eventId);
-      if (eventToDismiss && eventToDismiss.id) {
-        // Construct the same soundId format used in playEventSound
-        const soundId = `${eventToDismiss.event_type}-${eventToDismiss.id}`;
+      if (eventToDismiss) {
+        // Use the same getSoundId function for consistency
+        const soundId = getSoundId(eventToDismiss);
         // Stop the sound loop for this specific notification
         stopLoopingSound(soundId);
       }

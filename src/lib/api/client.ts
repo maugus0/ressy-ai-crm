@@ -220,8 +220,14 @@ export const api = {
 // ============================================================================
 
 /**
- * Build a query string from a params object
- * Useful for cases where you need to build URLs manually (e.g., blob downloads)
+ * Build a query string from a params object.
+ *
+ * Note: This function intentionally duplicates the query string logic from apiRequest.
+ * It exists for special cases where the standard api methods cannot be used, such as:
+ * - Blob/file downloads that require direct fetch with custom Accept headers
+ * - External URLs that bypass the API client
+ *
+ * For standard API calls, prefer using the `params` option in api.get/post/etc.
  */
 export function buildQueryString(
   params?: Record<string, string | number | boolean | undefined>
