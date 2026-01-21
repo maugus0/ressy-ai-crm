@@ -61,6 +61,10 @@ export interface ClientRestaurant {
   closing_time: string | null;
   /** Restaurant timezone (IANA name) */
   timezone: string | null;
+  /** Maximum seating capacity for the restaurant */
+  reservation_seating_capacity: number;
+  /** How many days in advance reservations can be made */
+  reservation_advance_days: number;
   created_at: string;
   updated_at: string;
   // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
@@ -80,6 +84,8 @@ export interface ClientRestaurantUpdateRequest {
   is_credit_card_required_for_reservation?: boolean;
   opening_time?: string;
   closing_time?: string;
+  reservation_seating_capacity?: number;
+  reservation_advance_days?: number;
   // Note: twilio_phone_number is read-only and cannot be updated by client
 }
 
