@@ -29,6 +29,10 @@ import {
   CheckCircle2,
   Users,
   CalendarDays,
+  Bot,
+  ShoppingBag,
+  HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
@@ -65,6 +69,9 @@ interface SettingsFormData {
   closing_time: string;
   reservation_seating_capacity: number;
   reservation_advance_days: number;
+  features_orders_enabled: boolean;
+  features_reservations_enabled: boolean;
+  features_faqs_enabled: boolean;
 }
 
 export function Settings() {
@@ -83,6 +90,7 @@ export function Settings() {
       operatingHours: false,
       reservationCapacity: false,
       reservationTiming: false,
+      agentCapabilities: false,
     };
     if (typeof window === "undefined") {
       return defaultState;
@@ -98,6 +106,7 @@ export function Settings() {
         operatingHours: parsed.operatingHours ?? defaultState.operatingHours,
         reservationCapacity: parsed.reservationCapacity ?? defaultState.reservationCapacity,
         reservationTiming: parsed.reservationTiming ?? defaultState.reservationTiming,
+        agentCapabilities: parsed.agentCapabilities ?? defaultState.agentCapabilities,
       };
     } catch {
       return defaultState;
@@ -125,6 +134,9 @@ export function Settings() {
     closing_time: "",
     reservation_seating_capacity: 50,
     reservation_advance_days: 30,
+    features_orders_enabled: true,
+    features_reservations_enabled: true,
+    features_faqs_enabled: true,
   });
 
   // Fetch restaurant data
@@ -147,6 +159,9 @@ export function Settings() {
         closing_time: formatTimeForInput(data.closing_time),
         reservation_seating_capacity: data.reservation_seating_capacity ?? 50,
         reservation_advance_days: data.reservation_advance_days ?? 30,
+        features_orders_enabled: data.features?.orders_enabled ?? true,
+        features_reservations_enabled: data.features?.reservations_enabled ?? true,
+        features_faqs_enabled: data.features?.faqs_enabled ?? true,
       });
       setHasChanges(false);
     } catch (err) {
@@ -178,7 +193,11 @@ export function Settings() {
           newData.closing_time !== formatTimeForInput(originalData.closing_time) ||
           newData.reservation_seating_capacity !==
             (originalData.reservation_seating_capacity ?? 50) ||
-          newData.reservation_advance_days !== (originalData.reservation_advance_days ?? 30);
+          newData.reservation_advance_days !== (originalData.reservation_advance_days ?? 30) ||
+          newData.features_orders_enabled !== (originalData.features?.orders_enabled ?? true) ||
+          newData.features_reservations_enabled !==
+            (originalData.features?.reservations_enabled ?? true) ||
+          newData.features_faqs_enabled !== (originalData.features?.faqs_enabled ?? true);
         setHasChanges(hasChanged);
       }
       return newData;
@@ -255,6 +274,11 @@ export function Settings() {
         closing_time: formatTimeForApi(formData.closing_time),
         reservation_seating_capacity: formData.reservation_seating_capacity,
         reservation_advance_days: formData.reservation_advance_days,
+        features: {
+          orders_enabled: formData.features_orders_enabled,
+          reservations_enabled: formData.features_reservations_enabled,
+          faqs_enabled: formData.features_faqs_enabled,
+        },
       };
 
       const updatedData = await updateRestaurant(payload);
@@ -272,6 +296,9 @@ export function Settings() {
         closing_time: formatTimeForInput(updatedData.closing_time),
         reservation_seating_capacity: updatedData.reservation_seating_capacity ?? 50,
         reservation_advance_days: updatedData.reservation_advance_days ?? 30,
+        features_orders_enabled: updatedData.features?.orders_enabled ?? true,
+        features_reservations_enabled: updatedData.features?.reservations_enabled ?? true,
+        features_faqs_enabled: updatedData.features?.faqs_enabled ?? true,
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -298,6 +325,9 @@ export function Settings() {
         closing_time: formatTimeForInput(originalData.closing_time),
         reservation_seating_capacity: originalData.reservation_seating_capacity ?? 50,
         reservation_advance_days: originalData.reservation_advance_days ?? 30,
+        features_orders_enabled: originalData.features?.orders_enabled ?? true,
+        features_reservations_enabled: originalData.features?.reservations_enabled ?? true,
+        features_faqs_enabled: originalData.features?.faqs_enabled ?? true,
       });
       setFormErrors({});
       setHasChanges(false);
@@ -856,6 +886,123 @@ export function Settings() {
               }
               className="shrink-0"
             />
+          </div>
+        </CollapsibleSection>
+
+        {/* Agent Capabilities */}
+        <CollapsibleSection
+          icon={Bot}
+          title="Agent Capabilities"
+          description="Configure what RessyAI can handle for your restaurant"
+          isOpen={sectionsOpen.agentCapabilities}
+          onOpenChange={(open) => setSectionsOpen((prev) => ({ ...prev, agentCapabilities: open }))}
+        >
+          <div className="space-y-4">
+            {/* Info Banner */}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-300">
+                Disabling a capability will route those requests to your staff. Ensure call
+                forwarding is configured.
+              </p>
+            </div>
+
+            {/* Orders Toggle */}
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <Label
+                    htmlFor="orders_enabled"
+                    className="text-xs sm:text-sm font-medium cursor-pointer block"
+                  >
+                    Pickup Orders
+                  </Label>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Allow RessyAI to take and manage pickup orders
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="orders_enabled"
+                checked={formData.features_orders_enabled}
+                onCheckedChange={(checked) => updateFormData({ features_orders_enabled: checked })}
+                className="shrink-0"
+              />
+            </div>
+
+            {/* Reservations Toggle */}
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                  <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <Label
+                    htmlFor="reservations_enabled"
+                    className="text-xs sm:text-sm font-medium cursor-pointer block"
+                  >
+                    Reservations
+                  </Label>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Allow RessyAI to book and manage table reservations
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="reservations_enabled"
+                checked={formData.features_reservations_enabled}
+                onCheckedChange={(checked) =>
+                  updateFormData({ features_reservations_enabled: checked })
+                }
+                className="shrink-0"
+              />
+            </div>
+
+            {/* FAQs Toggle */}
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <Label
+                    htmlFor="faqs_enabled"
+                    className="text-xs sm:text-sm font-medium cursor-pointer block"
+                  >
+                    FAQs & General Questions
+                  </Label>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Allow RessyAI to answer menu questions and general inquiries
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="faqs_enabled"
+                checked={formData.features_faqs_enabled}
+                onCheckedChange={(checked) => updateFormData({ features_faqs_enabled: checked })}
+                className="shrink-0"
+              />
+            </div>
+
+            {/* Status Summary */}
+            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
+              <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs sm:text-sm text-muted-foreground">
+                RessyAI is handling:{" "}
+                <span className="font-medium text-foreground">
+                  {[
+                    formData.features_orders_enabled && "Orders",
+                    formData.features_reservations_enabled && "Reservations",
+                    formData.features_faqs_enabled && "FAQs",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "Nothing (all requests forwarded to staff)"}
+                </span>
+              </span>
+            </div>
           </div>
         </CollapsibleSection>
       </div>
