@@ -25,6 +25,15 @@ export interface PaginatedResponse<T> {
 // Restaurant Types
 // ============================================================================
 
+/**
+ * Restaurant Features - Configurable capabilities for RessyAI
+ */
+export interface RestaurantFeatures {
+  orders_enabled: boolean;
+  reservations_enabled: boolean;
+  faqs_enabled: boolean;
+}
+
 export interface Restaurant {
   id: number;
   name: string;
@@ -65,6 +74,8 @@ export interface ClientRestaurant {
   reservation_seating_capacity: number | null;
   /** How many days in advance reservations can be made (null if not configured) */
   reservation_advance_days: number | null;
+  /** Restaurant feature flags for RessyAI capabilities */
+  features: RestaurantFeatures | null;
   created_at: string;
   updated_at: string;
   // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
@@ -86,6 +97,7 @@ export interface ClientRestaurantUpdateRequest {
   closing_time?: string;
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
+  features?: Partial<RestaurantFeatures>;
   // Note: twilio_phone_number is read-only and cannot be updated by client
 }
 
