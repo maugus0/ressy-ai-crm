@@ -1,17 +1,19 @@
-# Ressy AI CRM Admin (Frontend)
+# Ressy AI CRM (Client Dashboard)
 
-React + Vite + TypeScript admin dashboard for Ressy AI CRM. Uses **React Router** for navigation, **TanStack Query** for server state, and **shadcn/ui (Radix)** + **Tailwind CSS** for UI.
+React + Vite + TypeScript client dashboard for Ressy AI CRM. Restaurant owners use it to manage reservations, orders, menu, FAQs, and settings. Uses **React Router** for navigation, **TanStack Query** for server state, and **shadcn/ui (Radix)** + **Tailwind CSS** for UI.
 
 ## 🚀 What’s in the app
 
 - **Auth flow**: `/login` → protected `/dashboard/*` routes
-- **Dashboard sections**: Calls, Callers, Reservations, Orders, Menu, FAQs, Settings
-- **API integration**: configurable via Vite env vars (`VITE_API_BASE_URL`, `VITE_API_VERSION`)
+- **Dashboard sections**: Dashboard, Calls, Callers, Reservations, Orders, Menu, FAQs, Settings, Escalations, Order Events, Reservation Events
+- **Settings**: Restaurant info, weekly operating hours, reservation capacity/timing, agent capabilities (orders, reservations, FAQs toggles)
+- **Real-time**: SSE (Server-Sent Events) for live updates
+- **API integration**: configurable via Vite env vars (`VITE_API_BASE_URL`, `VITE_API_VERSION`); production fallback: `https://voice.ressy.ai`
 
 ## ✅ Prerequisites
 
-- **Node.js**: 18+
-- **npm**: (project uses `package-lock.json`)
+- **Node.js**: 20+
+- **npm**: 10+ (project uses `package-lock.json`; see `.nvmrc`)
 
 ## 🛠️ Setup
 
@@ -41,7 +43,7 @@ Dev runs on `http://localhost:8080` (see `vite.config.ts`).
 
 The app reads env vars via Vite (`import.meta.env`) and centralizes them in `src/config/env.ts`.
 
-- **`VITE_API_BASE_URL`**: base URL for the backend (dev fallback is `http://localhost:5001`)
+- **`VITE_API_BASE_URL`**: base URL for the backend (dev fallback: `https://voice.ressy.ai`; production fallback if unset: `https://voice.ressy.ai`)
 - **`VITE_API_VERSION`**: defaults to `v1`
 
 ## 🧭 Routing (React Router)
@@ -59,18 +61,39 @@ Routes are defined in `src/App.tsx`:
   - `/dashboard/menu`
   - `/dashboard/faqs`
   - `/dashboard/settings`
+  - `/dashboard/escalations`
+  - `/dashboard/order-events`
+  - `/dashboard/reservation-events`
 
 Protection is handled by `src/components/ProtectedRoute.tsx` and layout by `src/components/DashboardLayout.tsx`.
 
-## 📁 Project structure (current)
+## 📁 Project structure
 
 ```
 src/
   components/
+    CollapsibleSection.tsx
     DashboardLayout.tsx
+    ErrorBoundary.tsx
     ProtectedRoute.tsx
     Sidebar.tsx
-    ui/                # shadcn/ui components
+    UiOnlyNotice.tsx
+    ui/                # shadcn/ui (command, popover, timezone-combobox, etc.)
+  config/
+    env.ts
+  contexts/
+    AuthContext.tsx
+    SSEContext.tsx
+  hooks/
+  lib/
+    api/
+      client.ts
+      endpoints.ts
+    utils/
+      time.ts          # time + operating hours utilities
+      timezone.ts      # timezone conversions
+      format.ts, csv.ts, json.ts, notification-sounds.ts, tokenRefresh.ts
+      utils.ts
   pages/
     Login.tsx
     Dashboard.tsx
@@ -81,15 +104,15 @@ src/
     Menu.tsx
     FAQ.tsx
     Settings.tsx
+    Escalations.tsx
+    OrderEvents.tsx
+    ReservationEvents.tsx
     NotFound.tsx
-  config/
-    env.ts
-  lib/
-    api/
-    utils.ts
-  contexts/
-  hooks/
   services/
+    auth.ts, restaurant.ts, reservations.ts, orders.ts, menu.ts, faq.ts, calls.ts, callers.ts, sse.ts, analytics.ts
+  types/
+    api.types.ts
+    auth.types.ts
   main.tsx
   App.tsx
 ```
@@ -98,10 +121,12 @@ src/
 
 - **`npm run dev`**: start dev server
 - **`npm run build`**: production build to `dist/`
+- **`npm run build:gh-pages`**: build with GitHub Pages base path
 - **`npm run preview`**: preview production build locally
-- **`npm run lint`**: eslint
-- **`npm run format`** / **`npm run format:check`**: prettier
-- **`npm run test`** / **`npm run test:ci`**: vitest
+- **`npm run lint`**: ESLint
+- **`npm run format`** / **`npm run format:check`**: Prettier
+- **`npm run test`** / **`npm run test:ci`** / **`npm run test:watch`**: Vitest
+- **`npm run deploy`**: build for GitHub Pages and deploy via `gh-pages`
 
 ## 🌍 GitHub Pages / base path
 
@@ -130,9 +155,10 @@ Nginx is configured in `nginx.conf` to support SPA routing (`try_files ... /inde
 ## 📦 Tech stack
 
 - **React 18**, **TypeScript**
-- **Vite 5**
+- **Vite 7**
 - **Tailwind CSS**
 - **shadcn/ui** + **Radix UI**
 - **React Router v6**
 - **TanStack Query**
+- **Sonner** (toast notifications)
 - **Vitest**

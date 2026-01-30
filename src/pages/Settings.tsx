@@ -4,7 +4,7 @@
  * Integrates with GET/PUT /api/v1/client/restaurant
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
 import { formatLocalDateTime, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
+import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/time";
 import type {
   ClientRestaurant,
   ClientRestaurantUpdateRequest,
@@ -47,31 +48,7 @@ import type {
 // Phone number validation regex (E.164 format)
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
-// Days of week constant
-const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
-
-type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
-
-// Day display names
-const DAY_LABELS: Record<DayOfWeek, string> = {
-  monday: "Monday",
-  tuesday: "Tuesday",
-  wednesday: "Wednesday",
-  thursday: "Thursday",
-  friday: "Friday",
-  saturday: "Saturday",
-  sunday: "Sunday",
-};
-
-// Default operating hours for initialization
+// Default operating hours for initialization (when API returns null we still need display values)
 const DEFAULT_OPERATING_HOURS: OperatingHours = {
   monday: { open: "09:00:00", close: "22:00:00", is_closed: false },
   tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
@@ -118,6 +95,10 @@ export function Settings() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<ClientRestaurant | null>(null);
+
+  // Track operating hours: only send in PUT when backend had them set or user edited them
+  const operatingHoursWereNull = useRef(false);
+  const hasUserEditedOperatingHours = useRef(false);
 
   // Collapsible section states - Restaurant Info open by default, persist to localStorage
   const [sectionsOpen, setSectionsOpen] = useState(() => {
@@ -183,12 +164,15 @@ export function Settings() {
   };
 
   /**
-   * Format time from HH:MM to HH:MM:SS for API
+   * Format time from HH:MM to HH:MM:SS for API.
+   * Returns null for empty/whitespace so operating_hours.*.open/close stay null when unset (API type string | null).
    */
-  const formatTimeForApiLocal = (time: string): string => {
-    if (!time) return "";
-    if (time.length === 5) return `${time}:00`; // "09:00" -> "09:00:00"
-    return time;
+  const formatTimeForApiLocal = (time: string | null | undefined): string | null => {
+    if (time == null) return null;
+    const trimmed = time.trim();
+    if (!trimmed) return null;
+    if (trimmed.length === 5) return `${trimmed}:00`; // "09:00" -> "09:00:00"
+    return trimmed;
   };
 
   /**
@@ -202,6 +186,7 @@ export function Settings() {
       newOperatingHours[day] = { ...sourceDayHours };
     });
 
+    hasUserEditedOperatingHours.current = true;
     updateFormData({ operating_hours: newOperatingHours });
     toast.success(`Copied ${DAY_LABELS[sourceDay]}'s hours to all days`);
   };
@@ -212,8 +197,9 @@ export function Settings() {
   const updateDayHours = (
     day: DayOfWeek,
     field: "open" | "close" | "is_closed",
-    value: string | boolean
+    value: string | boolean | null
   ) => {
+    hasUserEditedOperatingHours.current = true;
     updateFormData({
       operating_hours: {
         ...formData.operating_hours,
@@ -248,6 +234,8 @@ export function Settings() {
     try {
       const data = await getRestaurant();
       setOriginalData(data);
+      operatingHoursWereNull.current = data.operating_hours == null;
+      hasUserEditedOperatingHours.current = false;
       setFormData({
         name: data.name,
         address: data.address,
@@ -256,7 +244,8 @@ export function Settings() {
         forward_minutes: data.forward_minutes,
         backward_minutes: data.backward_minutes,
         is_credit_card_required_for_reservation: data.is_credit_card_required_for_reservation,
-        operating_hours: data.operating_hours || DEFAULT_OPERATING_HOURS,
+        // Use defaults for display when API returns null so the form is editable; only send on save if user edited
+        operating_hours: data.operating_hours ?? DEFAULT_OPERATING_HOURS,
         reservation_seating_capacity: data.reservation_seating_capacity ?? 50,
         reservation_advance_days: data.reservation_advance_days ?? 30,
         features_orders_enabled: data.features?.orders_enabled ?? true,
@@ -381,7 +370,6 @@ export function Settings() {
         forward_minutes: formData.forward_minutes,
         backward_minutes: formData.backward_minutes,
         is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
-        operating_hours: formData.operating_hours,
         reservation_seating_capacity: formData.reservation_seating_capacity,
         reservation_advance_days: formData.reservation_advance_days,
         features: {
@@ -390,9 +378,15 @@ export function Settings() {
           faqs_enabled: formData.features_faqs_enabled,
         },
       };
+      // Only include operating_hours when backend already had them or user edited the section
+      if (!operatingHoursWereNull.current || hasUserEditedOperatingHours.current) {
+        payload.operating_hours = formData.operating_hours;
+      }
 
       const updatedData = await updateRestaurant(payload);
       setOriginalData(updatedData);
+      operatingHoursWereNull.current = updatedData.operating_hours == null;
+      hasUserEditedOperatingHours.current = false;
       setFormData({
         name: updatedData.name,
         address: updatedData.address,
@@ -402,7 +396,7 @@ export function Settings() {
         backward_minutes: updatedData.backward_minutes,
         is_credit_card_required_for_reservation:
           updatedData.is_credit_card_required_for_reservation,
-        operating_hours: updatedData.operating_hours || DEFAULT_OPERATING_HOURS,
+        operating_hours: updatedData.operating_hours ?? DEFAULT_OPERATING_HOURS,
         reservation_seating_capacity: updatedData.reservation_seating_capacity ?? 50,
         reservation_advance_days: updatedData.reservation_advance_days ?? 30,
         features_orders_enabled: updatedData.features?.orders_enabled ?? true,
@@ -439,6 +433,7 @@ export function Settings() {
       });
       setFormErrors({});
       setHasChanges(false);
+      hasUserEditedOperatingHours.current = false;
       toast.info("Changes discarded");
     }
   };

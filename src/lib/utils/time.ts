@@ -91,7 +91,7 @@ export const isWithinOperatingHoursForDate = (
   const dayLabel = DAY_LABELS[dayName];
 
   if (dayHours.is_closed) {
-    return { valid: false, error: `Restaurant is closed on ${dayLabel}s` };
+    return { valid: false, error: `Restaurant is closed on ${dayLabel}` };
   }
 
   if (!dayHours.open || !dayHours.close) {
@@ -102,7 +102,9 @@ export const isWithinOperatingHoursForDate = (
   const closeTime = dayHours.close.slice(0, 5);
   const normalizedTime = time.slice(0, 5);
 
-  // Handle overnight hours (close time < open time)
+  // Overnight hours: close < open (e.g. 22:00–02:00). The range is treated as
+  // belonging to the day the shift starts; times from midnight up to closeTime
+  // are considered valid for that same day (e.g. Saturday 01:00 for Saturday 22:00–02:00).
   if (closeTime < openTime) {
     if (normalizedTime >= openTime || normalizedTime <= closeTime) {
       return { valid: true };
@@ -116,7 +118,7 @@ export const isWithinOperatingHoursForDate = (
 
   return {
     valid: false,
-    error: `Reservation time must be within opening hours (${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}) on ${dayLabel}s`,
+    error: `Reservation time must be within opening hours (${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}) on ${dayLabel}`,
   };
 };
 
