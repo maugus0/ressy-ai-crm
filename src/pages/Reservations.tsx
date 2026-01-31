@@ -74,10 +74,10 @@ import {
   datetimeLocalToUtcIso,
   formatLocalDateTimeInput,
   formatLocalDateTimeParts,
-  isWithinOpeningHours,
   getTimeFromDateTime,
   parseApiDate,
 } from "@/lib/utils/timezone";
+import { isWithinOperatingHoursForDate } from "@/lib/utils/time";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
@@ -523,26 +523,18 @@ export function Reservations() {
             // For edit mode, allow past dates (for historical records)
             if (!isEditMode && selectedDate < now) {
               errors.date_time = "Reservation date cannot be in the past";
+            } else if (restaurant?.operating_hours) {
+              // Validate operating hours if restaurant data is available
+              const reservationTime = getTimeFromDateTime(formData.date_time);
+              const hoursValidation = isWithinOperatingHoursForDate(
+                restaurant.operating_hours,
+                selectedDate,
+                reservationTime
+              );
+              if (!hoursValidation.valid && hoursValidation.error) {
+                errors.date_time = hoursValidation.error;
+              }
             }
-          }
-        }
-
-        // Validate opening hours if restaurant data is available
-        if (restaurant?.opening_time && restaurant?.closing_time) {
-          const reservationTime = getTimeFromDateTime(formData.date_time);
-          if (
-            !isWithinOpeningHours(reservationTime, restaurant.opening_time, restaurant.closing_time)
-          ) {
-            // Format opening and closing times for error message
-            const formatTime = (timeStr: string) => {
-              const [hours, minutes] = timeStr.split(":");
-              const hour = parseInt(hours, 10);
-              const minute = parseInt(minutes, 10);
-              const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-              const ampm = hour >= 12 ? "PM" : "AM";
-              return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
-            };
-            errors.date_time = `Reservation time must be within opening hours (${formatTime(restaurant.opening_time)} - ${formatTime(restaurant.closing_time)})`;
           }
         }
       }

@@ -34,6 +34,29 @@ export interface RestaurantFeatures {
   faqs_enabled: boolean;
 }
 
+/**
+ * Day Hours - Operating hours for a single day
+ */
+export interface DayHours {
+  open: string | null;
+  close: string | null;
+  is_closed: boolean;
+  is_24_hours: boolean;
+}
+
+/**
+ * Operating Hours - Weekly operating hours for the restaurant
+ */
+export interface OperatingHours {
+  monday: DayHours;
+  tuesday: DayHours;
+  wednesday: DayHours;
+  thursday: DayHours;
+  friday: DayHours;
+  saturday: DayHours;
+  sunday: DayHours;
+}
+
 export interface Restaurant {
   id: number;
   name: string;
@@ -64,10 +87,8 @@ export interface ClientRestaurant {
   backward_minutes: number;
   /** Whether credit card is required for reservations */
   is_credit_card_required_for_reservation: boolean;
-  /** Opening time in HH:MM:SS format */
-  opening_time: string | null;
-  /** Closing time in HH:MM:SS format */
-  closing_time: string | null;
+  /** Weekly operating hours for the restaurant */
+  operating_hours: OperatingHours | null;
   /** Restaurant timezone (IANA name) */
   timezone: string | null;
   /** Maximum seating capacity for the restaurant (null if not configured) */
@@ -93,8 +114,7 @@ export interface ClientRestaurantUpdateRequest {
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;
-  opening_time?: string;
-  closing_time?: string;
+  operating_hours?: OperatingHours | null;
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
   features?: Partial<RestaurantFeatures>;
