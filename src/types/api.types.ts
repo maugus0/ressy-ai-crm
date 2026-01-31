@@ -114,7 +114,7 @@ export interface ClientRestaurantUpdateRequest {
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;
-  operating_hours?: OperatingHours;
+  operating_hours?: OperatingHours | null;
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
   features?: Partial<RestaurantFeatures>;

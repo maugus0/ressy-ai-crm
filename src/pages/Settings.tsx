@@ -931,6 +931,7 @@ export function Settings() {
                     onClick={() => copyToAllDays(day)}
                     className="h-7 w-7 shrink-0 ml-auto sm:ml-0"
                     title={`Copy ${DAY_LABELS[day]}'s hours to all days`}
+                    aria-label={`Copy ${DAY_LABELS[day]}'s hours to all days`}
                   >
                     <Copy className="h-3 w-3" />
                   </Button>

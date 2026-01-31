@@ -113,11 +113,11 @@ export const isWithinOperatingHoursForDate = (
   const closeTime = dayHours.close.slice(0, 5);
   const normalizedTime = time.slice(0, 5);
 
-  // Overnight hours: close < open (e.g. 22:00–02:00). The range is treated as
-  // belonging to the day the shift starts; times from midnight up to closeTime
-  // are considered valid for that same day (e.g. Saturday 01:00 for Saturday 22:00–02:00).
+  // Overnight hours: close < open (e.g. 22:00–02:00). Only the current day's
+  // opening segment (openTime through 23:59) is valid on this calendar day.
+  // The segment 00:00–closeTime is the "morning after" and belongs to the next day.
   if (closeTime < openTime) {
-    if (normalizedTime >= openTime || normalizedTime <= closeTime) {
+    if (normalizedTime >= openTime) {
       return { valid: true };
     }
   } else {
