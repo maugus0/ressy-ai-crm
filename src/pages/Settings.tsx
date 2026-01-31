@@ -34,6 +34,7 @@ import {
   HelpCircle,
   AlertTriangle,
   Copy,
+  Sun,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
@@ -50,13 +51,13 @@ const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
 // Default operating hours for initialization (when API returns null we still need display values)
 const DEFAULT_OPERATING_HOURS: OperatingHours = {
-  monday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  wednesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  thursday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  friday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  saturday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  sunday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  monday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  wednesday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  thursday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  friday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  saturday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  sunday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
 };
 
 // Form validation errors interface
@@ -196,17 +197,25 @@ export function Settings() {
    */
   const updateDayHours = (
     day: DayOfWeek,
-    field: "open" | "close" | "is_closed",
+    field: "open" | "close" | "is_closed" | "is_24_hours",
     value: string | boolean | null
   ) => {
     hasUserEditedOperatingHours.current = true;
+
+    const currentDayHours = formData.operating_hours[day];
+    const updatedDayHours = { ...currentDayHours, [field]: value };
+
+    // Handle mutual exclusivity: is_closed and is_24_hours cannot both be true
+    if (field === "is_closed" && value === true) {
+      updatedDayHours.is_24_hours = false;
+    } else if (field === "is_24_hours" && value === true) {
+      updatedDayHours.is_closed = false;
+    }
+
     updateFormData({
       operating_hours: {
         ...formData.operating_hours,
-        [day]: {
-          ...formData.operating_hours[day],
-          [field]: value,
-        },
+        [day]: updatedDayHours,
       },
     });
   };
@@ -221,9 +230,29 @@ export function Settings() {
       return (
         dayHours.open === firstDay.open &&
         dayHours.close === firstDay.close &&
-        dayHours.is_closed === firstDay.is_closed
+        dayHours.is_closed === firstDay.is_closed &&
+        dayHours.is_24_hours === firstDay.is_24_hours
       );
     });
+  };
+
+  /**
+   * Set all days to 24-hour operation
+   */
+  const setAll24Hours = () => {
+    hasUserEditedOperatingHours.current = true;
+    const newOperatingHours = { ...formData.operating_hours };
+
+    DAYS_OF_WEEK.forEach((day) => {
+      newOperatingHours[day] = {
+        ...newOperatingHours[day],
+        is_24_hours: true,
+        is_closed: false,
+      };
+    });
+
+    updateFormData({ operating_hours: newOperatingHours });
+    toast.success("All days set to 24-hour operation");
   };
 
   // Fetch restaurant data
@@ -236,6 +265,22 @@ export function Settings() {
       setOriginalData(data);
       operatingHoursWereNull.current = data.operating_hours == null;
       hasUserEditedOperatingHours.current = false;
+
+      // Normalize operating hours with is_24_hours default
+      let normalizedOperatingHours = DEFAULT_OPERATING_HOURS;
+      if (data.operating_hours) {
+        normalizedOperatingHours = {} as OperatingHours;
+        DAYS_OF_WEEK.forEach((day) => {
+          const dayHours = data.operating_hours![day];
+          normalizedOperatingHours[day] = {
+            open: dayHours.open,
+            close: dayHours.close,
+            is_closed: dayHours.is_closed,
+            is_24_hours: dayHours.is_24_hours ?? false,
+          };
+        });
+      }
+
       setFormData({
         name: data.name,
         address: data.address,
@@ -245,7 +290,7 @@ export function Settings() {
         backward_minutes: data.backward_minutes,
         is_credit_card_required_for_reservation: data.is_credit_card_required_for_reservation,
         // Use defaults for display when API returns null so the form is editable; only send on save if user edited
-        operating_hours: data.operating_hours ?? DEFAULT_OPERATING_HOURS,
+        operating_hours: normalizedOperatingHours,
         reservation_seating_capacity: data.reservation_seating_capacity ?? 50,
         reservation_advance_days: data.reservation_advance_days ?? 30,
         features_orders_enabled: data.features?.orders_enabled ?? true,
@@ -278,7 +323,8 @@ export function Settings() {
           return (
             newDay.open !== origDay.open ||
             newDay.close !== origDay.close ||
-            newDay.is_closed !== origDay.is_closed
+            newDay.is_closed !== origDay.is_closed ||
+            newDay.is_24_hours !== (origDay.is_24_hours ?? false)
           );
         });
 
@@ -387,6 +433,22 @@ export function Settings() {
       setOriginalData(updatedData);
       operatingHoursWereNull.current = updatedData.operating_hours == null;
       hasUserEditedOperatingHours.current = false;
+
+      // Normalize operating hours with is_24_hours default
+      let normalizedOperatingHours = DEFAULT_OPERATING_HOURS;
+      if (updatedData.operating_hours) {
+        normalizedOperatingHours = {} as OperatingHours;
+        DAYS_OF_WEEK.forEach((day) => {
+          const dayHours = updatedData.operating_hours![day];
+          normalizedOperatingHours[day] = {
+            open: dayHours.open,
+            close: dayHours.close,
+            is_closed: dayHours.is_closed,
+            is_24_hours: dayHours.is_24_hours ?? false,
+          };
+        });
+      }
+
       setFormData({
         name: updatedData.name,
         address: updatedData.address,
@@ -396,7 +458,7 @@ export function Settings() {
         backward_minutes: updatedData.backward_minutes,
         is_credit_card_required_for_reservation:
           updatedData.is_credit_card_required_for_reservation,
-        operating_hours: updatedData.operating_hours ?? DEFAULT_OPERATING_HOURS,
+        operating_hours: normalizedOperatingHours,
         reservation_seating_capacity: updatedData.reservation_seating_capacity ?? 50,
         reservation_advance_days: updatedData.reservation_advance_days ?? 30,
         features_orders_enabled: updatedData.features?.orders_enabled ?? true,
@@ -415,6 +477,21 @@ export function Settings() {
   // Reset to original values
   const handleReset = () => {
     if (originalData) {
+      // Normalize operating hours with is_24_hours default
+      let normalizedOperatingHours = DEFAULT_OPERATING_HOURS;
+      if (originalData.operating_hours) {
+        normalizedOperatingHours = {} as OperatingHours;
+        DAYS_OF_WEEK.forEach((day) => {
+          const dayHours = originalData.operating_hours![day];
+          normalizedOperatingHours[day] = {
+            open: dayHours.open,
+            close: dayHours.close,
+            is_closed: dayHours.is_closed,
+            is_24_hours: dayHours.is_24_hours ?? false,
+          };
+        });
+      }
+
       setFormData({
         name: originalData.name,
         address: originalData.address,
@@ -424,7 +501,7 @@ export function Settings() {
         backward_minutes: originalData.backward_minutes,
         is_credit_card_required_for_reservation:
           originalData.is_credit_card_required_for_reservation,
-        operating_hours: originalData.operating_hours || DEFAULT_OPERATING_HOURS,
+        operating_hours: normalizedOperatingHours,
         reservation_seating_capacity: originalData.reservation_seating_capacity ?? 50,
         reservation_advance_days: originalData.reservation_advance_days ?? 30,
         features_orders_enabled: originalData.features?.orders_enabled ?? true,
@@ -739,17 +816,23 @@ export function Settings() {
             <p className="text-xs sm:text-sm text-muted-foreground">
               Configure hours for each day individually
             </p>
-            {!allDaysSame() && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyToAllDays("monday")}
-                className="h-7 text-xs"
-              >
-                <Copy className="h-3 w-3 mr-1.5" />
-                Copy Monday to All
+            <div className="flex flex-wrap gap-2">
+              {!allDaysSame() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToAllDays("monday")}
+                  className="h-7 text-xs"
+                >
+                  <Copy className="h-3 w-3 mr-1.5" />
+                  Copy Monday to All
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={setAll24Hours} className="h-7 text-xs">
+                <Sun className="h-3 w-3 mr-1.5" />
+                Set All 24 Hours
               </Button>
-            )}
+            </div>
           </div>
 
           {/* Per-Day Hours */}
@@ -778,42 +861,68 @@ export function Settings() {
                     )}
                   </div>
 
-                  {/* Closed Toggle */}
-                  <div className="flex items-center gap-1.5 sm:min-w-[90px]">
-                    <Switch
-                      checked={dayHours.is_closed}
-                      onCheckedChange={(checked) => {
-                        updateDayHours(day, "is_closed", checked);
-                      }}
-                      className="scale-75 sm:scale-100"
-                    />
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">Closed</span>
+                  {/* Status Toggles */}
+                  <div className="flex items-center gap-3 sm:min-w-[180px]">
+                    {/* Closed Toggle */}
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        checked={dayHours.is_closed}
+                        onCheckedChange={(checked) => {
+                          updateDayHours(day, "is_closed", checked);
+                        }}
+                        className="scale-75 sm:scale-100"
+                      />
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">Closed</span>
+                    </div>
+
+                    {/* 24 Hours Toggle - Only show if not closed */}
+                    {!dayHours.is_closed && (
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          checked={dayHours.is_24_hours}
+                          onCheckedChange={(checked) => {
+                            updateDayHours(day, "is_24_hours", checked);
+                          }}
+                          className="scale-75 sm:scale-100"
+                        />
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">24h</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Time Inputs - Only show if not closed */}
-                  {!dayHours.is_closed && (
-                    <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-                      <Input
-                        type="time"
-                        value={formatTimeForInputLocal(dayHours.open)}
-                        onChange={(e) => {
-                          updateDayHours(day, "open", formatTimeForApiLocal(e.target.value));
-                        }}
-                        className="h-8 text-xs flex-1"
-                        placeholder="Open"
-                      />
-                      <span className="text-xs text-muted-foreground shrink-0">to</span>
-                      <Input
-                        type="time"
-                        value={formatTimeForInputLocal(dayHours.close)}
-                        onChange={(e) => {
-                          updateDayHours(day, "close", formatTimeForApiLocal(e.target.value));
-                        }}
-                        className="h-8 text-xs flex-1"
-                        placeholder="Close"
-                      />
-                    </div>
-                  )}
+                  {/* Hours Display/Input */}
+                  <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                    {dayHours.is_closed ? (
+                      <span className="text-xs sm:text-sm text-red-500 font-medium">Closed</span>
+                    ) : dayHours.is_24_hours ? (
+                      <span className="text-xs sm:text-sm text-green-600 font-medium flex items-center gap-1">
+                        <Sun className="h-3.5 w-3.5" />
+                        Open 24 hours
+                      </span>
+                    ) : (
+                      <>
+                        <Input
+                          type="time"
+                          value={formatTimeForInputLocal(dayHours.open)}
+                          onChange={(e) => {
+                            updateDayHours(day, "open", formatTimeForApiLocal(e.target.value));
+                          }}
+                          className="h-8 text-xs flex-1"
+                          placeholder="Open"
+                        />
+                        <span className="text-xs text-muted-foreground shrink-0">to</span>
+                        <Input
+                          type="time"
+                          value={formatTimeForInputLocal(dayHours.close)}
+                          onChange={(e) => {
+                            updateDayHours(day, "close", formatTimeForApiLocal(e.target.value));
+                          }}
+                          className="h-8 text-xs flex-1"
+                          placeholder="Close"
+                        />
+                      </>
+                    )}
+                  </div>
 
                   {/* Copy Button */}
                   <Button
@@ -854,6 +963,11 @@ export function Settings() {
             const closedDays = DAYS_OF_WEEK.filter(
               (day) => formData.operating_hours[day].is_closed
             );
+            const twentyFourHourDays = DAYS_OF_WEEK.filter(
+              (day) =>
+                formData.operating_hours[day].is_24_hours &&
+                !formData.operating_hours[day].is_closed
+            );
 
             return (
               <div className="flex items-start gap-2 p-2.5 sm:p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 mt-3">
@@ -864,18 +978,35 @@ export function Settings() {
                       Open {openDays.length} {openDays.length === 1 ? "day" : "days"} per week
                     </span>
                   </p>
+                  {twentyFourHourDays.length > 0 && (
+                    <p className="text-[10px] sm:text-xs flex items-center gap-1">
+                      <Sun className="h-3 w-3 text-green-600 dark:text-green-400" />
+                      24 hours:{" "}
+                      {twentyFourHourDays.map((day) => DAY_LABELS[day].slice(0, 3)).join(", ")}
+                    </p>
+                  )}
                   {closedDays.length > 0 && (
                     <p className="text-[10px] sm:text-xs">
                       Closed on: {closedDays.map((day) => DAY_LABELS[day]).join(", ")}
                     </p>
                   )}
-                  {allDaysSame() && openDays.length === 7 && (
-                    <p className="text-[10px] sm:text-xs">
-                      Same hours every day:{" "}
-                      {formatTimeForInputLocal(formData.operating_hours.monday.open)} -{" "}
-                      {formatTimeForInputLocal(formData.operating_hours.monday.close)}
-                    </p>
-                  )}
+                  {allDaysSame() &&
+                    openDays.length === 7 &&
+                    !formData.operating_hours.monday.is_24_hours && (
+                      <p className="text-[10px] sm:text-xs">
+                        Same hours every day:{" "}
+                        {formatTimeForInputLocal(formData.operating_hours.monday.open)} -{" "}
+                        {formatTimeForInputLocal(formData.operating_hours.monday.close)}
+                      </p>
+                    )}
+                  {allDaysSame() &&
+                    openDays.length === 7 &&
+                    formData.operating_hours.monday.is_24_hours && (
+                      <p className="text-[10px] sm:text-xs flex items-center gap-1">
+                        <Sun className="h-3 w-3" />
+                        Open 24 hours every day
+                      </p>
+                    )}
                 </div>
               </div>
             );

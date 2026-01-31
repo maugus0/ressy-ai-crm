@@ -56,13 +56,19 @@ export const getDayName = (date: Date): DayOfWeek => {
 export const getHoursForDate = (
   operatingHours: OperatingHours | null | undefined,
   date: Date
-): { open: string | null; close: string | null; is_closed: boolean } => {
+): { open: string | null; close: string | null; is_closed: boolean; is_24_hours: boolean } => {
   if (!operatingHours) {
-    return { open: null, close: null, is_closed: false };
+    return { open: null, close: null, is_closed: false, is_24_hours: false };
   }
 
   const dayName = getDayName(date);
-  return operatingHours[dayName];
+  const dayHours = operatingHours[dayName];
+  return {
+    open: dayHours.open,
+    close: dayHours.close,
+    is_closed: dayHours.is_closed,
+    is_24_hours: dayHours.is_24_hours ?? false,
+  };
 };
 
 /**
@@ -92,6 +98,11 @@ export const isWithinOperatingHoursForDate = (
 
   if (dayHours.is_closed) {
     return { valid: false, error: `Restaurant is closed on ${dayLabel}` };
+  }
+
+  // 24-hour operation - always valid
+  if (dayHours.is_24_hours) {
+    return { valid: true };
   }
 
   if (!dayHours.open || !dayHours.close) {
@@ -136,14 +147,23 @@ export const formatTime12Hour = (timeStr: string): string => {
 
 /**
  * Get available time range for a date
+ * Returns { is_24_hours: true } for 24-hour days, or { start, end } for regular hours
  */
 export const getAvailableTimeRange = (
   operatingHours: OperatingHours | null | undefined,
   date: Date
-): { start: string; end: string } | null => {
+): { start: string; end: string; is_24_hours?: boolean } | null => {
   const dayHours = getHoursForDate(operatingHours, date);
 
-  if (dayHours.is_closed || !dayHours.open || !dayHours.close) {
+  if (dayHours.is_closed) {
+    return null;
+  }
+
+  if (dayHours.is_24_hours) {
+    return { start: "00:00", end: "23:59", is_24_hours: true };
+  }
+
+  if (!dayHours.open || !dayHours.close) {
     return null;
   }
 
