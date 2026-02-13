@@ -35,7 +35,9 @@ import {
   AlertTriangle,
   Copy,
   Sun,
+  Lock,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getRestaurant, updateRestaurant } from "@/services/restaurant";
 import { formatLocalDateTime, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
@@ -295,7 +297,7 @@ export function Settings() {
         reservation_advance_days: data.reservation_advance_days ?? 30,
         features_orders_enabled: data.features?.orders_enabled ?? true,
         features_reservations_enabled: data.features?.reservations_enabled ?? true,
-        features_faqs_enabled: data.features?.faqs_enabled ?? true,
+        features_faqs_enabled: true, // Always enabled for agent functionality
       });
       setHasChanges(false);
     } catch (err) {
@@ -312,7 +314,9 @@ export function Settings() {
   // Track changes
   const updateFormData = (updates: Partial<SettingsFormData>) => {
     setFormData((prev) => {
-      const newData = { ...prev, ...updates };
+      // FAQs must always be enabled; ignore any attempt to change it
+      const { features_faqs_enabled: _faq, ...rest } = updates;
+      const newData = { ...prev, ...rest, features_faqs_enabled: true };
       // Check if data has changed from original
       if (originalData) {
         // Check if operating hours have changed
@@ -342,8 +346,8 @@ export function Settings() {
           newData.reservation_advance_days !== (originalData.reservation_advance_days ?? 30) ||
           newData.features_orders_enabled !== (originalData.features?.orders_enabled ?? true) ||
           newData.features_reservations_enabled !==
-            (originalData.features?.reservations_enabled ?? true) ||
-          newData.features_faqs_enabled !== (originalData.features?.faqs_enabled ?? true);
+            (originalData.features?.reservations_enabled ?? true);
+        // FAQs are always on and not user-changeable, so we don't include them in hasChanges
         setHasChanges(hasChanged);
       }
       return newData;
@@ -421,7 +425,7 @@ export function Settings() {
         features: {
           orders_enabled: formData.features_orders_enabled,
           reservations_enabled: formData.features_reservations_enabled,
-          faqs_enabled: formData.features_faqs_enabled,
+          faqs_enabled: true, // Always enabled for agent functionality
         },
       };
       // Only include operating_hours when backend already had them or user edited the section
@@ -463,7 +467,7 @@ export function Settings() {
         reservation_advance_days: updatedData.reservation_advance_days ?? 30,
         features_orders_enabled: updatedData.features?.orders_enabled ?? true,
         features_reservations_enabled: updatedData.features?.reservations_enabled ?? true,
-        features_faqs_enabled: updatedData.features?.faqs_enabled ?? true,
+        features_faqs_enabled: true, // Always enabled for agent functionality
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -506,7 +510,7 @@ export function Settings() {
         reservation_advance_days: originalData.reservation_advance_days ?? 30,
         features_orders_enabled: originalData.features?.orders_enabled ?? true,
         features_reservations_enabled: originalData.features?.reservations_enabled ?? true,
-        features_faqs_enabled: originalData.features?.faqs_enabled ?? true,
+        features_faqs_enabled: true, // Always enabled for agent functionality
       });
       setFormErrors({});
       setHasChanges(false);
@@ -1286,31 +1290,42 @@ export function Settings() {
               />
             </div>
 
-            {/* FAQs Toggle */}
-            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
-                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            {/* FAQs Toggle - Always ON for agent functionality */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30 opacity-75 cursor-not-allowed">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                      <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <Label
+                        htmlFor="faqs_enabled"
+                        className="text-xs sm:text-sm font-medium flex items-center gap-1.5 cursor-default"
+                      >
+                        FAQs & General Questions
+                        <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                      </Label>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        Allow RessyAI to answer menu questions and general inquiries
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 italic">
+                        Always enabled for the agent to function correctly
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="faqs_enabled"
+                    checked={true}
+                    disabled={true}
+                    className="shrink-0 pointer-events-none"
+                  />
                 </div>
-                <div className="space-y-0.5 min-w-0">
-                  <Label
-                    htmlFor="faqs_enabled"
-                    className="text-xs sm:text-sm font-medium cursor-pointer block"
-                  >
-                    FAQs & General Questions
-                  </Label>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    Allow RessyAI to answer menu questions and general inquiries
-                  </p>
-                </div>
-              </div>
-              <Switch
-                id="faqs_enabled"
-                checked={formData.features_faqs_enabled}
-                onCheckedChange={(checked) => updateFormData({ features_faqs_enabled: checked })}
-                className="shrink-0"
-              />
-            </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[220px]">
+                <p>FAQ feature is always enabled for the agent to function correctly.</p>
+              </TooltipContent>
+            </Tooltip>
 
             {/* Status Summary */}
             <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
