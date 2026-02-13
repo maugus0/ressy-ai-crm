@@ -1290,42 +1290,55 @@ export function Settings() {
               />
             </div>
 
-            {/* FAQs Toggle - Always ON for agent functionality */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30 opacity-75 cursor-not-allowed">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
-                      <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                    </div>
-                    <div className="space-y-0.5 min-w-0">
-                      <Label
-                        htmlFor="faqs_enabled"
-                        className="text-xs sm:text-sm font-medium flex items-center gap-1.5 cursor-default"
-                      >
-                        FAQs & General Questions
-                        <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                      </Label>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">
-                        Allow RessyAI to answer menu questions and general inquiries
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 italic">
-                        Always enabled for the agent to function correctly
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="faqs_enabled"
-                    checked={true}
-                    disabled={true}
-                    className="shrink-0 pointer-events-none"
-                  />
+            {/* FAQs Toggle - Always ON for agent functionality (not user-editable) */}
+            <div
+              className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30 opacity-80 cursor-not-allowed"
+              aria-disabled="true"
+              role="group"
+              aria-labelledby="faqs_label"
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" aria-hidden />
                 </div>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-[220px]">
-                <p>FAQ feature is always enabled for the agent to function correctly.</p>
-              </TooltipContent>
-            </Tooltip>
+                <div className="space-y-0.5 min-w-0">
+                  <Label
+                    id="faqs_label"
+                    htmlFor="faqs_enabled"
+                    className="text-xs sm:text-sm font-medium flex items-center gap-1.5 cursor-default"
+                  >
+                    FAQs & General Questions
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          aria-label="FAQ capability is required for RessyAI and cannot be disabled"
+                        >
+                          <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p>FAQ capability is required for RessyAI and cannot be disabled.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Allow RessyAI to answer menu questions and general inquiries
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 italic">
+                    Always enabled for the agent to function correctly
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="faqs_enabled"
+                checked={true}
+                disabled={true}
+                aria-disabled="true"
+                className="shrink-0 pointer-events-none"
+              />
+            </div>
 
             {/* Status Summary */}
             <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
