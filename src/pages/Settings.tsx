@@ -61,18 +61,10 @@ const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 // URL validation regex (requires http:// or https://)
 const URL_REGEX = /^https?:\/\/.+/i;
 
-// Default SMS redirect messages
-const DEFAULT_ORDERS_SMS_MESSAGE = `Please place your order using the link below:
-{redirect_url}
+// Default SMS redirect messages (instruction text only; URL and signature are added by the backend)
+const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
 
-Yours sincerely,
-{restaurant_name} via RessyAI`;
-
-const DEFAULT_RESERVATIONS_SMS_MESSAGE = `Please make your reservation using the link below:
-{redirect_url}
-
-Yours sincerely,
-{restaurant_name} via RessyAI`;
+const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
 
 // Default SMS redirect config
 const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
@@ -91,6 +83,121 @@ const DEFAULT_OPERATING_HOURS: OperatingHours = {
   saturday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
   sunday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
 };
+
+/** Props for the shared SMS Redirect URL + message + preview block */
+interface SmsRedirectConfigFieldsProps {
+  urlInputId: string;
+  messageInputId: string;
+  redirectUrl: string;
+  redirectMessage: string;
+  redirectUrlError?: string;
+  defaultMessagePlaceholder: string;
+  urlPlaceholder: string;
+  urlHelpText: string;
+  showPreview: boolean;
+  onTogglePreview: () => void;
+  onRedirectUrlChange: (value: string) => void;
+  onRedirectMessageChange: (value: string) => void;
+  onClearUrlError: () => void;
+  previewContent: string;
+}
+
+/** Shared UI for SMS Redirect: URL input, custom message textarea, and SMS Preview. */
+function SmsRedirectConfigFields({
+  urlInputId,
+  messageInputId,
+  redirectUrl,
+  redirectMessage,
+  redirectUrlError,
+  defaultMessagePlaceholder,
+  urlPlaceholder,
+  urlHelpText,
+  showPreview,
+  onTogglePreview,
+  onRedirectUrlChange,
+  onRedirectMessageChange,
+  onClearUrlError,
+  previewContent,
+}: SmsRedirectConfigFieldsProps) {
+  return (
+    <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={urlInputId} className="text-xs sm:text-sm">
+          Redirect URL <span className="text-destructive">*</span>
+        </Label>
+        <div className="relative">
+          <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Input
+            id={urlInputId}
+            type="url"
+            value={redirectUrl}
+            onChange={(e) => {
+              onRedirectUrlChange(e.target.value);
+              onClearUrlError();
+            }}
+            placeholder={urlPlaceholder}
+            className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${
+              redirectUrlError ? "border-destructive" : ""
+            }`}
+          />
+        </div>
+        {redirectUrlError ? (
+          <p className="text-[10px] sm:text-xs text-destructive">{redirectUrlError}</p>
+        ) : (
+          <p className="text-[10px] sm:text-xs text-muted-foreground">{urlHelpText}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={messageInputId} className="text-xs sm:text-sm">
+          Custom SMS Message <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Textarea
+          id={messageInputId}
+          value={redirectMessage}
+          onChange={(e) => onRedirectMessageChange(e.target.value)}
+          placeholder={defaultMessagePlaceholder}
+          rows={4}
+          className="text-xs sm:text-sm resize-none"
+        />
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
+          Optional. Customize the instruction text customers see in the SMS. Leave blank to use the
+          default message. The link and signature are added automatically.
+        </p>
+      </div>
+
+      {/* SMS Preview */}
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={onTogglePreview}
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          SMS Preview
+          {showPreview ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {showPreview && (
+          <div className="p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-1.5 mb-2">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                SMS Preview
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
+              {previewContent}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // Form validation errors interface
 interface FormErrors {
@@ -681,24 +788,22 @@ export function Settings() {
   };
 
   /**
-   * Generate SMS message preview with placeholder substitution
+   * Generate SMS message preview in the same format as the backend:
+   * Hello. + instruction text + URL + signature (URL and signature are always appended by backend)
    */
   const getSmsMessagePreview = (
     type: "orders" | "reservations",
-    customMessage: string,
-    redirectUrl: string
+    restaurantName: string
   ): string => {
-    const defaultMessage =
-      type === "orders" ? DEFAULT_ORDERS_SMS_MESSAGE : DEFAULT_RESERVATIONS_SMS_MESSAGE;
-    const message = customMessage.trim() || defaultMessage;
-    const restaurantName = formData.name || "Your Restaurant";
-    const url = redirectUrl.trim() || "https://your-url.com";
+    const isOrders = type === "orders";
+    const instructionText = isOrders
+      ? formData.orders_sms_redirect_message.trim() || DEFAULT_ORDERS_SMS_MESSAGE
+      : formData.reservations_sms_redirect_message.trim() || DEFAULT_RESERVATIONS_SMS_MESSAGE;
+    const url = isOrders
+      ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
+      : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
 
-    return message
-      .replace(/\{redirect_url\}/g, url)
-      .replace(/\{orders_redirect_url\}/g, url)
-      .replace(/\{reservations_redirect_url\}/g, url)
-      .replace(/\{restaurant_name\}/g, restaurantName);
+    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
   };
 
   // Loading skeleton
@@ -1518,100 +1623,31 @@ export function Settings() {
 
                 {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
                 {(formData.orders_sms_redirect_enabled || formData.orders_sms_redirect_url) && (
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
-                    {/* URL Input */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="orders_redirect_url" className="text-xs sm:text-sm">
-                        Redirect URL <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                        <Input
-                          id="orders_redirect_url"
-                          type="url"
-                          value={formData.orders_sms_redirect_url}
-                          onChange={(e) => {
-                            updateFormData({ orders_sms_redirect_url: e.target.value });
-                            if (formErrors.orders_sms_redirect_url) {
-                              setFormErrors((prev) => ({
-                                ...prev,
-                                orders_sms_redirect_url: undefined,
-                              }));
-                            }
-                          }}
-                          placeholder="https://order.yourrestaurant.com"
-                          className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${
-                            formErrors.orders_sms_redirect_url ? "border-destructive" : ""
-                          }`}
-                        />
-                      </div>
-                      {formErrors.orders_sms_redirect_url ? (
-                        <p className="text-[10px] sm:text-xs text-destructive">
-                          {formErrors.orders_sms_redirect_url}
-                        </p>
-                      ) : (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">
-                          URL to your online ordering platform (must start with http:// or https://)
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Custom Message Textarea */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="orders_redirect_message" className="text-xs sm:text-sm">
-                        Custom SMS Message{" "}
-                        <span className="text-muted-foreground font-normal">(optional)</span>
-                      </Label>
-                      <Textarea
-                        id="orders_redirect_message"
-                        value={formData.orders_sms_redirect_message}
-                        onChange={(e) =>
-                          updateFormData({ orders_sms_redirect_message: e.target.value })
-                        }
-                        placeholder={DEFAULT_ORDERS_SMS_MESSAGE}
-                        rows={4}
-                        className="text-xs sm:text-sm resize-none"
-                      />
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">
-                        Use {"{redirect_url}"} for the link and {"{restaurant_name}"} for your
-                        restaurant name. Leave blank for default message.
-                      </p>
-                    </div>
-
-                    {/* Message Preview */}
-                    <div className="space-y-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setShowOrdersMessagePreview(!showOrdersMessagePreview)}
-                        className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Message Preview
-                        {showOrdersMessagePreview ? (
-                          <ChevronUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                      {showOrdersMessagePreview && (
-                        <div className="p-3 rounded-lg bg-muted/50 border">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                              SMS Preview
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
-                            {getSmsMessagePreview(
-                              "orders",
-                              formData.orders_sms_redirect_message,
-                              formData.orders_sms_redirect_url
-                            )}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <SmsRedirectConfigFields
+                    urlInputId="orders_redirect_url"
+                    messageInputId="orders_redirect_message"
+                    redirectUrl={formData.orders_sms_redirect_url}
+                    redirectMessage={formData.orders_sms_redirect_message}
+                    redirectUrlError={formErrors.orders_sms_redirect_url}
+                    defaultMessagePlaceholder={DEFAULT_ORDERS_SMS_MESSAGE}
+                    urlPlaceholder="https://order.yourrestaurant.com"
+                    urlHelpText="URL to your online ordering platform (must start with http:// or https://)"
+                    showPreview={showOrdersMessagePreview}
+                    onTogglePreview={() => setShowOrdersMessagePreview(!showOrdersMessagePreview)}
+                    onRedirectUrlChange={(value) =>
+                      updateFormData({ orders_sms_redirect_url: value })
+                    }
+                    onRedirectMessageChange={(value) =>
+                      updateFormData({ orders_sms_redirect_message: value })
+                    }
+                    onClearUrlError={() =>
+                      setFormErrors((prev) => ({ ...prev, orders_sms_redirect_url: undefined }))
+                    }
+                    previewContent={getSmsMessagePreview(
+                      "orders",
+                      formData.name || "Your Restaurant"
+                    )}
+                  />
                 )}
               </div>
             </div>
@@ -1717,102 +1753,36 @@ export function Settings() {
                 {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
                 {(formData.reservations_sms_redirect_enabled ||
                   formData.reservations_sms_redirect_url) && (
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
-                    {/* URL Input */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="reservations_redirect_url" className="text-xs sm:text-sm">
-                        Redirect URL <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                        <Input
-                          id="reservations_redirect_url"
-                          type="url"
-                          value={formData.reservations_sms_redirect_url}
-                          onChange={(e) => {
-                            updateFormData({ reservations_sms_redirect_url: e.target.value });
-                            if (formErrors.reservations_sms_redirect_url) {
-                              setFormErrors((prev) => ({
-                                ...prev,
-                                reservations_sms_redirect_url: undefined,
-                              }));
-                            }
-                          }}
-                          placeholder="https://reserve.yourrestaurant.com"
-                          className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${
-                            formErrors.reservations_sms_redirect_url ? "border-destructive" : ""
-                          }`}
-                        />
-                      </div>
-                      {formErrors.reservations_sms_redirect_url ? (
-                        <p className="text-[10px] sm:text-xs text-destructive">
-                          {formErrors.reservations_sms_redirect_url}
-                        </p>
-                      ) : (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">
-                          URL to your reservation platform (must start with http:// or https://)
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Custom Message Textarea */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="reservations_redirect_message" className="text-xs sm:text-sm">
-                        Custom SMS Message{" "}
-                        <span className="text-muted-foreground font-normal">(optional)</span>
-                      </Label>
-                      <Textarea
-                        id="reservations_redirect_message"
-                        value={formData.reservations_sms_redirect_message}
-                        onChange={(e) =>
-                          updateFormData({ reservations_sms_redirect_message: e.target.value })
-                        }
-                        placeholder={DEFAULT_RESERVATIONS_SMS_MESSAGE}
-                        rows={4}
-                        className="text-xs sm:text-sm resize-none"
-                      />
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">
-                        Use {"{redirect_url}"} for the link and {"{restaurant_name}"} for your
-                        restaurant name. Leave blank for default message.
-                      </p>
-                    </div>
-
-                    {/* Message Preview */}
-                    <div className="space-y-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowReservationsMessagePreview(!showReservationsMessagePreview)
-                        }
-                        className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Message Preview
-                        {showReservationsMessagePreview ? (
-                          <ChevronUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                      {showReservationsMessagePreview && (
-                        <div className="p-3 rounded-lg bg-muted/50 border">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                              SMS Preview
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
-                            {getSmsMessagePreview(
-                              "reservations",
-                              formData.reservations_sms_redirect_message,
-                              formData.reservations_sms_redirect_url
-                            )}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <SmsRedirectConfigFields
+                    urlInputId="reservations_redirect_url"
+                    messageInputId="reservations_redirect_message"
+                    redirectUrl={formData.reservations_sms_redirect_url}
+                    redirectMessage={formData.reservations_sms_redirect_message}
+                    redirectUrlError={formErrors.reservations_sms_redirect_url}
+                    defaultMessagePlaceholder={DEFAULT_RESERVATIONS_SMS_MESSAGE}
+                    urlPlaceholder="https://reserve.yourrestaurant.com"
+                    urlHelpText="URL to your reservation platform (must start with http:// or https://)"
+                    showPreview={showReservationsMessagePreview}
+                    onTogglePreview={() =>
+                      setShowReservationsMessagePreview(!showReservationsMessagePreview)
+                    }
+                    onRedirectUrlChange={(value) =>
+                      updateFormData({ reservations_sms_redirect_url: value })
+                    }
+                    onRedirectMessageChange={(value) =>
+                      updateFormData({ reservations_sms_redirect_message: value })
+                    }
+                    onClearUrlError={() =>
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        reservations_sms_redirect_url: undefined,
+                      }))
+                    }
+                    previewContent={getSmsMessagePreview(
+                      "reservations",
+                      formData.name || "Your Restaurant"
+                    )}
+                  />
                 )}
               </div>
             </div>
