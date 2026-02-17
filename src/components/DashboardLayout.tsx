@@ -38,27 +38,21 @@ import {
   getNotificationNavigationTarget,
   buildNavigationUrl,
 } from "@/lib/utils/notificationNavigation";
+import { getNotificationTypeIcon } from "@/lib/utils/notificationIcons";
 import type { SSEEvent } from "@/types/api.types";
-import type { Notification } from "@/types/notification.types";
+import type { Notification, NotificationType } from "@/types/notification.types";
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
-// Note: formatRelativeTime is now imported from @/lib/utils/formatRelativeTime
-
-// Get icon for SSE event type
+// Get icon for SSE event type (uses shared utility)
 const getEventIcon = (event: SSEEvent) => {
-  switch (event.event_type) {
-    case "escalation":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
-    case "order":
-      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-4 w-4 text-green-500" />;
-    default:
-      return <Bell className="h-4 w-4" />;
+  // SSE event_type maps to NotificationType (heartbeat is filtered out before display)
+  if (event.event_type === "heartbeat") {
+    return <Bell className="h-4 w-4" />;
   }
+  return getNotificationTypeIcon(event.event_type as NotificationType, "h-4 w-4");
 };
 
 // Get event title
@@ -93,18 +87,9 @@ const getEventDescription = (event: SSEEvent) => {
   return undefined;
 };
 
-// Get icon for persistent notification type
+// Get icon for persistent notification type (uses shared utility)
 const getPersistentNotificationIcon = (notification: Notification) => {
-  switch (notification.type) {
-    case "escalation":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
-    case "order":
-      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-4 w-4 text-green-500" />;
-    default:
-      return <Bell className="h-4 w-4" />;
-  }
+  return getNotificationTypeIcon(notification.type, "h-4 w-4");
 };
 
 // ============================================================================

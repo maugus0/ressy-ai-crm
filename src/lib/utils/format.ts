@@ -30,23 +30,11 @@ export const formatDateTime = (timestamp: string) => {
 
 /**
  * Format a timestamp as relative time (e.g., "5 minutes ago")
+ * @deprecated Use formatRelativeTimeLong from "@/lib/utils/formatRelativeTime" instead
  * @param timestamp - ISO timestamp string
  * @returns Relative time string
  */
-export const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-};
+export { formatRelativeTimeLong as formatRelativeTime } from "@/lib/utils/formatRelativeTime";
 
 /**
  * Format a date/time string in local timezone

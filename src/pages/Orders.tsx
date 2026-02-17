@@ -478,11 +478,16 @@ export function Orders() {
   // ============================================================================
 
   useEffect(() => {
+    const orderIdFromUrl = searchParams.get("order_id");
+
+    // Reset ref when no order_id in URL (allows subsequent deep-links to work)
+    if (!orderIdFromUrl) {
+      hasProcessedUrlParams.current = false;
+      return;
+    }
+
     // Only process URL params once after initial data load
     if (hasProcessedUrlParams.current || isLoadingOrders) return;
-
-    const orderIdFromUrl = searchParams.get("order_id");
-    if (!orderIdFromUrl) return;
 
     const orderId = parseInt(orderIdFromUrl, 10);
     if (Number.isNaN(orderId)) return;

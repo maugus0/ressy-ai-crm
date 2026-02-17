@@ -425,11 +425,16 @@ export function Reservations() {
   // ============================================================================
 
   useEffect(() => {
+    const reservationIdFromUrl = searchParams.get("reservation_id");
+
+    // Reset ref when no reservation_id in URL (allows subsequent deep-links to work)
+    if (!reservationIdFromUrl) {
+      hasProcessedUrlParams.current = false;
+      return;
+    }
+
     // Only process URL params once after initial data load
     if (hasProcessedUrlParams.current || isLoading) return;
-
-    const reservationIdFromUrl = searchParams.get("reservation_id");
-    if (!reservationIdFromUrl) return;
 
     const reservationId = parseInt(reservationIdFromUrl, 10);
     if (Number.isNaN(reservationId)) return;

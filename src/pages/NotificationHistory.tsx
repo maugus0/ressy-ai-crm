@@ -19,9 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Bell,
-  ShoppingBag,
-  CalendarDays,
-  AlertTriangle,
   CheckCheck,
   Filter,
   RefreshCw,
@@ -43,6 +40,7 @@ import {
   buildNavigationUrl,
 } from "@/lib/utils/notificationNavigation";
 import {
+  getNotificationTypeIcon,
   getNotificationTypeBadgeColor,
   getNotificationTypeLabel,
 } from "@/lib/utils/notificationIcons";
@@ -62,17 +60,9 @@ const PAGE_SIZE = 20;
 // Helper Functions
 // ============================================================================
 
+// Use shared utility for notification icons
 const getNotificationIcon = (type: NotificationType) => {
-  switch (type) {
-    case "order":
-      return <ShoppingBag className="h-5 w-5 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-5 w-5 text-green-500" />;
-    case "escalation":
-      return <AlertTriangle className="h-5 w-5 text-destructive" />;
-    default:
-      return <Bell className="h-5 w-5" />;
-  }
+  return getNotificationTypeIcon(type, "h-5 w-5");
 };
 
 // ============================================================================
