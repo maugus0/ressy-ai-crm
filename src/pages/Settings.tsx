@@ -1616,7 +1616,8 @@ export function Settings() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none"
+                              aria-label="Learn more about SMS redirect for orders"
+                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
                               <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             </button>
@@ -1754,7 +1755,8 @@ export function Settings() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none"
+                              aria-label="Learn more about SMS redirect for reservations"
+                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
                               <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             </button>

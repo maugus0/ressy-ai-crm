@@ -35,7 +35,7 @@ export function getNotificationDisplayTitle(notification: Notification): string 
  * Get display message/description for a notification.
  * Prefers data.description (from backend) when available; otherwise uses notification.message.
  */
-export function getNotificationDisplayMessage(notification: Notification): string | null {
+export function getNotificationDisplayMessage(notification: Notification): string {
   const dataDesc = notification.data?.description;
   if (dataDesc && typeof dataDesc === "string") {
     return dataDesc;
