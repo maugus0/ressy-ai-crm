@@ -38,6 +38,10 @@ import {
   getNotificationNavigationTarget,
   buildNavigationUrl,
 } from "@/lib/utils/notificationNavigation";
+import {
+  getNotificationDisplayTitle,
+  getNotificationDisplayMessage,
+} from "@/lib/utils/notificationDisplay";
 import { getNotificationTypeIcon } from "@/lib/utils/notificationIcons";
 import type { SSEEvent } from "@/types/api.types";
 import type { Notification, NotificationType } from "@/types/notification.types";
@@ -57,10 +61,19 @@ const getEventIcon = (event: SSEEvent) => {
 
 // Get event title
 const getEventTitle = (event: SSEEvent) => {
+  // Use backend-provided title when available (e.g. sms_redirect_failed)
+  if (
+    event.data?.title &&
+    typeof event.data.title === "string" &&
+    event.event_type === "escalation"
+  ) {
+    return event.data.title;
+  }
   const titles: Record<string, string> = {
     user_requested: "Human Assistance Requested",
     internal_server_error: "System Error",
     suspected_spam: "Spam Detected",
+    sms_redirect_failed: "SMS Redirect Failed",
     new_order: "New Order",
     order_updated: "Order Updated",
     order_cancelled: "Order Cancelled",
@@ -694,7 +707,7 @@ function NotificationDropdown({
                     if (onPersistentNotificationClick) onPersistentNotificationClick(notification);
                   }
                 }}
-                aria-label={`${notification.title}. ${notification.message}`}
+                aria-label={`${getNotificationDisplayTitle(notification)}. ${getNotificationDisplayMessage(notification) ?? ""}`}
               >
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="mt-0.5 flex-shrink-0">
@@ -704,7 +717,7 @@ function NotificationDropdown({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <p className="text-xs sm:text-sm font-medium break-words">
-                          {notification.title}
+                          {getNotificationDisplayTitle(notification)}
                         </p>
                         {notification.is_read ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -713,9 +726,11 @@ function NotificationDropdown({
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground break-words mt-0.5 line-clamp-2">
-                      {notification.message}
-                    </p>
+                    {getNotificationDisplayMessage(notification) && (
+                      <p className="text-xs text-muted-foreground break-words mt-0.5 line-clamp-2">
+                        {getNotificationDisplayMessage(notification)}
+                      </p>
+                    )}
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                       {formatRelativeTime(notification.created_at)}
                     </p>

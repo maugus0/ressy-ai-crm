@@ -44,6 +44,11 @@ import {
   getNotificationTypeBadgeColor,
   getNotificationTypeLabel,
 } from "@/lib/utils/notificationIcons";
+import {
+  getNotificationDisplayTitle,
+  getNotificationDisplayMessage,
+  getEscalationSubtypeLabel,
+} from "@/lib/utils/notificationDisplay";
 import type {
   Notification,
   NotificationType,
@@ -307,7 +312,7 @@ export function NotificationHistory() {
                       handleNotificationClick(notification);
                     }
                   }}
-                  aria-label={`${notification.title}. ${notification.message}`}
+                  aria-label={`${getNotificationDisplayTitle(notification)}. ${getNotificationDisplayMessage(notification) ?? ""}`}
                 >
                   {/* Icon - same as SSE panel */}
                   <div className="mt-0.5 flex-shrink-0">
@@ -319,7 +324,7 @@ export function NotificationHistory() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
                         <p className="text-xs sm:text-sm font-medium break-words">
-                          {notification.title}
+                          {getNotificationDisplayTitle(notification)}
                         </p>
                         {notification.is_read ? (
                           <CheckCircle2
@@ -336,13 +341,17 @@ export function NotificationHistory() {
                           variant="secondary"
                           className={`text-xs ${getNotificationTypeBadgeColor(notification.type)}`}
                         >
-                          {getNotificationTypeLabel(notification.type)}
+                          {notification.type === "escalation" && notification.subtype
+                            ? getEscalationSubtypeLabel(notification.subtype)
+                            : getNotificationTypeLabel(notification.type)}
                         </Badge>
                       </div>
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground break-words mt-0.5 line-clamp-2">
-                      {notification.message}
-                    </p>
+                    {getNotificationDisplayMessage(notification) && (
+                      <p className="text-xs sm:text-sm text-muted-foreground break-words mt-0.5 line-clamp-2">
+                        {getNotificationDisplayMessage(notification)}
+                      </p>
+                    )}
                     <div className="flex items-center gap-4 mt-1 text-[10px] sm:text-xs text-muted-foreground">
                       <span title={new Date(notification.created_at).toLocaleString()}>
                         {formatRelativeTimeLong(notification.created_at)}

@@ -45,9 +45,17 @@ export interface RestaurantFeatures {
   orders_enabled: boolean;
   reservations_enabled: boolean;
   faqs_enabled: boolean;
-  /** SMS redirect configuration for orders (when orders_enabled is false) */
+  /**
+   * SMS redirect configuration for orders.
+   * Mutual exclusivity: orders_sms_redirect.enabled requires orders_enabled = false.
+   * The UI enforces this; the backend should also validate.
+   */
   orders_sms_redirect?: SMSRedirectConfig | null;
-  /** SMS redirect configuration for reservations (when reservations_enabled is false) */
+  /**
+   * SMS redirect configuration for reservations.
+   * Mutual exclusivity: reservations_sms_redirect.enabled requires reservations_enabled = false.
+   * The UI enforces this; the backend should also validate.
+   */
   reservations_sms_redirect?: SMSRedirectConfig | null;
 }
 
@@ -1344,7 +1352,11 @@ export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
  * SSE Event Subtypes
  * Specific event subtypes within each category
  */
-export type SSEEscalationSubtype = "user_requested" | "internal_server_error" | "suspected_spam";
+export type SSEEscalationSubtype =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "sms_redirect_failed";
 export type SSEOrderSubtype = "new_order" | "order_updated" | "order_cancelled";
 export type SSEReservationSubtype =
   | "new_reservation"
@@ -1360,7 +1372,11 @@ export type SSEEventSubtype =
  * SSE Escalation Type
  * Types of escalation events that can be triggered
  */
-export type SSEEscalationType = "user_requested" | "internal_server_error" | "suspected_spam";
+export type SSEEscalationType =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "sms_redirect_failed";
 
 /**
  * SSE Event

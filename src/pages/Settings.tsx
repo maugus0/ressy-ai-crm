@@ -58,8 +58,11 @@ import type {
 // Phone number validation regex (E.164 format)
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
-// URL validation regex (requires http:// or https://)
-const URL_REGEX = /^https?:\/\/.+/i;
+// URL validation regex (requires http:// or https:// and a basic valid structure)
+const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+
+// Max length for custom SMS message (instruction text only; backend adds URL + signature)
+const SMS_MESSAGE_MAX_LENGTH = 500;
 
 // Default SMS redirect messages (instruction text only; URL and signature are added by the backend)
 const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
@@ -88,9 +91,11 @@ const DEFAULT_OPERATING_HOURS: OperatingHours = {
 interface SmsRedirectConfigFieldsProps {
   urlInputId: string;
   messageInputId: string;
+  previewContentId: string;
   redirectUrl: string;
   redirectMessage: string;
   redirectUrlError?: string;
+  redirectMessageError?: string;
   defaultMessagePlaceholder: string;
   urlPlaceholder: string;
   urlHelpText: string;
@@ -99,6 +104,7 @@ interface SmsRedirectConfigFieldsProps {
   onRedirectUrlChange: (value: string) => void;
   onRedirectMessageChange: (value: string) => void;
   onClearUrlError: () => void;
+  maxMessageLength: number;
   previewContent: string;
 }
 
@@ -106,9 +112,11 @@ interface SmsRedirectConfigFieldsProps {
 function SmsRedirectConfigFields({
   urlInputId,
   messageInputId,
+  previewContentId,
   redirectUrl,
   redirectMessage,
   redirectUrlError,
+  redirectMessageError,
   defaultMessagePlaceholder,
   urlPlaceholder,
   urlHelpText,
@@ -117,6 +125,7 @@ function SmsRedirectConfigFields({
   onRedirectUrlChange,
   onRedirectMessageChange,
   onClearUrlError,
+  maxMessageLength,
   previewContent,
 }: SmsRedirectConfigFieldsProps) {
   return (
@@ -158,12 +167,23 @@ function SmsRedirectConfigFields({
           onChange={(e) => onRedirectMessageChange(e.target.value)}
           placeholder={defaultMessagePlaceholder}
           rows={4}
-          className="text-xs sm:text-sm resize-none"
+          maxLength={maxMessageLength}
+          className={`text-xs sm:text-sm resize-none ${
+            redirectMessageError ? "border-destructive" : ""
+          }`}
         />
-        <p className="text-[10px] sm:text-xs text-muted-foreground">
-          Optional. Customize the instruction text customers see in the SMS. Leave blank to use the
-          default message. The link and signature are added automatically.
-        </p>
+        <div className="flex justify-between items-start gap-2">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
+            Optional. Customize the instruction text customers see in the SMS. Leave blank to use
+            the default message. The link and signature are added automatically.
+          </p>
+          <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">
+            {redirectMessage.length}/{maxMessageLength}
+          </span>
+        </div>
+        {redirectMessageError && (
+          <p className="text-[10px] sm:text-xs text-destructive">{redirectMessageError}</p>
+        )}
       </div>
 
       {/* SMS Preview */}
@@ -171,6 +191,8 @@ function SmsRedirectConfigFields({
         <button
           type="button"
           onClick={onTogglePreview}
+          aria-expanded={showPreview}
+          aria-controls={previewContentId}
           className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Eye className="h-3.5 w-3.5" />
@@ -182,7 +204,7 @@ function SmsRedirectConfigFields({
           )}
         </button>
         {showPreview && (
-          <div className="p-3 rounded-lg bg-muted/50 border">
+          <div id={previewContentId} className="p-3 rounded-lg bg-muted/50 border">
             <div className="flex items-center gap-1.5 mb-2">
               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
@@ -210,6 +232,8 @@ interface FormErrors {
   reservation_advance_days?: string;
   orders_sms_redirect_url?: string;
   reservations_sms_redirect_url?: string;
+  orders_sms_redirect_message?: string;
+  reservations_sms_redirect_message?: string;
 }
 
 // Form data structure for editing
@@ -610,13 +634,16 @@ export function Settings() {
       errors.reservation_advance_days = "Must be between 1 and 365 days";
     }
 
-    // SMS Redirect URL validation (required when enabled)
+    // SMS Redirect validation (when enabled)
     if (formData.orders_sms_redirect_enabled) {
       if (!formData.orders_sms_redirect_url.trim()) {
         errors.orders_sms_redirect_url = "URL is required when SMS redirect is enabled";
       } else if (!URL_REGEX.test(formData.orders_sms_redirect_url.trim())) {
         errors.orders_sms_redirect_url =
           "Please enter a valid URL (must start with http:// or https://)";
+      }
+      if (formData.orders_sms_redirect_message.length > SMS_MESSAGE_MAX_LENGTH) {
+        errors.orders_sms_redirect_message = `Custom message must be ${SMS_MESSAGE_MAX_LENGTH} characters or less`;
       }
     }
 
@@ -626,6 +653,9 @@ export function Settings() {
       } else if (!URL_REGEX.test(formData.reservations_sms_redirect_url.trim())) {
         errors.reservations_sms_redirect_url =
           "Please enter a valid URL (must start with http:// or https://)";
+      }
+      if (formData.reservations_sms_redirect_message.length > SMS_MESSAGE_MAX_LENGTH) {
+        errors.reservations_sms_redirect_message = `Custom message must be ${SMS_MESSAGE_MAX_LENGTH} characters or less`;
       }
     }
 
@@ -658,13 +688,21 @@ export function Settings() {
           faqs_enabled: true, // Always enabled for agent functionality
           orders_sms_redirect: {
             enabled: formData.orders_sms_redirect_enabled,
-            redirect_url: formData.orders_sms_redirect_url.trim() || null,
-            redirect_message: formData.orders_sms_redirect_message.trim() || null,
+            redirect_url: formData.orders_sms_redirect_enabled
+              ? formData.orders_sms_redirect_url.trim() || null
+              : null,
+            redirect_message: formData.orders_sms_redirect_enabled
+              ? formData.orders_sms_redirect_message.trim() || null
+              : null,
           },
           reservations_sms_redirect: {
             enabled: formData.reservations_sms_redirect_enabled,
-            redirect_url: formData.reservations_sms_redirect_url.trim() || null,
-            redirect_message: formData.reservations_sms_redirect_message.trim() || null,
+            redirect_url: formData.reservations_sms_redirect_enabled
+              ? formData.reservations_sms_redirect_url.trim() || null
+              : null,
+            redirect_message: formData.reservations_sms_redirect_enabled
+              ? formData.reservations_sms_redirect_message.trim() || null
+              : null,
           },
         },
       };
@@ -1621,14 +1659,16 @@ export function Settings() {
                   </div>
                 </div>
 
-                {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
-                {(formData.orders_sms_redirect_enabled || formData.orders_sms_redirect_url) && (
+                {/* SMS Redirect Configuration (shown when enabled) */}
+                {formData.orders_sms_redirect_enabled && (
                   <SmsRedirectConfigFields
                     urlInputId="orders_redirect_url"
                     messageInputId="orders_redirect_message"
+                    previewContentId="orders-sms-preview"
                     redirectUrl={formData.orders_sms_redirect_url}
                     redirectMessage={formData.orders_sms_redirect_message}
                     redirectUrlError={formErrors.orders_sms_redirect_url}
+                    redirectMessageError={formErrors.orders_sms_redirect_message}
                     defaultMessagePlaceholder={DEFAULT_ORDERS_SMS_MESSAGE}
                     urlPlaceholder="https://order.yourrestaurant.com"
                     urlHelpText="URL to your online ordering platform (must start with http:// or https://)"
@@ -1637,12 +1677,19 @@ export function Settings() {
                     onRedirectUrlChange={(value) =>
                       updateFormData({ orders_sms_redirect_url: value })
                     }
-                    onRedirectMessageChange={(value) =>
-                      updateFormData({ orders_sms_redirect_message: value })
-                    }
+                    onRedirectMessageChange={(value) => {
+                      updateFormData({ orders_sms_redirect_message: value });
+                      if (formErrors.orders_sms_redirect_message) {
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          orders_sms_redirect_message: undefined,
+                        }));
+                      }
+                    }}
                     onClearUrlError={() =>
                       setFormErrors((prev) => ({ ...prev, orders_sms_redirect_url: undefined }))
                     }
+                    maxMessageLength={SMS_MESSAGE_MAX_LENGTH}
                     previewContent={getSmsMessagePreview(
                       "orders",
                       formData.name || "Your Restaurant"
@@ -1750,15 +1797,16 @@ export function Settings() {
                   </div>
                 </div>
 
-                {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
-                {(formData.reservations_sms_redirect_enabled ||
-                  formData.reservations_sms_redirect_url) && (
+                {/* SMS Redirect Configuration (shown when enabled) */}
+                {formData.reservations_sms_redirect_enabled && (
                   <SmsRedirectConfigFields
                     urlInputId="reservations_redirect_url"
                     messageInputId="reservations_redirect_message"
+                    previewContentId="reservations-sms-preview"
                     redirectUrl={formData.reservations_sms_redirect_url}
                     redirectMessage={formData.reservations_sms_redirect_message}
                     redirectUrlError={formErrors.reservations_sms_redirect_url}
+                    redirectMessageError={formErrors.reservations_sms_redirect_message}
                     defaultMessagePlaceholder={DEFAULT_RESERVATIONS_SMS_MESSAGE}
                     urlPlaceholder="https://reserve.yourrestaurant.com"
                     urlHelpText="URL to your reservation platform (must start with http:// or https://)"
@@ -1769,15 +1817,22 @@ export function Settings() {
                     onRedirectUrlChange={(value) =>
                       updateFormData({ reservations_sms_redirect_url: value })
                     }
-                    onRedirectMessageChange={(value) =>
-                      updateFormData({ reservations_sms_redirect_message: value })
-                    }
+                    onRedirectMessageChange={(value) => {
+                      updateFormData({ reservations_sms_redirect_message: value });
+                      if (formErrors.reservations_sms_redirect_message) {
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          reservations_sms_redirect_message: undefined,
+                        }));
+                      }
+                    }}
                     onClearUrlError={() =>
                       setFormErrors((prev) => ({
                         ...prev,
                         reservations_sms_redirect_url: undefined,
                       }))
                     }
+                    maxMessageLength={SMS_MESSAGE_MAX_LENGTH}
                     previewContent={getSmsMessagePreview(
                       "reservations",
                       formData.name || "Your Restaurant"
