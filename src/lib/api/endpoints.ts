@@ -170,4 +170,32 @@ export const ENDPOINTS = {
     /** GET /api/v1/sse/events/stats - Get SSE connection statistics */
     STATS: "/sse/events/stats",
   },
+
+  // ============================================================================
+  // Dashboard Notifications (Persistent - Client Dashboard)
+  // ============================================================================
+  DASHBOARD_NOTIFICATIONS: {
+    /** GET /api/v1/dashboard/notifications - List notifications with filters */
+    LIST: "/dashboard/notifications",
+    /** GET /api/v1/dashboard/notifications/unread-count - Get unread count */
+    UNREAD_COUNT: "/dashboard/notifications/unread-count",
+    /** GET /api/v1/dashboard/notifications/{id} - Get notification by ID */
+    GET: (id: number) => `/dashboard/notifications/${id}`,
+    /** PATCH /api/v1/dashboard/notifications/{id}/read - Mark as read */
+    MARK_READ: (id: number) => `/dashboard/notifications/${id}/read`,
+    /** PATCH /api/v1/dashboard/notifications/read-all - Mark all as read */
+    MARK_ALL_READ: "/dashboard/notifications/read-all",
+  },
+
+  // ============================================================================
+  // Client Escalations (Persistent - scoped to authenticated restaurant)
+  // ============================================================================
+  CLIENT_ESCALATIONS: {
+    /** GET /api/v1/client/escalations - List escalations for restaurant */
+    LIST: "/client/escalations",
+    /** GET /api/v1/client/escalations/{id} - Get escalation by ID */
+    GET: (id: number) => `/client/escalations/${id}`,
+    /** PATCH /api/v1/client/escalations/{id}/status - Update escalation status */
+    UPDATE_STATUS: (id: number) => `/client/escalations/${id}/status`,
+  },
 } as const;

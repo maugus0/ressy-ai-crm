@@ -1,7 +1,7 @@
 /**
  * Dashboard Layout
  * Main layout wrapper for authenticated dashboard pages
- * Includes notification bell with SSE events and connection status
+ * Includes notification bell with SSE events, persistent notifications, and connection status
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -22,6 +22,8 @@ import {
   VolumeX,
   Circle,
   CheckCircle2,
+  History,
+  CheckCheck,
 } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,29 +33,21 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { parseApiDate } from "@/lib/utils/timezone";
+import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
+import {
+  getNotificationNavigationTarget,
+  buildNavigationUrl,
+} from "@/lib/utils/notificationNavigation";
 import type { SSEEvent } from "@/types/api.types";
+import type { Notification } from "@/types/notification.types";
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
-// Format relative time for notifications
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+// Note: formatRelativeTime is now imported from @/lib/utils/formatRelativeTime
 
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-};
-
-// Get icon for event type
+// Get icon for SSE event type
 const getEventIcon = (event: SSEEvent) => {
   switch (event.event_type) {
     case "escalation":
@@ -99,6 +93,20 @@ const getEventDescription = (event: SSEEvent) => {
   return undefined;
 };
 
+// Get icon for persistent notification type
+const getPersistentNotificationIcon = (notification: Notification) => {
+  switch (notification.type) {
+    case "escalation":
+      return <AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "order":
+      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
+    case "reservation":
+      return <CalendarDays className="h-4 w-4 text-green-500" />;
+    default:
+      return <Bell className="h-4 w-4" />;
+  }
+};
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -122,6 +130,12 @@ export function DashboardLayout() {
     dismissEvent,
     clearEvents,
     stopEventSound,
+    // Persistent notifications
+    persistentNotifications,
+    persistentUnreadCount,
+    markPersistentAsRead,
+    markAllPersistentAsRead,
+    totalUnreadCount,
   } = useSSE();
 
   const companyName = restaurantName || "Your Restaurant";
@@ -152,6 +166,11 @@ export function DashboardLayout() {
     navigate("/dashboard/reservation-events");
   };
 
+  const handleViewNotificationHistory = () => {
+    setIsNotificationsOpen(false);
+    navigate("/dashboard/notifications");
+  };
+
   const handleNotificationClick = (event: SSEEvent) => {
     setIsNotificationsOpen(false);
     // Stop the sound for this notification (but keep it in the panel)
@@ -172,6 +191,39 @@ export function DashboardLayout() {
       default:
         // For unknown event types, do nothing
         break;
+    }
+  };
+
+  /**
+   * Handle click on a persistent notification
+   * Marks as read via API and navigates to the relevant entity
+   */
+  const handlePersistentNotificationClick = async (notification: Notification) => {
+    setIsNotificationsOpen(false);
+    try {
+      // Mark as read first (if not already read)
+      if (!notification.is_read) {
+        await markPersistentAsRead(notification.id);
+      }
+      // Navigate to the relevant entity
+      const target = getNotificationNavigationTarget(notification);
+      navigate(buildNavigationUrl(target));
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      // Still navigate even if mark-as-read fails
+      const target = getNotificationNavigationTarget(notification);
+      navigate(buildNavigationUrl(target));
+    }
+  };
+
+  /**
+   * Handle "Mark all as read" for persistent notifications
+   */
+  const handleMarkAllPersistentAsRead = async () => {
+    try {
+      await markAllPersistentAsRead();
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
     }
   };
 
@@ -308,12 +360,12 @@ export function DashboardLayout() {
                     title="Notifications"
                   >
                     <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
+                    {totalUnreadCount > 0 && (
                       <Badge
                         variant="destructive"
                         className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center pointer-events-none"
                       >
-                        {unreadCount > 99 ? "99+" : unreadCount}
+                        {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                       </Badge>
                     )}
                   </Button>
@@ -328,6 +380,8 @@ export function DashboardLayout() {
                   <NotificationDropdown
                     events={events}
                     readEventIds={readEventIds}
+                    persistentNotifications={persistentNotifications}
+                    persistentUnreadCount={persistentUnreadCount}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
                     toggleSounds={toggleSounds}
@@ -336,7 +390,10 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onViewNotificationHistory={handleViewNotificationHistory}
                     onNotificationClick={handleNotificationClick}
+                    onPersistentNotificationClick={handlePersistentNotificationClick}
+                    onMarkAllPersistentAsRead={handleMarkAllPersistentAsRead}
                     isMobile={true}
                   />
                 </PopoverContent>
@@ -392,12 +449,12 @@ export function DashboardLayout() {
                     title="Notifications"
                   >
                     <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
+                    {totalUnreadCount > 0 && (
                       <Badge
                         variant="destructive"
                         className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center pointer-events-none"
                       >
-                        {unreadCount > 99 ? "99+" : unreadCount}
+                        {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                       </Badge>
                     )}
                   </Button>
@@ -406,6 +463,8 @@ export function DashboardLayout() {
                   <NotificationDropdown
                     events={events}
                     readEventIds={readEventIds}
+                    persistentNotifications={persistentNotifications}
+                    persistentUnreadCount={persistentUnreadCount}
                     soundsEnabled={soundsEnabled}
                     hasEscalations={hasEscalations}
                     toggleSounds={toggleSounds}
@@ -414,7 +473,10 @@ export function DashboardLayout() {
                     onViewEscalations={handleViewEscalations}
                     onViewOrderEvents={handleViewOrderEvents}
                     onViewReservationEvents={handleViewReservationEvents}
+                    onViewNotificationHistory={handleViewNotificationHistory}
                     onNotificationClick={handleNotificationClick}
+                    onPersistentNotificationClick={handlePersistentNotificationClick}
+                    onMarkAllPersistentAsRead={handleMarkAllPersistentAsRead}
                     isMobile={false}
                   />
                 </PopoverContent>
@@ -460,6 +522,8 @@ export function DashboardLayout() {
 interface NotificationDropdownProps {
   events: SSEEvent[];
   readEventIds: Set<string>;
+  persistentNotifications: Notification[];
+  persistentUnreadCount: number;
   soundsEnabled: boolean;
   hasEscalations: boolean;
   toggleSounds: () => void;
@@ -468,13 +532,18 @@ interface NotificationDropdownProps {
   onViewEscalations: () => void;
   onViewOrderEvents: () => void;
   onViewReservationEvents: () => void;
+  onViewNotificationHistory: () => void;
   onNotificationClick?: (event: SSEEvent) => void;
+  onPersistentNotificationClick?: (notification: Notification) => void;
+  onMarkAllPersistentAsRead?: () => void;
   isMobile?: boolean;
 }
 
 function NotificationDropdown({
   events,
   readEventIds,
+  persistentNotifications,
+  persistentUnreadCount,
   soundsEnabled,
   hasEscalations,
   toggleSounds,
@@ -483,18 +552,23 @@ function NotificationDropdown({
   onViewEscalations,
   onViewOrderEvents,
   onViewReservationEvents,
+  onViewNotificationHistory,
   onNotificationClick,
+  onPersistentNotificationClick,
+  onMarkAllPersistentAsRead,
   isMobile = false,
 }: NotificationDropdownProps) {
+  // Total notification count (SSE + all persistent) for showing list
+  const totalCount = events.length + persistentNotifications.length;
   return (
     <>
       {/* Header */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-sm">Notifications</h3>
-          {events.length > 0 && (
+          {totalCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {events.length}
+              {totalCount}
             </Badge>
           )}
         </div>
@@ -515,6 +589,21 @@ function NotificationDropdown({
               <VolumeX className="h-4 w-4 text-muted-foreground" />
             )}
           </Button>
+          {/* Mark all persistent as read */}
+          {persistentUnreadCount > 0 && onMarkAllPersistentAsRead && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkAllPersistentAsRead();
+              }}
+              title="Mark all as read"
+            >
+              <CheckCheck className="h-4 w-4" />
+            </Button>
+          )}
           {events.length > 0 && (
             <Button
               variant="ghost"
@@ -533,14 +622,15 @@ function NotificationDropdown({
       </div>
 
       {/* Events List */}
-      {events.length > 0 ? (
+      {totalCount > 0 ? (
         <ScrollArea className={isMobile ? "h-[calc(100vh-200px)] max-h-[500px]" : "h-[350px]"}>
           <div className="divide-y">
+            {/* SSE Events (real-time) */}
             {events.map((event) => {
               const isRead = event.id ? readEventIds.has(event.id) : false;
               return (
                 <div
-                  key={event.id}
+                  key={`sse-${event.id}`}
                   className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                     event.event_type === "escalation" ? "bg-destructive/5" : ""
                   } ${isRead ? "opacity-75" : ""}`}
@@ -589,6 +679,47 @@ function NotificationDropdown({
                 </div>
               );
             })}
+
+            {/* Persistent Notifications (from database) - show all, read and unread */}
+            {persistentNotifications.map((notification) => (
+              <div
+                key={`persistent-${notification.id}`}
+                className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+                  notification.type === "escalation" ? "bg-destructive/5" : ""
+                } ${notification.is_read ? "opacity-75" : ""}`}
+                onClick={() => {
+                  if (onPersistentNotificationClick) {
+                    onPersistentNotificationClick(notification);
+                  }
+                }}
+              >
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    {getPersistentNotificationIcon(notification)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium break-words">
+                          {notification.title}
+                        </p>
+                        {notification.is_read ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 text-primary flex-shrink-0 fill-primary" />
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground break-words mt-0.5 line-clamp-2">
+                      {notification.message}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                      {formatRelativeTime(notification.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </ScrollArea>
       ) : (
@@ -641,6 +772,19 @@ function NotificationDropdown({
             Reservation Updates ({events.filter((e) => e.event_type === "reservation").length})
           </Button>
         )}
+        {/* View Notification History */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full text-xs sm:text-sm border-2 border-border hover:bg-muted/50 hover:border-primary/50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewNotificationHistory();
+          }}
+        >
+          <History className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+          View All Notifications
+        </Button>
       </div>
     </>
   );

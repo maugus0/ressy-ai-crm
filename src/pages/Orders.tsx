@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -297,6 +297,7 @@ const defaultFormData: OrderFormData = {
 
 export function Orders() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { restaurantId } = useAuth();
 
   // Orders state
@@ -307,6 +308,9 @@ export function Orders() {
 
   // Prevent double fetch on mount
   const hasFetched = useRef(false);
+
+  // Track if we've processed URL params
+  const hasProcessedUrlParams = useRef(false);
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -468,6 +472,40 @@ export function Orders() {
       }
     }
   }, [orderEvents, fetchOrders, orders.length]);
+
+  // ============================================================================
+  // URL Parameter Handling (Deep-linking from notifications)
+  // ============================================================================
+
+  useEffect(() => {
+    // Only process URL params once after initial data load
+    if (hasProcessedUrlParams.current || isLoadingOrders) return;
+
+    const orderIdFromUrl = searchParams.get("order_id");
+    if (!orderIdFromUrl) return;
+
+    const orderId = parseInt(orderIdFromUrl, 10);
+    if (Number.isNaN(orderId)) return;
+
+    hasProcessedUrlParams.current = true;
+
+    // Fetch and open the order details
+    (async () => {
+      try {
+        setIsLoadingDetails(true);
+        setIsDetailsDialogOpen(true);
+        const details = await getOrderDetails(orderId);
+        setSelectedOrder(details);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load order details");
+        setIsDetailsDialogOpen(false);
+      } finally {
+        setIsLoadingDetails(false);
+        // Clear the URL param to avoid re-opening on refresh
+        setSearchParams({}, { replace: true });
+      }
+    })();
+  }, [searchParams, setSearchParams, isLoadingOrders]);
 
   // ============================================================================
   // Handlers

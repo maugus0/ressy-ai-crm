@@ -17,8 +17,10 @@ import { Orders } from "@/pages/Orders";
 import { Reservations } from "@/pages/Reservations";
 import { Settings } from "@/pages/Settings";
 import { Escalations } from "@/pages/Escalations";
+import { EscalationDetail } from "@/pages/EscalationDetail";
 import { OrderEvents } from "@/pages/OrderEvents";
 import { ReservationEvents } from "@/pages/ReservationEvents";
+import { NotificationHistory } from "@/pages/NotificationHistory";
 import { Login } from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
@@ -55,7 +57,9 @@ const App = () => (
                   <Route path="menu" element={<Menu />} />
                   <Route path="faqs" element={<FAQ />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="notifications" element={<NotificationHistory />} />
                   <Route path="escalations" element={<Escalations />} />
+                  <Route path="escalations/:id" element={<EscalationDetail />} />
                   <Route path="order-events" element={<OrderEvents />} />
                   <Route path="reservation-events" element={<ReservationEvents />} />
                 </Route>
