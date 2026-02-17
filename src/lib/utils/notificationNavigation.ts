@@ -16,6 +16,14 @@ export interface NavigationTarget {
   search?: string;
 }
 
+/** Backend may use call_id, call_sid, or twilio_call_sid */
+function getCallIdFromData(d: Record<string, unknown>): string | undefined {
+  if (d.call_id != null) return String(d.call_id);
+  if (d.call_sid != null) return String(d.call_sid);
+  if (d.twilio_call_sid != null) return String(d.twilio_call_sid);
+  return undefined;
+}
+
 // ============================================================================
 // Navigation Logic
 // ============================================================================
@@ -50,15 +58,7 @@ export function getNotificationNavigationTarget(notification: Notification): Nav
 
     case "escalation": {
       const escalationId = d.escalation_id as number | undefined;
-      // Backend may use call_id, call_sid, or twilio_call_sid
-      const callId =
-        d.call_id != null
-          ? String(d.call_id)
-          : d.call_sid != null
-            ? String(d.call_sid)
-            : d.twilio_call_sid != null
-              ? String(d.twilio_call_sid)
-              : undefined;
+      const callId = getCallIdFromData(d as Record<string, unknown>);
 
       // If we have escalation_id, go to escalation detail
       if (escalationId != null) {

@@ -616,6 +616,8 @@ function NotificationDropdown({
               return (
                 <div
                   key={`sse-${event.id}`}
+                  role="button"
+                  tabIndex={0}
                   className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                     event.event_type === "escalation" ? "bg-destructive/5" : ""
                   } ${isRead ? "opacity-75" : ""}`}
@@ -624,6 +626,13 @@ function NotificationDropdown({
                       onNotificationClick(event);
                     }
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (onNotificationClick) onNotificationClick(event);
+                    }
+                  }}
+                  aria-label={`${getEventTitle(event)}. ${getEventDescription(event) ?? ""}`}
                 >
                   <div className="flex items-start gap-2 sm:gap-3">
                     <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
@@ -669,6 +678,8 @@ function NotificationDropdown({
             {persistentNotifications.map((notification) => (
               <div
                 key={`persistent-${notification.id}`}
+                role="button"
+                tabIndex={0}
                 className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                   notification.type === "escalation" ? "bg-destructive/5" : ""
                 } ${notification.is_read ? "opacity-75" : ""}`}
@@ -677,6 +688,13 @@ function NotificationDropdown({
                     onPersistentNotificationClick(notification);
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (onPersistentNotificationClick) onPersistentNotificationClick(notification);
+                  }
+                }}
+                aria-label={`${notification.title}. ${notification.message}`}
               >
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="mt-0.5 flex-shrink-0">

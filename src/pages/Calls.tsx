@@ -395,7 +395,7 @@ export function Calls() {
     setError(null);
   };
 
-  const handleViewDetails = async (callId: string) => {
+  const handleViewDetails = useCallback(async (callId: string) => {
     try {
       setIsLoadingDetails(true);
       setIsDetailsDialogOpen(true);
@@ -407,7 +407,7 @@ export function Calls() {
     } finally {
       setIsLoadingDetails(false);
     }
-  };
+  }, []);
 
   // URL parameter handling (deep-link from notification panel / escalation)
   useEffect(() => {
@@ -434,7 +434,7 @@ export function Calls() {
         );
       }
     })();
-  }, [searchParams, isLoadingCalls, setSearchParams]);
+  }, [searchParams, isLoadingCalls, setSearchParams, handleViewDetails]);
 
   const handleExport = async () => {
     try {

@@ -482,22 +482,29 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Mark all persistent notifications as read (API call)
+   * When type is provided, only that type is marked read; unread count is decremented by that type's unread count.
    */
-  const markAllPersistentAsRead = useCallback(async (type?: NotificationType) => {
-    try {
-      await markAllNotificationsAsRead(type);
-      // Update local state
-      setPersistentNotifications((prev) =>
-        prev.map((n) =>
-          !type || n.type === type ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
-        )
-      );
-      setPersistentUnreadCount(0);
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
-      throw error;
-    }
-  }, []);
+  const markAllPersistentAsRead = useCallback(
+    async (type?: NotificationType) => {
+      const notificationsSnapshot = persistentNotifications;
+      const unreadMarkedCount = type
+        ? notificationsSnapshot.filter((n) => n.type === type && !n.is_read).length
+        : notificationsSnapshot.filter((n) => !n.is_read).length;
+
+      try {
+        await markAllNotificationsAsRead(type);
+        const now = new Date().toISOString();
+        setPersistentNotifications((prev) =>
+          prev.map((n) => (!type || n.type === type ? { ...n, is_read: true, read_at: now } : n))
+        );
+        setPersistentUnreadCount((prev) => Math.max(0, prev - unreadMarkedCount));
+      } catch (error) {
+        console.error("Failed to mark all notifications as read:", error);
+        throw error;
+      }
+    },
+    [persistentNotifications]
+  );
 
   /**
    * Fetch persistent notifications on authentication

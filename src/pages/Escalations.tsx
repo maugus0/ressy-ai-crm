@@ -445,8 +445,17 @@ export function Escalations() {
                   {historyEscalations.map((escalation) => (
                     <div
                       key={escalation.id}
+                      role="button"
+                      tabIndex={0}
                       className="flex items-start gap-4 p-4 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50"
                       onClick={() => navigate(`/dashboard/escalations/${escalation.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/dashboard/escalations/${escalation.id}`);
+                        }
+                      }}
+                      aria-label={`Escalation ${escalation.id}, ${escalation.status}, ${escalation.urgency}${escalation.reason ? `. ${escalation.reason}` : ""}`}
                     >
                       {/* Icon */}
                       <div className="p-2 rounded-full bg-destructive/10 flex-shrink-0">

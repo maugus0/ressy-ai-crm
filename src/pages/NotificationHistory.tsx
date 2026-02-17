@@ -295,10 +295,19 @@ export function NotificationHistory() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
+                  role="button"
+                  tabIndex={0}
                   className={`flex items-start gap-2 sm:gap-3 p-4 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
                     !notification.is_read ? "bg-primary/5 border-primary/20" : ""
                   } ${notification.is_read ? "opacity-75" : ""}`}
                   onClick={() => handleNotificationClick(notification)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleNotificationClick(notification);
+                    }
+                  }}
+                  aria-label={`${notification.title}. ${notification.message}`}
                 >
                   {/* Icon - same as SSE panel */}
                   <div className="mt-0.5 flex-shrink-0">

@@ -89,7 +89,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             const Icon = item.icon;
             const showEscalationBadge = item.id === "escalations" && escalationCount > 0;
             const showNotificationBadge = item.id === "notifications" && notificationCount > 0;
-            const badgeCount = item.id === "escalations" ? escalationCount : notificationCount;
+            const badgeCount =
+              item.id === "escalations"
+                ? escalationCount
+                : item.id === "notifications"
+                  ? notificationCount
+                  : undefined;
             const showBadge = showEscalationBadge || showNotificationBadge;
 
             return (
@@ -126,7 +131,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                         )}
                       />
                       <span className="flex-1 font-medium">{item.label}</span>
-                      {showBadge && (
+                      {showBadge && badgeCount !== undefined && (
                         <Badge
                           variant={item.id === "escalations" ? "destructive" : "default"}
                           className="sidebar-badge h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center flex-shrink-0 font-semibold"

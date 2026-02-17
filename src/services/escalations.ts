@@ -15,6 +15,20 @@ import type {
   EscalationStatusUpdateResponse,
 } from "@/types/escalation.types";
 
+const VALID_ESCALATION_STATUSES: EscalationStatus[] = ["raised", "forwarded", "failed", "resolved"];
+const VALID_ESCALATION_URGENCIES: EscalationUrgency[] = ["standard", "high", "critical"];
+
+function parseEscalationStatus(value: string): EscalationStatus {
+  return VALID_ESCALATION_STATUSES.includes(value as EscalationStatus)
+    ? (value as EscalationStatus)
+    : "raised";
+}
+function parseEscalationUrgency(value: string): EscalationUrgency {
+  return VALID_ESCALATION_URGENCIES.includes(value as EscalationUrgency)
+    ? (value as EscalationUrgency)
+    : "standard";
+}
+
 // ============================================================================
 // List Escalations
 // ============================================================================
@@ -63,15 +77,15 @@ export async function getClientEscalations(
         call_sid: item.call_sid,
         caller_phone: item.caller_phone ?? null,
         escalation_phone_number: item.escalation_phone_number ?? null,
-        urgency: item.urgency as EscalationUrgency,
+        urgency: parseEscalationUrgency(item.urgency),
         reason: item.reason ?? null,
-        status: item.status as EscalationStatus,
+        status: parseEscalationStatus(item.status),
         requested_at: item.requested_at,
         created_at: item.created_at,
         updated_at: item.updated_at,
       })),
       total: raw.total,
-      total_pages: Math.ceil(raw.total / raw.limit),
+      total_pages: Math.ceil(raw.total / (raw.limit || 1)),
       page: raw.page,
       limit: raw.limit,
     };
