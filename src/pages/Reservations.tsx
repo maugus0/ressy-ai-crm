@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,6 +213,7 @@ function ReservationHistoryItem({ entry, isLast }: ReservationHistoryItemProps) 
 
 export function Reservations() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { restaurantId } = useAuth();
 
   // Reservations state
@@ -220,6 +221,9 @@ export function Reservations() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track if we've processed URL params
+  const hasProcessedUrlParams = useRef(false);
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -415,6 +419,42 @@ export function Reservations() {
       }
     }
   }, [reservationEvents, fetchReservations, reservations.length]);
+
+  // ============================================================================
+  // URL Parameter Handling (Deep-linking from notifications)
+  // ============================================================================
+
+  useEffect(() => {
+    const reservationIdFromUrl = searchParams.get("reservation_id");
+
+    // Reset ref when no reservation_id in URL (allows subsequent deep-links to work)
+    if (!reservationIdFromUrl) {
+      hasProcessedUrlParams.current = false;
+      return;
+    }
+
+    // Only process URL params once after initial data load
+    if (hasProcessedUrlParams.current || isLoading) return;
+
+    const reservationId = parseInt(reservationIdFromUrl, 10);
+    if (Number.isNaN(reservationId)) return;
+
+    hasProcessedUrlParams.current = true;
+
+    // Fetch and open the reservation details
+    (async () => {
+      try {
+        const details = await getReservation(reservationId);
+        setSelectedReservation(details);
+        setIsDetailsDialogOpen(true);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load reservation details");
+      } finally {
+        // Clear the URL param to avoid re-opening on refresh
+        setSearchParams({}, { replace: true });
+      }
+    })();
+  }, [searchParams, setSearchParams, isLoading]);
 
   // ============================================================================
   // Handlers

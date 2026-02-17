@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -151,11 +152,16 @@ const formatCost = (cost: number | null | undefined): string => {
 // ============================================================================
 
 export function Calls() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Calls state
   const [calls, setCalls] = useState<ClientCallListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoadingCalls, setIsLoadingCalls] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track if we've processed call_id from URL (deep-link from notifications)
+  const hasProcessedCallIdParam = useRef(false);
 
   // Analytics state - computed from calls data
   const [analyticsCalls, setAnalyticsCalls] = useState<ClientCallListItem[]>([]);
@@ -389,7 +395,7 @@ export function Calls() {
     setError(null);
   };
 
-  const handleViewDetails = async (callId: string) => {
+  const handleViewDetails = useCallback(async (callId: string) => {
     try {
       setIsLoadingDetails(true);
       setIsDetailsDialogOpen(true);
@@ -401,7 +407,34 @@ export function Calls() {
     } finally {
       setIsLoadingDetails(false);
     }
-  };
+  }, []);
+
+  // URL parameter handling (deep-link from notification panel / escalation)
+  useEffect(() => {
+    const callIdFromUrl = searchParams.get("call_id");
+    if (!callIdFromUrl || !callIdFromUrl.trim()) {
+      hasProcessedCallIdParam.current = false;
+      return;
+    }
+    if (hasProcessedCallIdParam.current || isLoadingCalls) return;
+
+    hasProcessedCallIdParam.current = true;
+
+    (async () => {
+      try {
+        await handleViewDetails(callIdFromUrl.trim());
+      } finally {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("call_id");
+            return next;
+          },
+          { replace: true }
+        );
+      }
+    })();
+  }, [searchParams, isLoadingCalls, setSearchParams, handleViewDetails]);
 
   const handleExport = async () => {
     try {

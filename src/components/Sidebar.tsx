@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,10 +37,18 @@ const menuItems = [
   { id: "menu", label: "Menu", icon: UtensilsCrossed, path: "/dashboard/menu" },
   { id: "faqs", label: "FAQs", icon: HelpCircle, path: "/dashboard/faqs" },
   {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    path: "/dashboard/notifications",
+    highlight: true,
+  },
+  {
     id: "escalations",
     label: "Escalations",
     icon: AlertTriangle,
     path: "/dashboard/escalations",
+    highlight: true,
   },
   { id: "settings", label: "Settings", icon: Settings, path: "/dashboard/settings" },
 ];
@@ -51,15 +60,16 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const { escalations } = useSSE();
+  const { escalations, persistentUnreadCount, totalUnreadCount } = useSSE();
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
-  // Get escalation count for badge
+  // Get counts for badges
   const escalationCount = escalations.length;
+  const notificationCount = persistentUnreadCount;
 
   return (
     <div className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col shadow-lg border-r border-sidebar-border overflow-hidden">
@@ -77,7 +87,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const showBadge = item.id === "escalations" && escalationCount > 0;
+            const showEscalationBadge = item.id === "escalations" && escalationCount > 0;
+            const showNotificationBadge = item.id === "notifications" && notificationCount > 0;
+            const badgeCount =
+              item.id === "escalations"
+                ? escalationCount
+                : item.id === "notifications"
+                  ? notificationCount
+                  : undefined;
+            const showBadge = showEscalationBadge || showNotificationBadge;
 
             return (
               <li key={item.id}>
@@ -89,27 +107,39 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
                       isActive
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground [&_.sidebar-badge]:bg-white/20 [&_.sidebar-badge]:text-sidebar-primary-foreground [&_.sidebar-badge]:border [&_.sidebar-badge]:border-white/30"
                         : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      // Highlight escalations when there are active ones
-                      item.id === "escalations" && escalationCount > 0 && "text-destructive"
+                      !isActive &&
+                        item.id === "escalations" &&
+                        escalationCount > 0 &&
+                        "text-destructive",
+                      !isActive &&
+                        item.id === "notifications" &&
+                        notificationCount > 0 &&
+                        "text-primary"
                     )
                   }
                 >
-                  <Icon
-                    className={cn(
-                      "w-4 h-4 flex-shrink-0",
-                      item.id === "escalations" && escalationCount > 0 && "text-destructive"
-                    )}
-                  />
-                  <span className="flex-1">{item.label}</span>
-                  {showBadge && (
-                    <Badge
-                      variant="destructive"
-                      className="h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center flex-shrink-0"
-                    >
-                      {escalationCount > 99 ? "99+" : escalationCount}
-                    </Badge>
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={cn(
+                          "w-4 h-4 flex-shrink-0",
+                          isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground",
+                          !isActive && showEscalationBadge && "text-destructive",
+                          !isActive && showNotificationBadge && "text-primary"
+                        )}
+                      />
+                      <span className="flex-1 font-medium">{item.label}</span>
+                      {showBadge && badgeCount !== undefined && (
+                        <Badge
+                          variant={item.id === "escalations" ? "destructive" : "default"}
+                          className="sidebar-badge h-5 min-w-[20px] px-1.5 text-[10px] flex items-center justify-center flex-shrink-0 font-semibold"
+                        >
+                          {badgeCount > 99 ? "99+" : badgeCount}
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </NavLink>
               </li>

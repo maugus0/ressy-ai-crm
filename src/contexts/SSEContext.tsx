@@ -5,6 +5,8 @@
  *
  * Features:
  * - Real-time event streaming for orders, reservations, and escalations
+ * - Persistent notifications from database (catch-up on login)
+ * - Mark-as-read functionality for persistent notifications
  * - Audio notifications (respects user preferences)
  * - Automatic reconnection on connection loss
  * - Event storage for notification dropdown
@@ -22,6 +24,13 @@ import {
 import { connectToSSE, disconnectFromSSE } from "@/services/sse";
 import { useAuth } from "./AuthContext";
 import type { SSEEvent } from "@/types/api.types";
+import type { Notification, NotificationType } from "@/types/notification.types";
+import {
+  getDashboardNotifications,
+  getUnreadCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "@/services/notifications";
 import {
   initializeAudio,
   areSoundsEnabled,
@@ -38,7 +47,10 @@ import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
 // ============================================================================
 
 interface SSEContextType {
-  /** All received events (most recent first) */
+  // ============================================================================
+  // Real-time SSE Events (in-memory)
+  // ============================================================================
+  /** All received SSE events (most recent first) */
   events: SSEEvent[];
   /** Escalation events only */
   escalations: SSEEvent[];
@@ -48,7 +60,7 @@ interface SSEContextType {
   reservationEvents: SSEEvent[];
   /** Whether SSE connection is active */
   isConnected: boolean;
-  /** Number of unread notifications */
+  /** Number of unread SSE notifications */
   unreadCount: number;
   /** Set of event IDs that have been read (clicked) */
   readEventIds: Set<string>;
@@ -56,16 +68,42 @@ interface SSEContextType {
   soundsEnabled: boolean;
   /** Toggle notification sounds on/off */
   toggleSounds: () => void;
-  /** Clear all events */
+  /** Clear all SSE events */
   clearEvents: () => void;
-  /** Mark all as read (reset unread count) */
+  /** Mark all SSE events as read (reset unread count) */
   markAsRead: () => void;
-  /** Mark a specific event as read */
+  /** Mark a specific SSE event as read */
   markEventAsRead: (eventId: string) => void;
-  /** Dismiss a specific event */
+  /** Dismiss a specific SSE event */
   dismissEvent: (eventId: string) => void;
   /** Stop sound for a specific event without dismissing it */
   stopEventSound: (eventId: string) => void;
+
+  // ============================================================================
+  // Persistent Notifications (from database)
+  // ============================================================================
+  /** Persistent notifications from database */
+  persistentNotifications: Notification[];
+  /** Total count of persistent notifications */
+  persistentTotal: number;
+  /** Unread count for persistent notifications */
+  persistentUnreadCount: number;
+  /** Loading state for persistent notifications */
+  isPersistentLoading: boolean;
+  /** Fetch persistent notifications from API */
+  fetchPersistentNotifications: (limit?: number) => Promise<void>;
+  /** Refresh unread count from API */
+  refreshUnreadCount: () => Promise<void>;
+  /** Mark a persistent notification as read (API call) */
+  markPersistentAsRead: (notificationId: number) => Promise<void>;
+  /** Mark all persistent notifications as read (API call) */
+  markAllPersistentAsRead: (type?: NotificationType) => Promise<void>;
+
+  // ============================================================================
+  // Combined Counts
+  // ============================================================================
+  /** Total unread count (SSE + persistent) */
+  totalUnreadCount: number;
 }
 
 // ============================================================================
@@ -102,6 +140,10 @@ const getSoundId = (event: SSEEvent): string => {
 
 export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
+
+  // ============================================================================
+  // SSE State (real-time, in-memory)
+  // ============================================================================
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -109,6 +151,14 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+
+  // ============================================================================
+  // Persistent Notification State (from database)
+  // ============================================================================
+  const [persistentNotifications, setPersistentNotifications] = useState<Notification[]>([]);
+  const [persistentTotal, setPersistentTotal] = useState(0);
+  const [persistentUnreadCount, setPersistentUnreadCount] = useState(0);
+  const [isPersistentLoading, setIsPersistentLoading] = useState(false);
 
   // Initialize audio context on mount (for user interaction)
   useEffect(() => {
@@ -374,14 +424,114 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     setSoundsEnabledState(newState);
   }, [soundsEnabled]);
 
+  // ============================================================================
+  // Persistent Notification Functions
+  // ============================================================================
+
+  /**
+   * Fetch persistent notifications from API (catch-up on login)
+   * Fetches all notifications (read + unread) so the notification panel can display both
+   */
+  const fetchPersistentNotifications = useCallback(async (limit = 50) => {
+    setIsPersistentLoading(true);
+    try {
+      const response = await getDashboardNotifications({
+        limit,
+        // No is_read filter - get all so panel can show read and unread
+      });
+      setPersistentNotifications(response.notifications);
+      setPersistentTotal(response.total);
+      setPersistentUnreadCount(response.unread_count);
+    } catch (error) {
+      console.error("Failed to fetch persistent notifications:", error);
+    } finally {
+      setIsPersistentLoading(false);
+    }
+  }, []);
+
+  /**
+   * Refresh unread count from API
+   */
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const count = await getUnreadCount();
+      setPersistentUnreadCount(count);
+    } catch (error) {
+      console.error("Failed to fetch unread count:", error);
+    }
+  }, []);
+
+  /**
+   * Mark a persistent notification as read (API call)
+   */
+  const markPersistentAsRead = useCallback(async (notificationId: number) => {
+    try {
+      await markNotificationAsRead(notificationId);
+      // Update local state
+      setPersistentNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+        )
+      );
+      setPersistentUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Mark all persistent notifications as read (API call)
+   * When type is provided, only that type is marked read; unread count is decremented by that type's unread count.
+   */
+  const markAllPersistentAsRead = useCallback(
+    async (type?: NotificationType) => {
+      const notificationsSnapshot = persistentNotifications;
+      const unreadMarkedCount = type
+        ? notificationsSnapshot.filter((n) => n.type === type && !n.is_read).length
+        : notificationsSnapshot.filter((n) => !n.is_read).length;
+
+      try {
+        await markAllNotificationsAsRead(type);
+        const now = new Date().toISOString();
+        setPersistentNotifications((prev) =>
+          prev.map((n) => (!type || n.type === type ? { ...n, is_read: true, read_at: now } : n))
+        );
+        setPersistentUnreadCount((prev) => Math.max(0, prev - unreadMarkedCount));
+      } catch (error) {
+        console.error("Failed to mark all notifications as read:", error);
+        throw error;
+      }
+    },
+    [persistentNotifications]
+  );
+
+  /**
+   * Fetch persistent notifications on authentication
+   */
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchPersistentNotifications();
+    } else {
+      // Clear persistent state on logout
+      setPersistentNotifications([]);
+      setPersistentTotal(0);
+      setPersistentUnreadCount(0);
+    }
+  }, [isAuthenticated, user, fetchPersistentNotifications]);
+
   // Filter events by type for convenience
   const escalations = events.filter((e) => e.event_type === "escalation");
   const orderEvents = events.filter((e) => e.event_type === "order");
   const reservationEvents = events.filter((e) => e.event_type === "reservation");
 
+  // Combined unread count (SSE + persistent)
+  const totalUnreadCount = unreadCount + persistentUnreadCount;
+
   return (
     <SSEContext.Provider
       value={{
+        // SSE (real-time)
         events,
         escalations,
         orderEvents,
@@ -396,6 +546,17 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         markEventAsRead,
         dismissEvent,
         stopEventSound,
+        // Persistent notifications
+        persistentNotifications,
+        persistentTotal,
+        persistentUnreadCount,
+        isPersistentLoading,
+        fetchPersistentNotifications,
+        refreshUnreadCount,
+        markPersistentAsRead,
+        markAllPersistentAsRead,
+        // Combined
+        totalUnreadCount,
       }}
     >
       {children}

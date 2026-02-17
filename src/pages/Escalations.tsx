@@ -3,18 +3,22 @@
  * Displays escalation alerts requiring attention for the Client Dashboard
  *
  * Features:
+ * - Two tabs: Live Alerts (SSE) and History (database)
  * - Real-time escalation alerts from SSE
- * - Filter by escalation type
+ * - Historical escalations from database with pagination
+ * - Filter by escalation type/status
  * - View escalation details
  * - Navigate to related call details
  * - Dismiss/clear escalations
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -37,16 +41,34 @@ import {
   RefreshCw,
   Info,
   Zap,
+  History,
+  Radio,
+  ChevronLeft,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
-import { formatLocalDateTimeParts, parseApiDate } from "@/lib/utils/timezone";
+import { formatLocalDateTimeParts, parseApiDate, formatLocalDateTime } from "@/lib/utils/timezone";
+import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
+import { getClientEscalations } from "@/services/escalations";
+import {
+  getEscalationStatusColor,
+  getEscalationUrgencyColor,
+  escalationStatusLabels,
+  escalationUrgencyLabels,
+} from "@/lib/utils/escalationStyles";
 import type { SSEEvent, SSEEventSubtype } from "@/types/api.types";
+import type { Escalation, EscalationStatus, EscalationUrgency } from "@/types/escalation.types";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 type EscalationFilter = "all" | SSEEventSubtype;
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const HISTORY_PAGE_SIZE = 10;
 
 // ============================================================================
 // Helper Functions
@@ -56,20 +78,8 @@ const formatDateTime = (timestamp: string) => {
   return formatLocalDateTimeParts(timestamp);
 };
 
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-};
+// Note: formatRelativeTime is now imported from @/lib/utils/formatRelativeTime
+// Using the imported version for consistency
 
 const getEscalationInfo = (subtype: SSEEventSubtype) => {
   const info: Record<
@@ -111,8 +121,63 @@ const getEscalationInfo = (subtype: SSEEventSubtype) => {
 
 export function Escalations() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"live" | "history">("live");
   const [filter, setFilter] = useState<EscalationFilter>("all");
   const { escalations, dismissEvent, clearEvents, isConnected } = useSSE();
+
+  // History tab state
+  const [historyEscalations, setHistoryEscalations] = useState<Escalation[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<EscalationStatus | "all">("all");
+  const [historyUrgencyFilter, setHistoryUrgencyFilter] = useState<EscalationUrgency | "all">(
+    "all"
+  );
+
+  const historyTotalPages = Math.ceil(historyTotal / HISTORY_PAGE_SIZE);
+
+  // Fetch history escalations
+  const fetchHistoryEscalations = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const params: Parameters<typeof getClientEscalations>[0] = {
+        page: historyPage,
+        limit: HISTORY_PAGE_SIZE,
+        sort_by: "requested_at",
+        sort_order: "desc",
+      };
+
+      if (historyStatusFilter !== "all") {
+        params.status = historyStatusFilter;
+      }
+      if (historyUrgencyFilter !== "all") {
+        params.urgency = historyUrgencyFilter;
+      }
+
+      const response = await getClientEscalations(params);
+      setHistoryEscalations(response.escalations);
+      setHistoryTotal(response.total);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Failed to load escalations");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyPage, historyStatusFilter, historyUrgencyFilter]);
+
+  // Fetch history when tab is active or filters change
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchHistoryEscalations();
+    }
+  }, [activeTab, fetchHistoryEscalations]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyStatusFilter, historyUrgencyFilter]);
 
   // Filter escalations
   const filteredEscalations =
@@ -128,137 +193,358 @@ export function Escalations() {
 
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-      <Card>
-        <CardHeader className="space-y-3 sm:space-y-4 p-4 sm:p-6">
-          {/* Header Row */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg md:text-xl">Escalation Alerts</CardTitle>
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <AlertTriangle className="h-6 w-6 text-destructive" />
+        <h1 className="text-xl sm:text-2xl font-bold">Escalations</h1>
+        {escalations.length > 0 && (
+          <Badge variant="destructive" className="text-xs">
+            {escalations.length} live
+          </Badge>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "live" | "history")}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="live" className="flex items-center gap-2">
+            <Radio className="h-4 w-4" />
+            Live Alerts
+            {escalations.length > 0 && (
+              <Badge variant="destructive" className="ml-1 text-xs">
+                {escalations.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            History
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Live Alerts Tab */}
+        <TabsContent value="live" className="mt-4">
+          <Card>
+            <CardHeader className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+              {/* Header Row */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <CardTitle className="text-base sm:text-lg">
+                    Real-time Escalation Alerts
+                  </CardTitle>
+                  {/* Connection Status */}
+                  <div
+                    className={`h-2 w-2 rounded-full flex-shrink-0 ${isConnected ? "bg-green-500" : "bg-red-500"}`}
+                    title={isConnected ? "Live updates active" : "Disconnected"}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {isConnected ? "Connected" : "Reconnecting..."}
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                  {/* Filter */}
+                  <Select value={filter} onValueChange={(v) => setFilter(v as EscalationFilter)}>
+                    <SelectTrigger className="w-full sm:w-[200px] h-9 sm:h-10">
+                      <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+                      <SelectValue placeholder="Filter by type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Escalations ({counts.all})</SelectItem>
+                      <SelectItem value="user_requested">
+                        Human Requested ({counts.user_requested})
+                      </SelectItem>
+                      <SelectItem value="internal_server_error">
+                        System Errors ({counts.internal_server_error})
+                      </SelectItem>
+                      <SelectItem value="suspected_spam">
+                        Spam Detected ({counts.suspected_spam})
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Clear All */}
+                  {escalations.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={clearEvents}
+                      className="w-full sm:w-auto h-9 sm:h-10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+                      <span className="text-xs sm:text-sm">Clear All</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats Cards */}
               {escalations.length > 0 && (
-                <Badge variant="destructive" className="hidden sm:inline-flex text-xs">
-                  {escalations.length} active
-                </Badge>
-              )}
-              {escalations.length > 0 && (
-                <Badge variant="destructive" className="sm:hidden text-[10px] px-1.5 py-0">
-                  {escalations.length}
-                </Badge>
-              )}
-              {/* Connection Status */}
-              <div
-                className={`h-2 w-2 rounded-full flex-shrink-0 ${isConnected ? "bg-green-500" : "bg-red-500"}`}
-                title={isConnected ? "Live updates active" : "Disconnected"}
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
-              {/* Filter */}
-              <Select value={filter} onValueChange={(v) => setFilter(v as EscalationFilter)}>
-                <SelectTrigger className="w-full sm:w-[200px] h-9 sm:h-10">
-                  <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Escalations ({counts.all})</SelectItem>
-                  <SelectItem value="user_requested">
-                    Human Requested ({counts.user_requested})
-                  </SelectItem>
-                  <SelectItem value="internal_server_error">
-                    System Errors ({counts.internal_server_error})
-                  </SelectItem>
-                  <SelectItem value="suspected_spam">
-                    Spam Detected ({counts.suspected_spam})
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Clear All */}
-              {escalations.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={clearEvents}
-                  className="w-full sm:w-auto h-9 sm:h-10"
-                >
-                  <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-                  <span className="text-xs sm:text-sm">Clear All</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          {escalations.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-              <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
-                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Total Alerts</p>
-                <p className="text-lg sm:text-xl md:text-2xl font-bold text-destructive">
-                  {counts.all}
-                </p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20">
-                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Human Requested</p>
-                <p className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600">
-                  {counts.user_requested}
-                </p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg border bg-red-50 dark:bg-red-950/20">
-                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">System Errors</p>
-                <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">
-                  {counts.internal_server_error}
-                </p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
-                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Spam Detected</p>
-                <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">
-                  {counts.suspected_spam}
-                </p>
-              </div>
-            </div>
-          )}
-        </CardHeader>
-
-        <CardContent className="p-4 sm:p-6">
-          {filteredEscalations.length > 0 ? (
-            <div className="space-y-3">
-              {filteredEscalations.map((escalation) => (
-                <EscalationCard
-                  key={escalation.id}
-                  escalation={escalation}
-                  onDismiss={() => dismissEvent(escalation.id)}
-                  onViewCall={(callId) => navigate(`/dashboard/calls?call_id=${callId}`)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 sm:py-16 px-4">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-muted mb-4">
-                <AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
-              </div>
-              <p className="text-base sm:text-lg font-semibold mb-2">
-                {filter === "all" ? "No escalations" : "No matching escalations"}
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                {filter === "all"
-                  ? "Escalation alerts will appear here in real-time when they occur during AI calls."
-                  : "Try changing the filter to see other escalation types."}
-              </p>
-              {filter !== "all" && (
-                <Button variant="outline" onClick={() => setFilter("all")}>
-                  <X className="h-4 w-4 mr-2" />
-                  Clear Filter
-                </Button>
-              )}
-              {!isConnected && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Reconnecting to live updates...</span>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+                      Total Alerts
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-destructive">
+                      {counts.all}
+                    </p>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+                      Human Requested
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600">
+                      {counts.user_requested}
+                    </p>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-red-50 dark:bg-red-950/20">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+                      System Errors
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">
+                      {counts.internal_server_error}
+                    </p>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+                      Spam Detected
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">
+                      {counts.suspected_spam}
+                    </p>
+                  </div>
                 </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6">
+              {filteredEscalations.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredEscalations.map((escalation) => (
+                    <EscalationCard
+                      key={escalation.id}
+                      escalation={escalation}
+                      onDismiss={() => dismissEvent(escalation.id)}
+                      onViewCall={(callId) => navigate(`/dashboard/calls?call_id=${callId}`)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 sm:py-16 px-4">
+                  <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-muted mb-4">
+                    <AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-base sm:text-lg font-semibold mb-2">
+                    {filter === "all" ? "No live escalations" : "No matching escalations"}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                    {filter === "all"
+                      ? "Escalation alerts will appear here in real-time when they occur during AI calls. To view past escalations, go to the History tab."
+                      : "Try changing the filter to see other escalation types."}
+                  </p>
+                  {filter !== "all" && (
+                    <Button variant="outline" onClick={() => setFilter("all")}>
+                      <X className="h-4 w-4 mr-2" />
+                      Clear Filter
+                    </Button>
+                  )}
+                  {!isConnected && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Reconnecting to live updates...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* History Tab */}
+        <TabsContent value="history" className="mt-4">
+          <Card>
+            <CardHeader className="space-y-4 p-4 sm:p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <CardTitle className="text-base sm:text-lg">Escalation History</CardTitle>
+
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                  {/* Status Filter */}
+                  <Select
+                    value={historyStatusFilter}
+                    onValueChange={(v) => setHistoryStatusFilter(v as EscalationStatus | "all")}
+                  >
+                    <SelectTrigger className="w-full sm:w-[150px] h-9">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="raised">Raised</SelectItem>
+                      <SelectItem value="forwarded">Forwarded</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Urgency Filter */}
+                  <Select
+                    value={historyUrgencyFilter}
+                    onValueChange={(v) => setHistoryUrgencyFilter(v as EscalationUrgency | "all")}
+                  >
+                    <SelectTrigger className="w-full sm:w-[150px] h-9">
+                      <SelectValue placeholder="Urgency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Urgencies</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Refresh */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={fetchHistoryEscalations}
+                    disabled={historyLoading}
+                    className="h-9 w-9"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${historyLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {historyTotal} escalation{historyTotal !== 1 ? "s" : ""} total
+              </p>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6 pt-0">
+              {historyLoading && historyEscalations.length === 0 ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-start gap-4 p-4 border rounded-lg">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : historyError ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+                  <p className="text-sm text-destructive">{historyError}</p>
+                  <Button variant="outline" onClick={fetchHistoryEscalations} className="mt-4">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : historyEscalations.length > 0 ? (
+                <div className="space-y-3">
+                  {historyEscalations.map((escalation) => (
+                    <div
+                      key={escalation.id}
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-start gap-4 p-4 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50"
+                      onClick={() => navigate(`/dashboard/escalations/${escalation.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/dashboard/escalations/${escalation.id}`);
+                        }
+                      }}
+                      aria-label={`Escalation ${escalation.id}, ${escalation.status}, ${escalation.urgency}${escalation.reason ? `. ${escalation.reason}` : ""}`}
+                    >
+                      {/* Icon */}
+                      <div className="p-2 rounded-full bg-destructive/10 flex-shrink-0">
+                        <AlertTriangle className="h-5 w-5 text-destructive" />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">Escalation #{escalation.id}</span>
+                            <Badge
+                              className={`text-xs ${getEscalationStatusColor(escalation.status)}`}
+                            >
+                              {escalationStatusLabels[escalation.status]}
+                            </Badge>
+                            <Badge
+                              className={`text-xs ${getEscalationUrgencyColor(escalation.urgency)}`}
+                            >
+                              {escalationUrgencyLabels[escalation.urgency]}
+                            </Badge>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        </div>
+                        {escalation.reason && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {escalation.reason}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          {escalation.caller_phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {escalation.caller_phone}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatRelativeTime(escalation.requested_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {historyTotalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Page {historyPage} of {historyTotalPages}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                          disabled={historyPage === 1 || historyLoading}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                          disabled={historyPage === historyTotalPages || historyLoading}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-lg font-medium">No escalation history</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {historyStatusFilter !== "all" || historyUrgencyFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Past escalations will appear here"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
