@@ -14,6 +14,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
   Building,
@@ -36,6 +37,11 @@ import {
   Copy,
   Sun,
   Lock,
+  Link,
+  MessageSquare,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -46,10 +52,29 @@ import type {
   ClientRestaurant,
   ClientRestaurantUpdateRequest,
   OperatingHours,
+  SMSRedirectConfig,
 } from "@/types/api.types";
 
 // Phone number validation regex (E.164 format)
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
+
+// URL validation regex (requires http:// or https:// and a basic valid structure)
+const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+
+// Max length for custom SMS message (instruction text only; backend adds URL + signature)
+const SMS_MESSAGE_MAX_LENGTH = 500;
+
+// Default SMS redirect messages (instruction text only; URL and signature are added by the backend)
+const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
+
+const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
+
+// Default SMS redirect config
+const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
+  enabled: false,
+  redirect_url: null,
+  redirect_message: null,
+};
 
 // Default operating hours for initialization (when API returns null we still need display values)
 const DEFAULT_OPERATING_HOURS: OperatingHours = {
@@ -62,6 +87,140 @@ const DEFAULT_OPERATING_HOURS: OperatingHours = {
   sunday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
 };
 
+/** Props for the shared SMS Redirect URL + message + preview block */
+interface SmsRedirectConfigFieldsProps {
+  urlInputId: string;
+  messageInputId: string;
+  previewContentId: string;
+  redirectUrl: string;
+  redirectMessage: string;
+  redirectUrlError?: string;
+  redirectMessageError?: string;
+  defaultMessagePlaceholder: string;
+  urlPlaceholder: string;
+  urlHelpText: string;
+  showPreview: boolean;
+  onTogglePreview: () => void;
+  onRedirectUrlChange: (value: string) => void;
+  onRedirectMessageChange: (value: string) => void;
+  onClearUrlError: () => void;
+  maxMessageLength: number;
+  previewContent: string;
+}
+
+/** Shared UI for SMS Redirect: URL input, custom message textarea, and SMS Preview. */
+function SmsRedirectConfigFields({
+  urlInputId,
+  messageInputId,
+  previewContentId,
+  redirectUrl,
+  redirectMessage,
+  redirectUrlError,
+  redirectMessageError,
+  defaultMessagePlaceholder,
+  urlPlaceholder,
+  urlHelpText,
+  showPreview,
+  onTogglePreview,
+  onRedirectUrlChange,
+  onRedirectMessageChange,
+  onClearUrlError,
+  maxMessageLength,
+  previewContent,
+}: SmsRedirectConfigFieldsProps) {
+  return (
+    <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={urlInputId} className="text-xs sm:text-sm">
+          Redirect URL <span className="text-destructive">*</span>
+        </Label>
+        <div className="relative">
+          <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Input
+            id={urlInputId}
+            type="url"
+            value={redirectUrl}
+            onChange={(e) => {
+              onRedirectUrlChange(e.target.value);
+              onClearUrlError();
+            }}
+            placeholder={urlPlaceholder}
+            className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${
+              redirectUrlError ? "border-destructive" : ""
+            }`}
+          />
+        </div>
+        {redirectUrlError ? (
+          <p className="text-[10px] sm:text-xs text-destructive">{redirectUrlError}</p>
+        ) : (
+          <p className="text-[10px] sm:text-xs text-muted-foreground">{urlHelpText}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={messageInputId} className="text-xs sm:text-sm">
+          Custom SMS Message <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Textarea
+          id={messageInputId}
+          value={redirectMessage}
+          onChange={(e) => onRedirectMessageChange(e.target.value)}
+          placeholder={defaultMessagePlaceholder}
+          rows={4}
+          maxLength={maxMessageLength}
+          className={`text-xs sm:text-sm resize-none ${
+            redirectMessageError ? "border-destructive" : ""
+          }`}
+        />
+        <div className="flex justify-between items-start gap-2">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
+            Optional. Customize the instruction text customers see in the SMS. Leave blank to use
+            the default message. The link and signature are added automatically.
+          </p>
+          <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">
+            {redirectMessage.length}/{maxMessageLength}
+          </span>
+        </div>
+        {redirectMessageError && (
+          <p className="text-[10px] sm:text-xs text-destructive">{redirectMessageError}</p>
+        )}
+      </div>
+
+      {/* SMS Preview */}
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={onTogglePreview}
+          aria-expanded={showPreview}
+          aria-controls={previewContentId}
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          SMS Preview
+          {showPreview ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {showPreview && (
+          <div id={previewContentId} className="p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-1.5 mb-2">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                SMS Preview
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
+              {previewContent}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Form validation errors interface
 interface FormErrors {
   name?: string;
@@ -71,6 +230,10 @@ interface FormErrors {
   backward_minutes?: string;
   reservation_seating_capacity?: string;
   reservation_advance_days?: string;
+  orders_sms_redirect_url?: string;
+  reservations_sms_redirect_url?: string;
+  orders_sms_redirect_message?: string;
+  reservations_sms_redirect_message?: string;
 }
 
 // Form data structure for editing
@@ -88,6 +251,14 @@ interface SettingsFormData {
   features_orders_enabled: boolean;
   features_reservations_enabled: boolean;
   features_faqs_enabled: boolean;
+  // SMS Redirect for Orders
+  orders_sms_redirect_enabled: boolean;
+  orders_sms_redirect_url: string;
+  orders_sms_redirect_message: string;
+  // SMS Redirect for Reservations
+  reservations_sms_redirect_enabled: boolean;
+  reservations_sms_redirect_url: string;
+  reservations_sms_redirect_message: string;
 }
 
 export function Settings() {
@@ -156,7 +327,18 @@ export function Settings() {
     features_orders_enabled: true,
     features_reservations_enabled: true,
     features_faqs_enabled: true,
+    // SMS Redirect defaults
+    orders_sms_redirect_enabled: false,
+    orders_sms_redirect_url: "",
+    orders_sms_redirect_message: "",
+    reservations_sms_redirect_enabled: false,
+    reservations_sms_redirect_url: "",
+    reservations_sms_redirect_message: "",
   });
+
+  // SMS Redirect message preview expansion states
+  const [showOrdersMessagePreview, setShowOrdersMessagePreview] = useState(false);
+  const [showReservationsMessagePreview, setShowReservationsMessagePreview] = useState(false);
 
   /**
    * Format time from HH:MM:SS to HH:MM for input fields
@@ -283,6 +465,11 @@ export function Settings() {
         });
       }
 
+      // Extract SMS redirect configs with defaults
+      const ordersSmsRedirect = data.features?.orders_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+      const reservationsSmsRedirect =
+        data.features?.reservations_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+
       setFormData({
         name: data.name,
         address: data.address,
@@ -298,6 +485,14 @@ export function Settings() {
         features_orders_enabled: data.features?.orders_enabled ?? true,
         features_reservations_enabled: data.features?.reservations_enabled ?? true,
         features_faqs_enabled: true, // Always enabled for agent functionality
+        // SMS Redirect for Orders
+        orders_sms_redirect_enabled: ordersSmsRedirect.enabled,
+        orders_sms_redirect_url: ordersSmsRedirect.redirect_url || "",
+        orders_sms_redirect_message: ordersSmsRedirect.redirect_message || "",
+        // SMS Redirect for Reservations
+        reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
+        reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
+        reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
       });
       setHasChanges(false);
     } catch (err) {
@@ -317,6 +512,25 @@ export function Settings() {
       // FAQs must always be enabled; ignore any attempt to change it
       const { features_faqs_enabled: _faq, ...rest } = updates;
       const newData = { ...prev, ...rest, features_faqs_enabled: true };
+
+      // Handle mutual exclusivity: SMS redirect requires direct handling to be disabled
+      // When enabling direct orders, disable SMS redirect for orders
+      if (updates.features_orders_enabled === true) {
+        newData.orders_sms_redirect_enabled = false;
+      }
+      // When enabling SMS redirect for orders, disable direct orders
+      if (updates.orders_sms_redirect_enabled === true) {
+        newData.features_orders_enabled = false;
+      }
+      // When enabling direct reservations, disable SMS redirect for reservations
+      if (updates.features_reservations_enabled === true) {
+        newData.reservations_sms_redirect_enabled = false;
+      }
+      // When enabling SMS redirect for reservations, disable direct reservations
+      if (updates.reservations_sms_redirect_enabled === true) {
+        newData.features_reservations_enabled = false;
+      }
+
       // Check if data has changed from original
       if (originalData) {
         // Check if operating hours have changed
@@ -332,6 +546,25 @@ export function Settings() {
           );
         });
 
+        // Get original SMS redirect configs
+        const origOrdersSmsRedirect =
+          originalData.features?.orders_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+        const origReservationsSmsRedirect =
+          originalData.features?.reservations_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+
+        // Check if SMS redirect settings have changed
+        const ordersSmsRedirectChanged =
+          newData.orders_sms_redirect_enabled !== origOrdersSmsRedirect.enabled ||
+          newData.orders_sms_redirect_url !== (origOrdersSmsRedirect.redirect_url || "") ||
+          newData.orders_sms_redirect_message !== (origOrdersSmsRedirect.redirect_message || "");
+
+        const reservationsSmsRedirectChanged =
+          newData.reservations_sms_redirect_enabled !== origReservationsSmsRedirect.enabled ||
+          newData.reservations_sms_redirect_url !==
+            (origReservationsSmsRedirect.redirect_url || "") ||
+          newData.reservations_sms_redirect_message !==
+            (origReservationsSmsRedirect.redirect_message || "");
+
         const hasChanged =
           newData.name !== originalData.name ||
           newData.address !== originalData.address ||
@@ -346,7 +579,9 @@ export function Settings() {
           newData.reservation_advance_days !== (originalData.reservation_advance_days ?? 30) ||
           newData.features_orders_enabled !== (originalData.features?.orders_enabled ?? true) ||
           newData.features_reservations_enabled !==
-            (originalData.features?.reservations_enabled ?? true);
+            (originalData.features?.reservations_enabled ?? true) ||
+          ordersSmsRedirectChanged ||
+          reservationsSmsRedirectChanged;
         // FAQs are always on and not user-changeable, so we don't include them in hasChanges
         setHasChanges(hasChanged);
       }
@@ -399,6 +634,31 @@ export function Settings() {
       errors.reservation_advance_days = "Must be between 1 and 365 days";
     }
 
+    // SMS Redirect validation (when enabled)
+    if (formData.orders_sms_redirect_enabled) {
+      if (!formData.orders_sms_redirect_url.trim()) {
+        errors.orders_sms_redirect_url = "URL is required when SMS redirect is enabled";
+      } else if (!URL_REGEX.test(formData.orders_sms_redirect_url.trim())) {
+        errors.orders_sms_redirect_url =
+          "Please enter a valid URL (must start with http:// or https://)";
+      }
+      if (formData.orders_sms_redirect_message.length > SMS_MESSAGE_MAX_LENGTH) {
+        errors.orders_sms_redirect_message = `Custom message must be ${SMS_MESSAGE_MAX_LENGTH} characters or less`;
+      }
+    }
+
+    if (formData.reservations_sms_redirect_enabled) {
+      if (!formData.reservations_sms_redirect_url.trim()) {
+        errors.reservations_sms_redirect_url = "URL is required when SMS redirect is enabled";
+      } else if (!URL_REGEX.test(formData.reservations_sms_redirect_url.trim())) {
+        errors.reservations_sms_redirect_url =
+          "Please enter a valid URL (must start with http:// or https://)";
+      }
+      if (formData.reservations_sms_redirect_message.length > SMS_MESSAGE_MAX_LENGTH) {
+        errors.reservations_sms_redirect_message = `Custom message must be ${SMS_MESSAGE_MAX_LENGTH} characters or less`;
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -426,6 +686,24 @@ export function Settings() {
           orders_enabled: formData.features_orders_enabled,
           reservations_enabled: formData.features_reservations_enabled,
           faqs_enabled: true, // Always enabled for agent functionality
+          orders_sms_redirect: {
+            enabled: formData.orders_sms_redirect_enabled,
+            redirect_url: formData.orders_sms_redirect_enabled
+              ? formData.orders_sms_redirect_url.trim() || null
+              : null,
+            redirect_message: formData.orders_sms_redirect_enabled
+              ? formData.orders_sms_redirect_message.trim() || null
+              : null,
+          },
+          reservations_sms_redirect: {
+            enabled: formData.reservations_sms_redirect_enabled,
+            redirect_url: formData.reservations_sms_redirect_enabled
+              ? formData.reservations_sms_redirect_url.trim() || null
+              : null,
+            redirect_message: formData.reservations_sms_redirect_enabled
+              ? formData.reservations_sms_redirect_message.trim() || null
+              : null,
+          },
         },
       };
       // Only include operating_hours when backend already had them or user edited the section
@@ -453,6 +731,12 @@ export function Settings() {
         });
       }
 
+      // Extract updated SMS redirect configs
+      const updatedOrdersSmsRedirect =
+        updatedData.features?.orders_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+      const updatedReservationsSmsRedirect =
+        updatedData.features?.reservations_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+
       setFormData({
         name: updatedData.name,
         address: updatedData.address,
@@ -468,6 +752,14 @@ export function Settings() {
         features_orders_enabled: updatedData.features?.orders_enabled ?? true,
         features_reservations_enabled: updatedData.features?.reservations_enabled ?? true,
         features_faqs_enabled: true, // Always enabled for agent functionality
+        // SMS Redirect for Orders
+        orders_sms_redirect_enabled: updatedOrdersSmsRedirect.enabled,
+        orders_sms_redirect_url: updatedOrdersSmsRedirect.redirect_url || "",
+        orders_sms_redirect_message: updatedOrdersSmsRedirect.redirect_message || "",
+        // SMS Redirect for Reservations
+        reservations_sms_redirect_enabled: updatedReservationsSmsRedirect.enabled,
+        reservations_sms_redirect_url: updatedReservationsSmsRedirect.redirect_url || "",
+        reservations_sms_redirect_message: updatedReservationsSmsRedirect.redirect_message || "",
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -496,6 +788,12 @@ export function Settings() {
         });
       }
 
+      // Extract SMS redirect configs
+      const ordersSmsRedirect =
+        originalData.features?.orders_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+      const reservationsSmsRedirect =
+        originalData.features?.reservations_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+
       setFormData({
         name: originalData.name,
         address: originalData.address,
@@ -511,12 +809,39 @@ export function Settings() {
         features_orders_enabled: originalData.features?.orders_enabled ?? true,
         features_reservations_enabled: originalData.features?.reservations_enabled ?? true,
         features_faqs_enabled: true, // Always enabled for agent functionality
+        // SMS Redirect for Orders
+        orders_sms_redirect_enabled: ordersSmsRedirect.enabled,
+        orders_sms_redirect_url: ordersSmsRedirect.redirect_url || "",
+        orders_sms_redirect_message: ordersSmsRedirect.redirect_message || "",
+        // SMS Redirect for Reservations
+        reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
+        reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
+        reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
       });
       setFormErrors({});
       setHasChanges(false);
       hasUserEditedOperatingHours.current = false;
       toast.info("Changes discarded");
     }
+  };
+
+  /**
+   * Generate SMS message preview in the same format as the backend:
+   * Hello. + instruction text + URL + signature (URL and signature are always appended by backend)
+   */
+  const getSmsMessagePreview = (
+    type: "orders" | "reservations",
+    restaurantName: string
+  ): string => {
+    const isOrders = type === "orders";
+    const instructionText = isOrders
+      ? formData.orders_sms_redirect_message.trim() || DEFAULT_ORDERS_SMS_MESSAGE
+      : formData.reservations_sms_redirect_message.trim() || DEFAULT_RESERVATIONS_SMS_MESSAGE;
+    const url = isOrders
+      ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
+      : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
+
+    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
   };
 
   // Loading skeleton
@@ -1231,65 +1556,295 @@ export function Settings() {
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-300">
-                Disabling a capability will route those requests to your staff. Ensure call
-                forwarding is configured.
+                Disabling a capability will route those requests to your staff. Enable SMS Redirect
+                to send customers a link instead of processing requests directly.
               </p>
             </div>
 
-            {/* Orders Toggle */}
-            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
-                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            {/* ==================== ORDERS SECTION ==================== */}
+            <div className="rounded-lg border overflow-hidden">
+              {/* Orders (Direct) Toggle */}
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/30">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                    <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <Label
+                      htmlFor="orders_enabled"
+                      className="text-xs sm:text-sm font-medium cursor-pointer block"
+                    >
+                      Pickup Orders (Direct)
+                    </Label>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      Allow RessyAI to take and manage pickup orders directly
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-0.5 min-w-0">
-                  <Label
-                    htmlFor="orders_enabled"
-                    className="text-xs sm:text-sm font-medium cursor-pointer block"
-                  >
-                    Pickup Orders
-                  </Label>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    Allow RessyAI to take and manage pickup orders
-                  </p>
-                </div>
-              </div>
-              <Switch
-                id="orders_enabled"
-                checked={formData.features_orders_enabled}
-                onCheckedChange={(checked) => updateFormData({ features_orders_enabled: checked })}
-                className="shrink-0"
-              />
-            </div>
-
-            {/* Reservations Toggle */}
-            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
-                  <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                </div>
-                <div className="space-y-0.5 min-w-0">
-                  <Label
-                    htmlFor="reservations_enabled"
-                    className="text-xs sm:text-sm font-medium cursor-pointer block"
-                  >
-                    Reservations
-                  </Label>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    Allow RessyAI to book and manage table reservations
-                  </p>
+                <div className="flex items-center gap-2">
+                  {formData.features_orders_enabled && (
+                    <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Active
+                    </span>
+                  )}
+                  <Switch
+                    id="orders_enabled"
+                    checked={formData.features_orders_enabled}
+                    onCheckedChange={(checked) =>
+                      updateFormData({ features_orders_enabled: checked })
+                    }
+                    disabled={formData.orders_sms_redirect_enabled}
+                    className="shrink-0"
+                  />
                 </div>
               </div>
-              <Switch
-                id="reservations_enabled"
-                checked={formData.features_reservations_enabled}
-                onCheckedChange={(checked) =>
-                  updateFormData({ features_reservations_enabled: checked })
-                }
-                className="shrink-0"
-              />
+
+              {/* Orders SMS Redirect Sub-section */}
+              <div className="border-t bg-muted/10">
+                <div className="flex items-center justify-between p-3 sm:p-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 shrink-0">
+                      <Link className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <Label
+                        htmlFor="orders_sms_redirect"
+                        className="text-xs sm:text-sm font-medium cursor-pointer block flex items-center gap-1.5"
+                      >
+                        SMS Redirect for Orders
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Learn more about SMS redirect for orders"
+                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[280px]">
+                            <p>
+                              Instead of RessyAI processing orders, customers receive an SMS with a
+                              link to your online ordering platform.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        Send customers an SMS with your online ordering link
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {formData.orders_sms_redirect_enabled && (
+                      <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        Active
+                      </span>
+                    )}
+                    <Switch
+                      id="orders_sms_redirect"
+                      checked={formData.orders_sms_redirect_enabled}
+                      onCheckedChange={(checked) => {
+                        // Clear URL validation error when disabling
+                        if (!checked) {
+                          setFormErrors((prev) => ({
+                            ...prev,
+                            orders_sms_redirect_url: undefined,
+                          }));
+                        }
+                        updateFormData({ orders_sms_redirect_enabled: checked });
+                      }}
+                      disabled={formData.features_orders_enabled}
+                      className="shrink-0"
+                    />
+                  </div>
+                </div>
+
+                {/* SMS Redirect Configuration (shown when enabled) */}
+                {formData.orders_sms_redirect_enabled && (
+                  <SmsRedirectConfigFields
+                    urlInputId="orders_redirect_url"
+                    messageInputId="orders_redirect_message"
+                    previewContentId="orders-sms-preview"
+                    redirectUrl={formData.orders_sms_redirect_url}
+                    redirectMessage={formData.orders_sms_redirect_message}
+                    redirectUrlError={formErrors.orders_sms_redirect_url}
+                    redirectMessageError={formErrors.orders_sms_redirect_message}
+                    defaultMessagePlaceholder={DEFAULT_ORDERS_SMS_MESSAGE}
+                    urlPlaceholder="https://order.yourrestaurant.com"
+                    urlHelpText="URL to your online ordering platform (must start with http:// or https://)"
+                    showPreview={showOrdersMessagePreview}
+                    onTogglePreview={() => setShowOrdersMessagePreview(!showOrdersMessagePreview)}
+                    onRedirectUrlChange={(value) =>
+                      updateFormData({ orders_sms_redirect_url: value })
+                    }
+                    onRedirectMessageChange={(value) => {
+                      updateFormData({ orders_sms_redirect_message: value });
+                      if (formErrors.orders_sms_redirect_message) {
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          orders_sms_redirect_message: undefined,
+                        }));
+                      }
+                    }}
+                    onClearUrlError={() =>
+                      setFormErrors((prev) => ({ ...prev, orders_sms_redirect_url: undefined }))
+                    }
+                    maxMessageLength={SMS_MESSAGE_MAX_LENGTH}
+                    previewContent={getSmsMessagePreview(
+                      "orders",
+                      formData.name || "Your Restaurant"
+                    )}
+                  />
+                )}
+              </div>
             </div>
 
+            {/* ==================== RESERVATIONS SECTION ==================== */}
+            <div className="rounded-lg border overflow-hidden">
+              {/* Reservations (Direct) Toggle */}
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/30">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                    <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <Label
+                      htmlFor="reservations_enabled"
+                      className="text-xs sm:text-sm font-medium cursor-pointer block"
+                    >
+                      Reservations (Direct)
+                    </Label>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      Allow RessyAI to book and manage table reservations directly
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {formData.features_reservations_enabled && (
+                    <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Active
+                    </span>
+                  )}
+                  <Switch
+                    id="reservations_enabled"
+                    checked={formData.features_reservations_enabled}
+                    onCheckedChange={(checked) =>
+                      updateFormData({ features_reservations_enabled: checked })
+                    }
+                    disabled={formData.reservations_sms_redirect_enabled}
+                    className="shrink-0"
+                  />
+                </div>
+              </div>
+
+              {/* Reservations SMS Redirect Sub-section */}
+              <div className="border-t bg-muted/10">
+                <div className="flex items-center justify-between p-3 sm:p-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 shrink-0">
+                      <Link className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <Label
+                        htmlFor="reservations_sms_redirect"
+                        className="text-xs sm:text-sm font-medium cursor-pointer block flex items-center gap-1.5"
+                      >
+                        SMS Redirect for Reservations
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Learn more about SMS redirect for reservations"
+                              className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[280px]">
+                            <p>
+                              Instead of RessyAI booking reservations, customers receive an SMS with
+                              a link to your reservation platform.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        Send customers an SMS with your reservation platform link
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {formData.reservations_sms_redirect_enabled && (
+                      <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        Active
+                      </span>
+                    )}
+                    <Switch
+                      id="reservations_sms_redirect"
+                      checked={formData.reservations_sms_redirect_enabled}
+                      onCheckedChange={(checked) => {
+                        // Clear URL validation error when disabling
+                        if (!checked) {
+                          setFormErrors((prev) => ({
+                            ...prev,
+                            reservations_sms_redirect_url: undefined,
+                          }));
+                        }
+                        updateFormData({ reservations_sms_redirect_enabled: checked });
+                      }}
+                      disabled={formData.features_reservations_enabled}
+                      className="shrink-0"
+                    />
+                  </div>
+                </div>
+
+                {/* SMS Redirect Configuration (shown when enabled) */}
+                {formData.reservations_sms_redirect_enabled && (
+                  <SmsRedirectConfigFields
+                    urlInputId="reservations_redirect_url"
+                    messageInputId="reservations_redirect_message"
+                    previewContentId="reservations-sms-preview"
+                    redirectUrl={formData.reservations_sms_redirect_url}
+                    redirectMessage={formData.reservations_sms_redirect_message}
+                    redirectUrlError={formErrors.reservations_sms_redirect_url}
+                    redirectMessageError={formErrors.reservations_sms_redirect_message}
+                    defaultMessagePlaceholder={DEFAULT_RESERVATIONS_SMS_MESSAGE}
+                    urlPlaceholder="https://reserve.yourrestaurant.com"
+                    urlHelpText="URL to your reservation platform (must start with http:// or https://)"
+                    showPreview={showReservationsMessagePreview}
+                    onTogglePreview={() =>
+                      setShowReservationsMessagePreview(!showReservationsMessagePreview)
+                    }
+                    onRedirectUrlChange={(value) =>
+                      updateFormData({ reservations_sms_redirect_url: value })
+                    }
+                    onRedirectMessageChange={(value) => {
+                      updateFormData({ reservations_sms_redirect_message: value });
+                      if (formErrors.reservations_sms_redirect_message) {
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          reservations_sms_redirect_message: undefined,
+                        }));
+                      }
+                    }}
+                    onClearUrlError={() =>
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        reservations_sms_redirect_url: undefined,
+                      }))
+                    }
+                    maxMessageLength={SMS_MESSAGE_MAX_LENGTH}
+                    previewContent={getSmsMessagePreview(
+                      "reservations",
+                      formData.name || "Your Restaurant"
+                    )}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* ==================== FAQs SECTION ==================== */}
             {/* FAQs Toggle - Always ON for agent functionality (not user-editable) */}
             <div
               className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30 opacity-80 cursor-not-allowed"
@@ -1340,21 +1895,40 @@ export function Settings() {
               />
             </div>
 
-            {/* Status Summary */}
-            <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
-              <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-              <span className="text-xs sm:text-sm text-muted-foreground">
-                RessyAI is handling:{" "}
-                <span className="font-medium text-foreground">
-                  {[
-                    formData.features_orders_enabled && "Orders",
-                    formData.features_reservations_enabled && "Reservations",
-                    formData.features_faqs_enabled && "FAQs",
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "Nothing (all requests forwarded to staff)"}
+            {/* ==================== STATUS SUMMARY ==================== */}
+            <div className="flex flex-col gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2">
+                <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  RessyAI is handling:{" "}
+                  <span className="font-medium text-foreground">
+                    {[
+                      formData.features_orders_enabled && "Orders (Direct)",
+                      formData.orders_sms_redirect_enabled && "Orders (SMS Redirect)",
+                      formData.features_reservations_enabled && "Reservations (Direct)",
+                      formData.reservations_sms_redirect_enabled && "Reservations (SMS Redirect)",
+                      "FAQs",
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </span>
                 </span>
-              </span>
+              </div>
+              {(formData.orders_sms_redirect_enabled ||
+                formData.reservations_sms_redirect_enabled) && (
+                <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                  <Link className="h-3 w-3 shrink-0" />
+                  <span>
+                    SMS redirects active for:{" "}
+                    {[
+                      formData.orders_sms_redirect_enabled && "Orders",
+                      formData.reservations_sms_redirect_enabled && "Reservations",
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </CollapsibleSection>
