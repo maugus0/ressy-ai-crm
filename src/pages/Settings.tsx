@@ -14,6 +14,17 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
@@ -42,10 +53,16 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Power,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getRestaurant, updateRestaurant } from "@/services/restaurant";
+import {
+  RestaurantKillSwitchError,
+  getRestaurant,
+  updateRestaurant,
+  updateRestaurantKillSwitch,
+} from "@/services/restaurant";
 import { formatLocalDateTime, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/time";
 import type {
@@ -68,6 +85,11 @@ const SMS_MESSAGE_MAX_LENGTH = 500;
 const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
 
 const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
+
+const KILL_SWITCH_BLOCKER_MESSAGES: Record<string, string> = {
+  forward_escalations_disabled: "Escalation forwarding is currently disabled.",
+  escalation_phone_number_missing: "Escalation phone number is not configured.",
+};
 
 // Default SMS redirect config
 const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
@@ -339,6 +361,12 @@ export function Settings() {
   // SMS Redirect message preview expansion states
   const [showOrdersMessagePreview, setShowOrdersMessagePreview] = useState(false);
   const [showReservationsMessagePreview, setShowReservationsMessagePreview] = useState(false);
+  const [isKillSwitchDialogOpen, setIsKillSwitchDialogOpen] = useState(false);
+  const [killSwitchTargetEnabled, setKillSwitchTargetEnabled] = useState<boolean | null>(null);
+  const [killSwitchConfirmText, setKillSwitchConfirmText] = useState("");
+  const [killSwitchSubmitting, setKillSwitchSubmitting] = useState(false);
+  const [killSwitchError, setKillSwitchError] = useState<string | null>(null);
+  const [killSwitchActionBlockers, setKillSwitchActionBlockers] = useState<string[]>([]);
 
   /**
    * Format time from HH:MM:SS to HH:MM for input fields
@@ -844,6 +872,55 @@ export function Settings() {
     return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
   };
 
+  const formatKillSwitchBlocker = (blocker: string): string =>
+    KILL_SWITCH_BLOCKER_MESSAGES[blocker] || "Escalation forwarding is not fully configured.";
+
+  const openKillSwitchConfirmation = (enabled: boolean) => {
+    setKillSwitchTargetEnabled(enabled);
+    setKillSwitchConfirmText("");
+    setKillSwitchError(null);
+    setKillSwitchActionBlockers([]);
+    setIsKillSwitchDialogOpen(true);
+  };
+
+  const handleKillSwitchConfirm = async () => {
+    if (killSwitchTargetEnabled === null) {
+      return;
+    }
+
+    if (killSwitchTargetEnabled && killSwitchConfirmText.trim().toUpperCase() !== "DISABLE") {
+      setKillSwitchError("Type DISABLE to confirm this action.");
+      return;
+    }
+
+    setKillSwitchSubmitting(true);
+    setKillSwitchError(null);
+    setKillSwitchActionBlockers([]);
+
+    try {
+      const updatedRestaurant = await updateRestaurantKillSwitch({
+        enabled: killSwitchTargetEnabled,
+      });
+      setOriginalData(updatedRestaurant);
+      setIsKillSwitchDialogOpen(false);
+      setKillSwitchConfirmText("");
+      toast.success(
+        killSwitchTargetEnabled
+          ? "Ressy AI has been disabled. Incoming calls will route to staff."
+          : "Ressy AI has been re-enabled."
+      );
+    } catch (err) {
+      if (err instanceof RestaurantKillSwitchError) {
+        setKillSwitchError(err.message);
+        setKillSwitchActionBlockers(err.killSwitchBlockers);
+      } else {
+        setKillSwitchError("Failed to update kill switch. Please try again.");
+      }
+    } finally {
+      setKillSwitchSubmitting(false);
+    }
+  };
+
   // Loading skeleton
   if (loading) {
     return (
@@ -912,6 +989,9 @@ export function Settings() {
   const forwardEscalationsEnabled = originalData?.forward_escalations ?? false;
   const escalationPhoneNumber = originalData?.escalation_phone_number ?? "";
   const restaurantTimezone = originalData?.timezone || VANCOUVER_TIMEZONE;
+  const killSwitchEnabled = originalData?.kill_switch_enabled ?? false;
+  const killSwitchCanRedirect = originalData?.kill_switch_can_redirect ?? false;
+  const killSwitchBlockers = originalData?.kill_switch_blockers ?? [];
 
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
@@ -969,6 +1049,120 @@ export function Settings() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Card
+        className={`border-2 ${
+          killSwitchEnabled
+            ? "border-destructive/40 bg-destructive/5"
+            : "border-destructive/20 bg-destructive/5"
+        }`}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
+                <Power className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-semibold">Emergency Control</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Disable Ressy AI to route incoming calls directly to your escalation staff line.
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant={killSwitchEnabled ? "destructive" : "secondary"}
+              className="w-fit text-[10px] sm:text-xs uppercase tracking-wide"
+            >
+              {killSwitchEnabled ? "RessyAI Disabled" : "RessyAI Active"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 sm:space-y-4">
+          {killSwitchEnabled ? (
+            <Alert className="border-destructive/30 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertTitle className="text-xs sm:text-sm text-foreground">
+                Ressy AI is currently disabled
+              </AlertTitle>
+              <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
+                Calls are bypassing AI handling and are being forwarded to staff.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="border-destructive/20 bg-background">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertTitle className="text-xs sm:text-sm text-foreground">
+                High-impact operational switch
+              </AlertTitle>
+              <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
+                Use this only during incidents. This immediately bypasses the AI receptionist for
+                incoming calls.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!killSwitchCanRedirect && killSwitchBlockers.length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="text-xs sm:text-sm">Kill switch is not ready</AlertTitle>
+              <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
+                {killSwitchBlockers.map((blocker) => (
+                  <p key={blocker}>{formatKillSwitchBlocker(blocker)}</p>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {hasChanges && (
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
+              Save or discard unsaved settings before changing emergency control.
+            </p>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            {killSwitchEnabled ? (
+              <Button
+                variant="outline"
+                onClick={() => openKillSwitchConfirmation(false)}
+                disabled={killSwitchSubmitting || hasChanges}
+                className="w-full sm:w-auto"
+              >
+                {killSwitchSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Re-enable RessyAI"
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() => openKillSwitchConfirmation(true)}
+                disabled={killSwitchSubmitting || hasChanges || !killSwitchCanRedirect}
+                className="w-full sm:w-auto"
+              >
+                {killSwitchSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Disable RessyAI"
+                )}
+              </Button>
+            )}
+            {!killSwitchEnabled && (
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
+                Escalation line:{" "}
+                <span className="font-mono">{escalationPhoneNumber || "Not configured"}</span>
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* All Sections Container */}
       <div className="space-y-4">
@@ -1933,6 +2127,95 @@ export function Settings() {
           </div>
         </CollapsibleSection>
       </div>
+
+      <AlertDialog
+        open={isKillSwitchDialogOpen}
+        onOpenChange={(open) => {
+          if (!killSwitchSubmitting) {
+            setIsKillSwitchDialogOpen(open);
+            if (!open) {
+              setKillSwitchConfirmText("");
+              setKillSwitchError(null);
+              setKillSwitchActionBlockers([]);
+            }
+          }
+        }}
+      >
+        <AlertDialogContent className="w-[95vw] sm:w-full max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              {killSwitchTargetEnabled ? "Disable RessyAI" : "Re-enable RessyAI"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm leading-relaxed">
+              {killSwitchTargetEnabled
+                ? "Incoming calls will stop using AI and will be forwarded directly to your escalation line."
+                : "Incoming calls will return to normal AI handling."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {killSwitchTargetEnabled && (
+            <div className="space-y-1.5">
+              <Label htmlFor="kill_switch_confirm" className="text-xs sm:text-sm font-medium">
+                Type <span className="font-mono">DISABLE</span> to confirm
+              </Label>
+              <Input
+                id="kill_switch_confirm"
+                value={killSwitchConfirmText}
+                onChange={(e) => {
+                  setKillSwitchConfirmText(e.target.value);
+                  if (killSwitchError) {
+                    setKillSwitchError(null);
+                  }
+                }}
+                placeholder="DISABLE"
+                disabled={killSwitchSubmitting}
+                className="h-9 sm:h-10 text-xs sm:text-sm font-mono"
+              />
+            </div>
+          )}
+
+          {killSwitchError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle className="text-xs sm:text-sm">Could not update kill switch</AlertTitle>
+              <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
+                <p>{killSwitchError}</p>
+                {killSwitchActionBlockers.map((blocker) => (
+                  <p key={blocker}>{formatKillSwitchBlocker(blocker)}</p>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={killSwitchSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleKillSwitchConfirm();
+              }}
+              disabled={
+                killSwitchSubmitting ||
+                (killSwitchTargetEnabled === true &&
+                  killSwitchConfirmText.trim().toUpperCase() !== "DISABLE")
+              }
+              className={killSwitchTargetEnabled ? "bg-destructive hover:bg-destructive/90" : ""}
+            >
+              {killSwitchSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : killSwitchTargetEnabled ? (
+                "Yes, disable now"
+              ) : (
+                "Yes, re-enable"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Last Updated */}
       {originalData && (

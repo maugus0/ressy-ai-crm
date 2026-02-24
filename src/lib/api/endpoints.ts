@@ -146,6 +146,8 @@ export const ENDPOINTS = {
     GET: "/client/restaurant",
     /** PUT /api/v1/client/restaurant - Update authenticated restaurant */
     UPDATE: "/client/restaurant",
+    /** PATCH /api/v1/client/restaurant/kill-switch - Toggle authenticated restaurant kill switch */
+    KILL_SWITCH: "/client/restaurant/kill-switch",
   },
 
   // ============================================================================

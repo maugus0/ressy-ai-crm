@@ -18,7 +18,8 @@ export type EscalationSubtype =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
-  | "sms_redirect_failed";
+  | "sms_redirect_failed"
+  | "kill_switch_redirected";
 
 /** Notification subtypes for granular categorization */
 export type NotificationSubtype =
