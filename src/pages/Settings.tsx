@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { useSSE } from "@/contexts/SSEContext";
 import {
   RestaurantKillSwitchError,
   getRestaurant,
@@ -284,6 +285,7 @@ interface SettingsFormData {
 }
 
 export function Settings() {
+  const { events } = useSSE();
   // State
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -367,6 +369,7 @@ export function Settings() {
   const [killSwitchSubmitting, setKillSwitchSubmitting] = useState(false);
   const [killSwitchError, setKillSwitchError] = useState<string | null>(null);
   const [killSwitchActionBlockers, setKillSwitchActionBlockers] = useState<string[]>([]);
+  const lastToggleEventIdRef = useRef<string | null>(null);
 
   /**
    * Format time from HH:MM:SS to HH:MM for input fields
@@ -533,6 +536,29 @@ export function Settings() {
   useEffect(() => {
     fetchRestaurant();
   }, [fetchRestaurant]);
+
+  useEffect(() => {
+    const latestToggleEvent = events.find(
+      (event) => event.event_type === "system" && event.subtype === "kill_switch_toggled"
+    );
+
+    if (!latestToggleEvent || latestToggleEvent.id === lastToggleEventIdRef.current) return;
+    lastToggleEventIdRef.current = latestToggleEvent.id;
+
+    const enabled = Boolean(latestToggleEvent.data?.enabled);
+    const previousEnabled = Boolean(latestToggleEvent.data?.previous_enabled);
+
+    if (enabled === previousEnabled) return;
+
+    setOriginalData((prev) => {
+      if (!prev) return prev;
+      if (prev.kill_switch_enabled === enabled) return prev;
+      return {
+        ...prev,
+        kill_switch_enabled: enabled,
+      };
+    });
+  }, [events]);
 
   // Track changes
   const updateFormData = (updates: Partial<SettingsFormData>) => {
@@ -914,7 +940,7 @@ export function Settings() {
         setKillSwitchError(err.message);
         setKillSwitchActionBlockers(err.killSwitchBlockers);
       } else {
-        setKillSwitchError("Failed to update kill switch. Please try again.");
+        setKillSwitchError("Failed to update RessyAI Agent status. Please try again.");
       }
     } finally {
       setKillSwitchSubmitting(false);
@@ -1105,7 +1131,9 @@ export function Settings() {
           {!killSwitchCanRedirect && killSwitchBlockers.length > 0 && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-xs sm:text-sm">Kill switch is not ready</AlertTitle>
+              <AlertTitle className="text-xs sm:text-sm">
+                RessyAI Agent control is not ready
+              </AlertTitle>
               <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
                 {killSwitchBlockers.map((blocker) => (
                   <p key={blocker}>{formatKillSwitchBlocker(blocker)}</p>
@@ -2178,7 +2206,9 @@ export function Settings() {
           {killSwitchError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="text-xs sm:text-sm">Could not update kill switch</AlertTitle>
+              <AlertTitle className="text-xs sm:text-sm">
+                Could not update RessyAI Agent status
+              </AlertTitle>
               <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
                 <p>{killSwitchError}</p>
                 {killSwitchActionBlockers.map((blocker) => (

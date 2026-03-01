@@ -113,8 +113,8 @@ const getEscalationInfo = (subtype: SSEEventSubtype) => {
       color: "bg-blue-500",
     },
     kill_switch_redirected: {
-      title: "Kill Switch Redirected",
-      description: "Call was automatically redirected because kill switch is enabled",
+      title: "RessyAI Agent Bypassed",
+      description: "Call was automatically redirected because RessyAI Agent is disabled",
       icon: <Power className="h-5 w-5" />,
       color: "bg-rose-500",
     },
@@ -281,7 +281,7 @@ export function Escalations() {
                         SMS Redirect Failed ({counts.sms_redirect_failed})
                       </SelectItem>
                       <SelectItem value="kill_switch_redirected">
-                        Kill Switch Redirected ({counts.kill_switch_redirected})
+                        RessyAI Agent Bypassed ({counts.kill_switch_redirected})
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -345,7 +345,7 @@ export function Escalations() {
                   </div>
                   <div className="p-2.5 sm:p-3 rounded-lg border bg-rose-50 dark:bg-rose-950/20">
                     <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
-                      Kill Switch Redirected
+                      RessyAI Agent Bypassed
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-rose-600">
                       {counts.kill_switch_redirected}

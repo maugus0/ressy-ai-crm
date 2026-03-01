@@ -1354,7 +1354,7 @@ export interface OutcomeData {
  * SSE Event Types
  * The main event categories sent by the backend
  */
-export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+export type SSEEventType = "escalation" | "order" | "reservation" | "system" | "heartbeat";
 
 /**
  * SSE Event Subtypes
@@ -1366,6 +1366,7 @@ export type SSEEscalationSubtype =
   | "suspected_spam"
   | "sms_redirect_failed"
   | "kill_switch_redirected";
+export type SSESystemSubtype = "kill_switch_toggled" | "kill_switch_bulk_updated";
 export type SSEOrderSubtype = "new_order" | "order_updated" | "order_cancelled";
 export type SSEReservationSubtype =
   | "new_reservation"
@@ -1373,6 +1374,7 @@ export type SSEReservationSubtype =
   | "reservation_cancelled";
 export type SSEEventSubtype =
   | SSEEscalationSubtype
+  | SSESystemSubtype
   | SSEOrderSubtype
   | SSEReservationSubtype
   | "heartbeat";

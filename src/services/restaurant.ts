@@ -3,10 +3,8 @@
  * Handles all restaurant-related API calls for Client Dashboard
  */
 
-import { api, getAccessToken } from "@/lib/api/client";
+import { api, apiRequestWithErrorData } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
-import { env } from "@/config/env";
-import { refreshTokenDirect } from "@/lib/utils/tokenRefresh";
 import type {
   ClientRestaurant,
   ClientRestaurantKillSwitchUpdateRequest,
@@ -36,36 +34,6 @@ export class RestaurantKillSwitchError extends Error {
     this.killSwitchBlockers = killSwitchBlockers;
   }
 }
-
-const executeKillSwitchRequest = async (
-  data: ClientRestaurantKillSwitchUpdateRequest
-): Promise<Response> => {
-  const url = `${env.API_URL}${ENDPOINTS.RESTAURANT.KILL_SWITCH}`;
-
-  const makeRequest = (token: string | null) =>
-    fetch(url, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(data),
-    });
-
-  let token = getAccessToken();
-  let response = await makeRequest(token);
-
-  if (response.status === 401 && token) {
-    const refreshResult = await refreshTokenDirect();
-    if (refreshResult.success) {
-      token = getAccessToken();
-      response = await makeRequest(token);
-    }
-  }
-
-  return response;
-};
 
 /**
  * Get the authenticated restaurant's details
@@ -105,25 +73,32 @@ export async function updateRestaurant(
 export async function updateRestaurantKillSwitch(
   data: ClientRestaurantKillSwitchUpdateRequest
 ): Promise<ClientRestaurant> {
-  const response = await executeKillSwitchRequest(data);
+  const response = await apiRequestWithErrorData<ClientRestaurant, KillSwitchErrorResponse>(
+    ENDPOINTS.RESTAURANT.KILL_SWITCH,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
 
-  const responseJson = (await response.json().catch(() => null)) as
-    | KillSwitchErrorResponse
-    | ClientRestaurant
-    | null;
-
-  if (!response.ok || !responseJson) {
-    const errorPayload = responseJson as KillSwitchErrorResponse | null;
-    const detail = errorPayload?.detail;
-    const detailMessage =
-      typeof detail === "string"
-        ? detail
-        : detail?.message || errorPayload?.message || "Failed to update kill switch";
+  if (response.error || !response.data) {
+    const detail = response.errorData?.detail;
     const blockers = typeof detail === "object" ? detail?.kill_switch_blockers || [] : [];
+    const statusMessage = (() => {
+      if (response.status === 401) return "Session expired. Please login again.";
+      if (response.status === 403)
+        return "Access denied. You don't have permission to perform this action.";
+      if (response.status >= 500) return "Server error while updating RessyAI Agent status.";
+      if (response.status > 0)
+        return `Failed to update RessyAI Agent status (HTTP ${response.status}).`;
+      return "Failed to update RessyAI Agent status";
+    })();
+    const detailMessage =
+      typeof detail === "string" ? detail : detail?.message || response.error || statusMessage;
     throw new RestaurantKillSwitchError(detailMessage, blockers);
   }
 
-  return responseJson as ClientRestaurant;
+  return response.data;
 }
 
 // ============================================================================
