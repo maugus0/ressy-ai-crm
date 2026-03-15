@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
@@ -53,7 +52,9 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
-  Power,
+  Shield,
+  ShieldOff,
+  PhoneForwarded,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -69,6 +70,7 @@ import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/time";
 import type {
   ClientRestaurant,
   ClientRestaurantUpdateRequest,
+  EscalationMode,
   OperatingHours,
   SMSRedirectConfig,
 } from "@/types/api.types";
@@ -91,6 +93,10 @@ const KILL_SWITCH_BLOCKER_MESSAGES: Record<string, string> = {
   forward_escalations_disabled: "Escalation forwarding is currently disabled.",
   escalation_phone_number_missing: "Escalation phone number is not configured.",
 };
+
+const VALID_ESCALATION_MODES: EscalationMode[] = ["always", "open_hours_only"];
+const normalizeEscalationMode = (value: string | undefined | null): EscalationMode =>
+  VALID_ESCALATION_MODES.includes(value as EscalationMode) ? (value as EscalationMode) : "always";
 
 // Default SMS redirect config
 const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
@@ -282,6 +288,7 @@ interface SettingsFormData {
   reservations_sms_redirect_enabled: boolean;
   reservations_sms_redirect_url: string;
   reservations_sms_redirect_message: string;
+  escalation_mode: EscalationMode;
 }
 
 export function Settings() {
@@ -358,6 +365,7 @@ export function Settings() {
     reservations_sms_redirect_enabled: false,
     reservations_sms_redirect_url: "",
     reservations_sms_redirect_message: "",
+    escalation_mode: "always",
   });
 
   // SMS Redirect message preview expansion states
@@ -524,6 +532,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
+        escalation_mode: normalizeEscalationMode(data.escalation_mode),
       });
       setHasChanges(false);
     } catch (err) {
@@ -635,8 +644,8 @@ export function Settings() {
           newData.features_reservations_enabled !==
             (originalData.features?.reservations_enabled ?? true) ||
           ordersSmsRedirectChanged ||
-          reservationsSmsRedirectChanged;
-        // FAQs are always on and not user-changeable, so we don't include them in hasChanges
+          reservationsSmsRedirectChanged ||
+          newData.escalation_mode !== normalizeEscalationMode(originalData.escalation_mode);
         setHasChanges(hasChanged);
       }
       return newData;
@@ -736,6 +745,7 @@ export function Settings() {
         is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
         reservation_seating_capacity: formData.reservation_seating_capacity,
         reservation_advance_days: formData.reservation_advance_days,
+        escalation_mode: formData.escalation_mode,
         features: {
           orders_enabled: formData.features_orders_enabled,
           reservations_enabled: formData.features_reservations_enabled,
@@ -814,6 +824,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: updatedReservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: updatedReservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: updatedReservationsSmsRedirect.redirect_message || "",
+        escalation_mode: normalizeEscalationMode(updatedData.escalation_mode),
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -871,6 +882,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
+        escalation_mode: normalizeEscalationMode(originalData.escalation_mode),
       });
       setFormErrors({});
       setHasChanges(false);
@@ -879,10 +891,6 @@ export function Settings() {
     }
   };
 
-  /**
-   * Generate SMS message preview in the same format as the backend:
-   * Hello. + instruction text + URL + signature (URL and signature are always appended by backend)
-   */
   const getSmsMessagePreview = (
     type: "orders" | "reservations",
     restaurantName: string
@@ -894,8 +902,9 @@ export function Settings() {
     const url = isOrders
       ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
+    const name = restaurantName || "Your Restaurant";
 
-    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
+    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} - menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you'd prefer to speak with staff directly, just say "escalate" or "transfer" and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go - if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
   };
 
   const formatKillSwitchBlocker = (blocker: string): string =>
@@ -1076,121 +1085,169 @@ export function Settings() {
         </Alert>
       )}
 
-      <Card
-        className={`border-2 ${
-          killSwitchEnabled
-            ? "border-destructive/40 bg-destructive/5"
-            : "border-destructive/20 bg-destructive/5"
-        }`}
-      >
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
-                <Power className="h-5 w-5 text-destructive" />
+      <div className="relative rounded-xl border-2 border-primary/25 overflow-hidden shadow-sm transition-all">
+        {/* Gradient accent strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
+
+        <div className="p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                {killSwitchEnabled ? (
+                  <ShieldOff className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                ) : (
+                  <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                )}
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm sm:text-base font-semibold">Emergency Control</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Disable Ressy AI to route incoming calls directly to your escalation staff line.
+                <h3 className="text-sm sm:text-base font-semibold tracking-tight">
+                  RessyAI Agent Control
+                </h3>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Emergency override - route all incoming calls to your staff line
                 </p>
               </div>
             </div>
-            <Badge
-              variant={killSwitchEnabled ? "destructive" : "secondary"}
-              className="w-fit text-[10px] sm:text-xs uppercase tracking-wide"
+            <div
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shrink-0 text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider ring-1 ${
+                killSwitchEnabled
+                  ? "bg-primary/10 text-primary ring-primary/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
+              }`}
             >
-              {killSwitchEnabled ? "RessyAI Disabled" : "RessyAI Active"}
-            </Badge>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  killSwitchEnabled ? "bg-primary animate-pulse" : "bg-emerald-500"
+                }`}
+              />
+              {killSwitchEnabled ? "AI Off" : "AI Active"}
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
+
+          {/* Status card */}
           {killSwitchEnabled ? (
-            <Alert className="border-destructive/30 bg-destructive/10">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <AlertTitle className="text-xs sm:text-sm text-foreground">
-                Ressy AI is currently disabled
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
-                Calls are bypassing AI handling and are being forwarded to staff.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-lg bg-primary/5 border border-primary/15">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <PhoneForwarded className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-foreground">
+                  Ressy AI is currently disabled
+                </p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+                  All incoming calls are bypassing AI and routing directly to your staff escalation
+                  line.
+                </p>
+              </div>
+            </div>
           ) : (
-            <Alert className="border-destructive/20 bg-background">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <AlertTitle className="text-xs sm:text-sm text-foreground">
-                High-impact operational switch
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
-                Use this only during incidents. This immediately bypasses the AI receptionist for
-                incoming calls.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-lg bg-primary/5 border border-primary/15">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-foreground">
+                  Ressy AI is handling calls
+                </p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+                  Use this only during incidents. This immediately bypasses the AI receptionist for
+                  all incoming calls.
+                </p>
+              </div>
+            </div>
           )}
 
+          {/* Blockers */}
           {!killSwitchCanRedirect && killSwitchBlockers.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-xs sm:text-sm">
-                RessyAI Agent control is not ready
-              </AlertTitle>
-              <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
+            <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-foreground">
+                  Agent control is not ready
+                </p>
                 {killSwitchBlockers.map((blocker) => (
-                  <p key={blocker}>{formatKillSwitchBlocker(blocker)}</p>
+                  <p key={blocker} className="text-[10px] sm:text-xs text-muted-foreground">
+                    {formatKillSwitchBlocker(blocker)}
+                  </p>
                 ))}
-              </AlertDescription>
-            </Alert>
+              </div>
+            </div>
           )}
 
           {hasChanges && (
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Save or discard unsaved settings before changing emergency control.
+            <p className="text-[10px] sm:text-xs text-muted-foreground italic px-0.5">
+              Save or discard unsaved settings before changing agent status.
             </p>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          {/* Escalation info + action */}
+          <div className="space-y-3">
+            {!killSwitchEnabled &&
+              (escalationPhoneNumber || formData.escalation_mode === "open_hours_only") && (
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  {escalationPhoneNumber && (
+                    <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-secondary/60 border border-primary/10 text-[9px] sm:text-[11px] text-muted-foreground">
+                      <Phone className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                      <span className="font-mono">{escalationPhoneNumber}</span>
+                    </div>
+                  )}
+                  {formData.escalation_mode === "open_hours_only" && (
+                    <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-secondary/60 border border-primary/10 text-[9px] sm:text-[11px] text-muted-foreground">
+                      <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                      Open hours only
+                    </div>
+                  )}
+                </div>
+              )}
+
+            <Separator className="bg-primary/10" />
+
             {killSwitchEnabled ? (
               <Button
-                variant="outline"
                 onClick={() => openKillSwitchConfirmation(false)}
                 disabled={killSwitchSubmitting || hasChanges}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto text-xs sm:text-sm"
+                size="sm"
               >
                 {killSwitchSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 sm:mr-2 animate-spin" />
                     Updating...
                   </>
                 ) : (
-                  "Re-enable RessyAI"
+                  <>
+                    <Shield className="h-3.5 w-3.5 mr-1.5 sm:mr-2" />
+                    Re-enable RessyAI
+                  </>
                 )}
               </Button>
             ) : (
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={() => openKillSwitchConfirmation(true)}
                 disabled={killSwitchSubmitting || hasChanges || !killSwitchCanRedirect}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto text-xs sm:text-sm border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                size="sm"
               >
                 {killSwitchSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 sm:mr-2 animate-spin" />
                     Updating...
                   </>
                 ) : (
-                  "Disable RessyAI"
+                  <>
+                    <ShieldOff className="h-3.5 w-3.5 mr-1.5 sm:mr-2" />
+                    Disable RessyAI
+                  </>
                 )}
               </Button>
             )}
-            {!killSwitchEnabled && (
-              <p className="text-[10px] sm:text-xs text-muted-foreground">
-                Escalation line:{" "}
-                <span className="font-mono">{escalationPhoneNumber || "Not configured"}</span>
-              </p>
-            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* All Sections Container */}
       <div className="space-y-4">
@@ -1350,6 +1407,77 @@ export function Settings() {
                   Contact support to update escalation settings
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Escalation Hours Mode - Editable */}
+          <div className="rounded-lg border bg-muted/30 overflow-hidden">
+            <div className="p-3 sm:p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                <span className="text-xs sm:text-sm font-medium">Escalation Hours Mode</span>
+              </div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
+                Control when call transfers to staff are allowed
+              </p>
+              <div className="space-y-2">
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    formData.escalation_mode === "always"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="escalation_mode"
+                    value="always"
+                    checked={formData.escalation_mode === "always"}
+                    onChange={() => updateFormData({ escalation_mode: "always" })}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-xs sm:text-sm font-medium">Always escalate</span>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      Transfer calls to staff any time escalation is triggered, regardless of
+                      operating hours
+                    </p>
+                  </div>
+                </label>
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    formData.escalation_mode === "open_hours_only"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="escalation_mode"
+                    value="open_hours_only"
+                    checked={formData.escalation_mode === "open_hours_only"}
+                    onChange={() => updateFormData({ escalation_mode: "open_hours_only" })}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-xs sm:text-sm font-medium">Open hours only</span>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      Only transfer during operating hours. When closed, Ressy will inform callers
+                      and offer to help
+                    </p>
+                  </div>
+                </label>
+              </div>
+              {formData.escalation_mode === "open_hours_only" && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    When the restaurant is closed, callers requesting a transfer will be told the
+                    team is unavailable and given your operating hours. Ressy will still help with
+                    general questions.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </CollapsibleSection>
@@ -2169,81 +2297,130 @@ export function Settings() {
           }
         }}
       >
-        <AlertDialogContent className="w-[95vw] sm:w-full max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              {killSwitchTargetEnabled ? "Disable RessyAI" : "Re-enable RessyAI"}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs sm:text-sm leading-relaxed">
-              {killSwitchTargetEnabled
-                ? "Incoming calls will stop using AI and will be forwarded directly to your escalation line."
-                : "Incoming calls will return to normal AI handling."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+        <AlertDialogContent className="w-[92vw] sm:w-full max-w-md gap-0 p-0 overflow-hidden">
+          {/* Dialog accent strip */}
+          <div className="h-1 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
 
-          {killSwitchTargetEnabled && (
-            <div className="space-y-1.5">
-              <Label htmlFor="kill_switch_confirm" className="text-xs sm:text-sm font-medium">
-                Type <span className="font-mono">DISABLE</span> to confirm
-              </Label>
-              <Input
-                id="kill_switch_confirm"
-                value={killSwitchConfirmText}
-                onChange={(e) => {
-                  setKillSwitchConfirmText(e.target.value);
-                  if (killSwitchError) {
-                    setKillSwitchError(null);
-                  }
-                }}
-                placeholder="DISABLE"
+          <div className="p-4 sm:p-5 space-y-4">
+            <AlertDialogHeader className="space-y-0">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                  {killSwitchTargetEnabled ? (
+                    <ShieldOff className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  ) : (
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0 pt-0.5">
+                  <AlertDialogTitle className="text-sm sm:text-base">
+                    {killSwitchTargetEnabled ? "Disable RessyAI" : "Re-enable RessyAI"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-[10px] sm:text-xs mt-1 leading-relaxed">
+                    {killSwitchTargetEnabled
+                      ? "All incoming calls will bypass AI and route to your escalation line."
+                      : "Incoming calls will return to normal AI handling by Ressy."}
+                  </AlertDialogDescription>
+                </div>
+              </div>
+            </AlertDialogHeader>
+
+            {killSwitchTargetEnabled && (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg bg-primary/5 border border-primary/15">
+                  <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0 mt-0.5" />
+                  <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+                    This is a high-impact action. Ressy will stop answering calls and all traffic
+                    will be forwarded to your staff. Type{" "}
+                    <span className="font-mono font-semibold text-primary">DISABLE</span> below to
+                    confirm.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kill_switch_confirm" className="text-xs sm:text-sm font-medium">
+                    Confirmation
+                  </Label>
+                  <Input
+                    id="kill_switch_confirm"
+                    value={killSwitchConfirmText}
+                    onChange={(e) => {
+                      setKillSwitchConfirmText(e.target.value);
+                      if (killSwitchError) {
+                        setKillSwitchError(null);
+                      }
+                    }}
+                    placeholder="DISABLE"
+                    disabled={killSwitchSubmitting}
+                    className="h-9 sm:h-10 text-xs sm:text-sm font-mono tracking-wider"
+                  />
+                </div>
+              </div>
+            )}
+
+            {!killSwitchTargetEnabled && (
+              <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg bg-primary/5 border border-primary/15">
+                <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+                  Ressy will resume handling incoming calls with AI. Your escalation line will only
+                  be used when callers explicitly request a transfer.
+                </p>
+              </div>
+            )}
+
+            {killSwitchError && (
+              <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40">
+                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-foreground">
+                    Could not update agent status
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">{killSwitchError}</p>
+                  {killSwitchActionBlockers.map((blocker) => (
+                    <p key={blocker} className="text-[10px] sm:text-xs text-muted-foreground">
+                      {formatKillSwitchBlocker(blocker)}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-2">
+              <AlertDialogCancel
                 disabled={killSwitchSubmitting}
-                className="h-9 sm:h-10 text-xs sm:text-sm font-mono"
-              />
-            </div>
-          )}
-
-          {killSwitchError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="text-xs sm:text-sm">
-                Could not update RessyAI Agent status
-              </AlertTitle>
-              <AlertDescription className="space-y-1.5 text-xs sm:text-sm">
-                <p>{killSwitchError}</p>
-                {killSwitchActionBlockers.map((blocker) => (
-                  <p key={blocker}>{formatKillSwitchBlocker(blocker)}</p>
-                ))}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={killSwitchSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleKillSwitchConfirm();
-              }}
-              disabled={
-                killSwitchSubmitting ||
-                (killSwitchTargetEnabled === true &&
-                  killSwitchConfirmText.trim().toUpperCase() !== "DISABLE")
-              }
-              className={killSwitchTargetEnabled ? "bg-destructive hover:bg-destructive/90" : ""}
-            >
-              {killSwitchSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : killSwitchTargetEnabled ? (
-                "Yes, disable now"
-              ) : (
-                "Yes, re-enable"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+                className="text-xs sm:text-sm mt-0"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleKillSwitchConfirm();
+                }}
+                disabled={
+                  killSwitchSubmitting ||
+                  (killSwitchTargetEnabled === true &&
+                    killSwitchConfirmText.trim().toUpperCase() !== "DISABLE")
+                }
+                className="text-xs sm:text-sm"
+              >
+                {killSwitchSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 sm:mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : killSwitchTargetEnabled ? (
+                  <>
+                    <ShieldOff className="h-3.5 w-3.5 mr-1.5 sm:mr-2" />
+                    Confirm Disable
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-3.5 w-3.5 mr-1.5 sm:mr-2" />
+                    Confirm Re-enable
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 

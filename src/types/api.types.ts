@@ -95,6 +95,11 @@ export interface Restaurant {
 }
 
 /**
+ * Escalation mode controls when call transfers to staff are allowed.
+ */
+export type EscalationMode = "always" | "open_hours_only";
+
+/**
  * Client Restaurant - Response from GET /api/v1/client/restaurant
  * This is the authenticated restaurant's full details
  */
@@ -125,6 +130,7 @@ export interface ClientRestaurant {
   reservation_advance_days: number | null;
   /** Restaurant feature flags for RessyAI capabilities */
   features: RestaurantFeatures | null;
+  escalation_mode?: EscalationMode;
   created_at: string;
   updated_at: string;
   // Note: twilio_details, deepgram_details, open_table_details are intentionally excluded
@@ -146,6 +152,7 @@ export interface ClientRestaurantUpdateRequest {
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
   features?: Partial<RestaurantFeatures>;
+  escalation_mode?: EscalationMode;
   // Note: twilio_phone_number is read-only and cannot be updated by client
 }
 
