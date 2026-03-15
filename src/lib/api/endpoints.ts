@@ -69,6 +69,33 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
+  // Menu Option Groups & Values (client-scoped)
+  // ============================================================================
+  MENU_OPTIONS: {
+    /** GET /api/v1/client/menu/option-groups - List option groups */
+    GROUPS_LIST: "/client/menu/option-groups",
+    /** POST /api/v1/client/menu/option-groups - Create option group */
+    GROUPS_CREATE: "/client/menu/option-groups",
+    /** GET /api/v1/client/menu/option-groups/{group_id} - Get option group */
+    GROUP_GET: (groupId: number) => `/client/menu/option-groups/${groupId}`,
+    /** PUT /api/v1/client/menu/option-groups/{group_id} - Update option group */
+    GROUP_UPDATE: (groupId: number) => `/client/menu/option-groups/${groupId}`,
+    /** DELETE /api/v1/client/menu/option-groups/{group_id} - Delete option group */
+    GROUP_DELETE: (groupId: number) => `/client/menu/option-groups/${groupId}`,
+    /** POST /api/v1/client/menu/option-groups/{group_id}/values - Create option value */
+    VALUE_CREATE: (groupId: number) => `/client/menu/option-groups/${groupId}/values`,
+    /** PUT /api/v1/client/menu/option-values/{value_id} - Update option value */
+    VALUE_UPDATE: (valueId: number) => `/client/menu/option-values/${valueId}`,
+    /** DELETE /api/v1/client/menu/option-values/{value_id} - Delete option value */
+    VALUE_DELETE: (valueId: number) => `/client/menu/option-values/${valueId}`,
+    /** POST /api/v1/client/menu/{menu_id}/option-groups - Attach group to item */
+    ITEM_ATTACH_GROUP: (menuId: number) => `/client/menu/${menuId}/option-groups`,
+    /** DELETE /api/v1/client/menu/{menu_id}/option-groups/{group_id} - Detach group from item */
+    ITEM_DETACH_GROUP: (menuId: number, groupId: number) =>
+      `/client/menu/${menuId}/option-groups/${groupId}`,
+  },
+
+  // ============================================================================
   // FAQ (client-scoped - auto-scoped to authenticated restaurant)
   // ============================================================================
   FAQ: {

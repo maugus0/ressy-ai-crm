@@ -70,6 +70,7 @@ import {
   Loader2,
   FileText,
   Upload,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -94,7 +95,10 @@ import type {
   ClientMenuItem,
   ClientMenuItemCreateRequest,
   MenuCategoriesResponse,
+  OptionGroup,
 } from "@/types/api.types";
+import OptionGroupsTab from "@/pages/menu/OptionGroupsTab";
+import ManageCustomizationsDialog from "@/pages/menu/ManageCustomizationsDialog";
 
 // ============================================================================
 // Types
@@ -181,6 +185,13 @@ export function Menu() {
   const [isCsvDialogOpen, setIsCsvDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvParsing, setCsvParsing] = useState(false);
+
+  // Top-level tab state
+  const [activeTab, setActiveTab] = useState("items");
+
+  // Customizations dialog state
+  const [isCustomizationsDialogOpen, setIsCustomizationsDialogOpen] = useState(false);
+  const [customizationsMenuItemId, setCustomizationsMenuItemId] = useState<number | null>(null);
 
   // ============================================================================
   // Fetch Functions
@@ -595,6 +606,12 @@ export function Menu() {
     }
   };
 
+  // Customizations dialog
+  const openCustomizationsDialog = (item: ClientMenuItem) => {
+    setCustomizationsMenuItemId(item.id);
+    setIsCustomizationsDialogOpen(true);
+  };
+
   // ============================================================================
   // Helper Functions
   // ============================================================================
@@ -885,408 +902,442 @@ export function Menu() {
           <h2 className="text-2xl font-bold tracking-tight">Menu Management</h2>
           <p className="text-muted-foreground">Manage menu items, categories, and specials</p>
         </div>
-        <Button onClick={openCreateDialog} className="flex-shrink-0">
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Add Menu Item</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        {activeTab === "items" ? (
+          <Button onClick={openCreateDialog} className="flex-shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Menu Item</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        ) : null}
       </div>
 
-      <Card>
-        <CardHeader className="space-y-4">
-          {/* Stats Row */}
-          <div className="flex items-center gap-3">
-            <UtensilsCrossed className="h-6 w-6 text-primary" />
-            <CardTitle>Menu Items</CardTitle>
-            {pagination && <Badge variant="secondary">{pagination.total} items</Badge>}
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="items">Menu Items</TabsTrigger>
+          <TabsTrigger value="option-groups">Option Groups</TabsTrigger>
+        </TabsList>
 
-          {/* Search and Filter Row */}
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search menu items..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              />
-            </div>
+        <TabsContent value="option-groups" className="mt-4">
+          <OptionGroupsTab />
+        </TabsContent>
 
-            <div className="flex gap-2 flex-wrap">
-              {/* Category Filter */}
-              <Select
-                value={selectedCategory || "all"}
-                onValueChange={(v) => {
-                  setSelectedCategory(v === "all" ? "" : v);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-[160px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {getCategoryList().map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <TabsContent value="items" className="mt-4">
+          <Card>
+            <CardHeader className="space-y-4">
+              {/* Stats Row */}
+              <div className="flex items-center gap-3">
+                <UtensilsCrossed className="h-6 w-6 text-primary" />
+                <CardTitle>Menu Items</CardTitle>
+                {pagination && <Badge variant="secondary">{pagination.total} items</Badge>}
+              </div>
 
-              {/* Sub-Category Filter */}
-              {availableSubCategories.length > 0 && (
-                <Select
-                  value={selectedSubCategory || "all"}
-                  onValueChange={(v) => {
-                    setSelectedSubCategory(v === "all" ? "" : v);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[160px]">
-                    <SelectValue placeholder="Sub-category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {availableSubCategories.map((sub) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
+              {/* Search and Filter Row */}
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search menu items..."
+                    className="pl-9"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  {/* Category Filter */}
+                  <Select
+                    value={selectedCategory || "all"}
+                    onValueChange={(v) => {
+                      setSelectedCategory(v === "all" ? "" : v);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-[160px]">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {getCategoryList().map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Sub-Category Filter */}
+                  {availableSubCategories.length > 0 && (
+                    <Select
+                      value={selectedSubCategory || "all"}
+                      onValueChange={(v) => {
+                        setSelectedSubCategory(v === "all" ? "" : v);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[160px]">
+                        <SelectValue placeholder="Sub-category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {availableSubCategories.map((sub) => (
+                          <SelectItem key={sub} value={sub}>
+                            {sub}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* More Filters Toggle */}
+                  <Button
+                    variant={showFilters ? "secondary" : "outline"}
+                    size="icon"
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+
+                  {/* Clear Filters */}
+                  {(selectedCategory || searchQuery || filterAvailable !== undefined) && (
+                    <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Filters */}
+              {showFilters && (
+                <div className="flex flex-col sm:flex-row gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Availability:</Label>
+                    <Select
+                      value={filterAvailable === undefined ? "all" : String(filterAvailable)}
+                      onValueChange={(v) => {
+                        setFilterAvailable(v === "all" ? undefined : v === "true");
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[120px]">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="true">Available</SelectItem>
+                        <SelectItem value="false">Unavailable</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Special:</Label>
+                    <Select
+                      value={filterSpecial === undefined ? "all" : String(filterSpecial)}
+                      onValueChange={(v) => {
+                        setFilterSpecial(v === "all" ? undefined : v === "true");
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[120px]">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="true">Specials Only</SelectItem>
+                        <SelectItem value="false">Non-Specials</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* Bulk Actions */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-3 bg-muted/30 rounded-lg">
+                {selectedItemIds.size > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {selectedItemIds.size} item(s) selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBulkAvailability(true);
+                          setIsBulkDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Set Available</span>
+                        <span className="sm:hidden">Available</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBulkAvailability(false);
+                          setIsBulkDialogOpen(true);
+                        }}
+                      >
+                        <EyeOff className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Set Unavailable</span>
+                        <span className="sm:hidden">Unavailable</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedItemIds(new Set())}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBulkAvailability(true);
+                        setIsCsvDialogOpen(true);
+                      }}
+                    >
+                      <Upload className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Upload CSV</span>
+                      <span className="sm:hidden">CSV</span>
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              {/* Table */}
+              <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
+                <Table className="min-w-full">
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={
+                            menuItems.length > 0 &&
+                            menuItems.every((item) => selectedItemIds.has(item.id))
+                          }
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead className="font-semibold">Item</TableHead>
+                      <TableHead className="font-semibold hidden md:table-cell">Category</TableHead>
+                      <TableHead className="font-semibold text-right hidden sm:table-cell">
+                        Price
+                      </TableHead>
+                      <TableHead className="font-semibold text-center hidden lg:table-cell">
+                        Prep
+                      </TableHead>
+                      <TableHead className="font-semibold text-center">Available</TableHead>
+                      <TableHead className="font-semibold text-center hidden sm:table-cell">
+                        Special
+                      </TableHead>
+                      <TableHead className="font-semibold text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {menuItems.map((item) => (
+                      <TableRow key={item.id} className="group hover:bg-muted/30 transition-colors">
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedItemIds.has(item.id)}
+                            onCheckedChange={(checked) =>
+                              handleSelectItem(item.id, checked as boolean)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-[140px] sm:min-w-[200px]">
+                            <p className="font-medium text-sm sm:text-base">{item.item_name}</p>
+                            {item.item_desc && (
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-[280px]">
+                                {item.item_desc}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1 sm:hidden">
+                              <span className="text-xs font-semibold text-primary">
+                                ${item.price}
+                              </span>
+                              <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                {item.category}
+                              </Badge>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="w-fit">
+                              {item.category}
+                            </Badge>
+                            {item.sub_category && (
+                              <span className="text-xs text-muted-foreground">
+                                {item.sub_category}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">
+                          <span className="font-semibold text-primary">${item.price}</span>
+                        </TableCell>
+                        <TableCell className="text-center hidden lg:table-cell">
+                          <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span className="text-sm">{item.avg_prep_time}m</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <button
+                            onClick={() => handleToggleAvailability(item)}
+                            className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                              item.is_available
+                                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {item.is_available ? (
+                              <>
+                                <Eye className="h-3 w-3 mr-1" />
+                                <span className="hidden sm:inline">Yes</span>
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="h-3 w-3 mr-1" />
+                                <span className="hidden sm:inline">No</span>
+                              </>
+                            )}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-center hidden sm:table-cell">
+                          <button
+                            onClick={() => handleToggleSpecial(item)}
+                            className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                              item.is_special
+                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {item.is_special ? (
+                              <>
+                                <Star className="h-3 w-3 mr-1 fill-current" />
+                                Special
+                              </>
+                            ) : (
+                              <>
+                                <StarOff className="h-3 w-3 mr-1" />
+                                Regular
+                              </>
+                            )}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1 sm:gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openCustomizationsDialog(item)}
+                              title="Manage Customizations"
+                            >
+                              <Settings2 className="h-4 w-4 text-violet-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openDetailsDialog(item)}
+                            >
+                              <Eye className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openDeleteDialog(item)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {/* More Filters Toggle */}
-              <Button
-                variant={showFilters ? "secondary" : "outline"}
-                size="icon"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-
-              {/* Clear Filters */}
-              {(selectedCategory || searchQuery || filterAvailable !== undefined) && (
-                <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Additional Filters */}
-          {showFilters && (
-            <div className="flex flex-col sm:flex-row gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Availability:</Label>
-                <Select
-                  value={filterAvailable === undefined ? "all" : String(filterAvailable)}
-                  onValueChange={(v) => {
-                    setFilterAvailable(v === "all" ? undefined : v === "true");
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[120px]">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="true">Available</SelectItem>
-                    <SelectItem value="false">Unavailable</SelectItem>
-                  </SelectContent>
-                </Select>
+                  </TableBody>
+                </Table>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Special:</Label>
-                <Select
-                  value={filterSpecial === undefined ? "all" : String(filterSpecial)}
-                  onValueChange={(v) => {
-                    setFilterSpecial(v === "all" ? undefined : v === "true");
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[120px]">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="true">Specials Only</SelectItem>
-                    <SelectItem value="false">Non-Specials</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* Bulk Actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-3 bg-muted/30 rounded-lg">
-            {selectedItemIds.size > 0 ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    {selectedItemIds.size} item(s) selected
-                  </span>
+              {/* Empty State */}
+              {!isLoading && menuItems.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <UtensilsCrossed className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No menu items found</p>
+                  <p className="text-sm">
+                    {searchQuery || selectedCategory
+                      ? "Try adjusting your filters"
+                      : "Add your first menu item to get started"}
+                  </p>
+                  {!searchQuery && !selectedCategory && (
+                    <Button className="mt-4" onClick={openCreateDialog}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Menu Item
+                    </Button>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setBulkAvailability(true);
-                      setIsBulkDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Set Available</span>
-                    <span className="sm:hidden">Available</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setBulkAvailability(false);
-                      setIsBulkDialogOpen(true);
-                    }}
-                  >
-                    <EyeOff className="h-4 w-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Set Unavailable</span>
-                    <span className="sm:hidden">Unavailable</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemIds(new Set())}>
-                    Clear
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setBulkAvailability(true);
-                    setIsCsvDialogOpen(true);
-                  }}
-                >
-                  <Upload className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Upload CSV</span>
-                  <span className="sm:hidden">CSV</span>
-                </Button>
-              </>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {/* Table */}
-          <div className="overflow-x-auto border rounded-lg -mx-1 sm:mx-0">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-[40px]">
-                    <Checkbox
-                      checked={
-                        menuItems.length > 0 &&
-                        menuItems.every((item) => selectedItemIds.has(item.id))
-                      }
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead className="font-semibold">Item</TableHead>
-                  <TableHead className="font-semibold hidden md:table-cell">Category</TableHead>
-                  <TableHead className="font-semibold text-right hidden sm:table-cell">
-                    Price
-                  </TableHead>
-                  <TableHead className="font-semibold text-center hidden lg:table-cell">
-                    Prep
-                  </TableHead>
-                  <TableHead className="font-semibold text-center">Available</TableHead>
-                  <TableHead className="font-semibold text-center hidden sm:table-cell">
-                    Special
-                  </TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {menuItems.map((item) => (
-                  <TableRow key={item.id} className="group hover:bg-muted/30 transition-colors">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedItemIds.has(item.id)}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="min-w-[140px] sm:min-w-[200px]">
-                        <p className="font-medium text-sm sm:text-base">{item.item_name}</p>
-                        {item.item_desc && (
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-[280px]">
-                            {item.item_desc}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1 sm:hidden">
-                          <span className="text-xs font-semibold text-primary">${item.price}</span>
-                          <Badge variant="outline" className="text-xs px-1.5 py-0">
-                            {item.category}
-                          </Badge>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-col gap-1">
-                        <Badge variant="outline" className="w-fit">
-                          {item.category}
-                        </Badge>
-                        {item.sub_category && (
-                          <span className="text-xs text-muted-foreground">{item.sub_category}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right hidden sm:table-cell">
-                      <span className="font-semibold text-primary">${item.price}</span>
-                    </TableCell>
-                    <TableCell className="text-center hidden lg:table-cell">
-                      <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span className="text-sm">{item.avg_prep_time}m</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <button
-                        onClick={() => handleToggleAvailability(item)}
-                        className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                          item.is_available
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
-                        }`}
-                      >
-                        {item.is_available ? (
-                          <>
-                            <Eye className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">Yes</span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">No</span>
-                          </>
-                        )}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-center hidden sm:table-cell">
-                      <button
-                        onClick={() => handleToggleSpecial(item)}
-                        className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                          item.is_special
-                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
-                            : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
-                        }`}
-                      >
-                        {item.is_special ? (
-                          <>
-                            <Star className="h-3 w-3 mr-1 fill-current" />
-                            Special
-                          </>
-                        ) : (
-                          <>
-                            <StarOff className="h-3 w-3 mr-1" />
-                            Regular
-                          </>
-                        )}
-                      </button>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1 sm:gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openDetailsDialog(item)}
-                        >
-                          <Eye className="h-4 w-4 text-blue-600" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEditDialog(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openDeleteDialog(item)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Empty State */}
-          {!isLoading && menuItems.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <UtensilsCrossed className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No menu items found</p>
-              <p className="text-sm">
-                {searchQuery || selectedCategory
-                  ? "Try adjusting your filters"
-                  : "Add your first menu item to get started"}
-              </p>
-              {!searchQuery && !selectedCategory && (
-                <Button className="mt-4" onClick={openCreateDialog}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Menu Item
-                </Button>
               )}
-            </div>
-          )}
 
-          {/* Pagination */}
-          {pagination && pagination.pages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground text-center sm:text-left">
-                Page {pagination.page} of {pagination.pages} ({pagination.total} items)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Previous</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
-                  disabled={currentPage === pagination.pages}
-                >
-                  <span className="hidden sm:inline mr-1">Next</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {/* Pagination */}
+              {pagination && pagination.pages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
+                    Page {pagination.page} of {pagination.pages} ({pagination.total} items)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-1">Previous</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
+                      disabled={currentPage === pagination.pages}
+                    >
+                      <span className="hidden sm:inline mr-1">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -1428,6 +1479,52 @@ export function Menu() {
                   <p className="text-sm">{formatDate(selectedMenuItem.updated_at)}</p>
                 </div>
               </div>
+
+              {/* Customization Groups */}
+              <div className="pt-2 border-t">
+                <Label className="text-muted-foreground text-sm">Customization Groups</Label>
+                {!selectedMenuItem.option_groups || selectedMenuItem.option_groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-1">No customizations configured</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {[...selectedMenuItem.option_groups]
+                      .sort((a: OptionGroup, b: OptionGroup) => a.sort_order - b.sort_order)
+                      .map((group: OptionGroup) => (
+                        <div key={group.id} className="p-2 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">{group.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {group.selection_type}
+                            </Badge>
+                            {group.is_required && <Badge className="text-xs">Required</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {[...group.values]
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                              .map((v) =>
+                                v.price_delta > 0
+                                  ? `${v.name} (+$${v.price_delta.toFixed(2)})`
+                                  : v.name
+                              )
+                              .join(", ")}
+                          </p>
+                        </div>
+                      ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1"
+                      onClick={() => {
+                        setIsDetailsDialogOpen(false);
+                        openCustomizationsDialog(selectedMenuItem);
+                      }}
+                    >
+                      <Settings2 className="h-4 w-4 mr-2" />
+                      Manage Customizations
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -1549,6 +1646,14 @@ export function Menu() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Customizations Dialog */}
+      <ManageCustomizationsDialog
+        open={isCustomizationsDialogOpen}
+        onOpenChange={setIsCustomizationsDialogOpen}
+        menuItemId={customizationsMenuItemId}
+        onChanged={fetchMenuItems}
+      />
     </div>
   );
 }
