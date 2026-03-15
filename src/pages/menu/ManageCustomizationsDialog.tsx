@@ -137,18 +137,25 @@ export default function ManageCustomizationsDialog({
         sort_order: parseInt(overrides.sort_order) || 0,
       };
 
-      if (overrides.min_select_override)
-        payload.min_select_override = parseInt(overrides.min_select_override);
-      if (overrides.max_select_override)
-        payload.max_select_override = parseInt(overrides.max_select_override);
-      if (overrides.free_allowance_override)
-        payload.free_allowance_override = parseInt(overrides.free_allowance_override);
+      // Use explicit empty-string checks so "0" is sent when user overrides to zero
+      if (overrides.min_select_override !== "") {
+        const n = parseInt(overrides.min_select_override, 10);
+        if (!Number.isNaN(n)) payload.min_select_override = n;
+      }
+      if (overrides.max_select_override !== "") {
+        const n = parseInt(overrides.max_select_override, 10);
+        if (!Number.isNaN(n)) payload.max_select_override = n;
+      }
+      if (overrides.free_allowance_override !== "") {
+        const n = parseInt(overrides.free_allowance_override, 10);
+        if (!Number.isNaN(n)) payload.free_allowance_override = n;
+      }
       if (overrides.has_allows_quantity_override)
         payload.allows_quantity_override = overrides.allows_quantity_override;
-      if (overrides.max_quantity_per_option_override)
-        payload.max_quantity_per_option_override = parseInt(
-          overrides.max_quantity_per_option_override
-        );
+      if (overrides.max_quantity_per_option_override !== "") {
+        const n = parseInt(overrides.max_quantity_per_option_override, 10);
+        if (!Number.isNaN(n)) payload.max_quantity_per_option_override = n;
+      }
       if (overrides.has_is_required_override)
         payload.is_required_override = overrides.is_required_override;
 
@@ -348,15 +355,35 @@ export default function ManageCustomizationsDialog({
                           Override Quantity
                         </label>
                         {overrides.has_allows_quantity_override && (
-                          <label className="flex items-center gap-2 text-xs">
-                            <Switch
-                              checked={overrides.allows_quantity_override}
-                              onCheckedChange={(c) =>
-                                setOverrides({ ...overrides, allows_quantity_override: c })
-                              }
-                            />
-                            Allow Qty
-                          </label>
+                          <>
+                            <label className="flex items-center gap-2 text-xs">
+                              <Switch
+                                checked={overrides.allows_quantity_override}
+                                onCheckedChange={(c) =>
+                                  setOverrides({ ...overrides, allows_quantity_override: c })
+                                }
+                              />
+                              Allow Qty
+                            </label>
+                            {overrides.allows_quantity_override && (
+                              <div className="space-y-1 w-full sm:w-auto">
+                                <Label className="text-xs">Max Qty Per Option</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  placeholder="Inherit"
+                                  value={overrides.max_quantity_per_option_override}
+                                  onChange={(e) =>
+                                    setOverrides({
+                                      ...overrides,
+                                      max_quantity_per_option_override: e.target.value,
+                                    })
+                                  }
+                                  className="w-24 h-8"
+                                />
+                              </div>
+                            )}
+                          </>
                         )}
                         <label className="flex items-center gap-2 text-xs">
                           <Switch

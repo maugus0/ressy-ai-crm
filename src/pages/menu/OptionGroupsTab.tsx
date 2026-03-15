@@ -489,10 +489,23 @@ export default function OptionGroupsTab() {
   // ============================================================================
 
   const addInlineValue = () => {
-    setInlineValues((prev) => [
-      ...prev,
-      { name: "", price_delta: "0", is_default: false, sort_order: String(prev.length) },
-    ]);
+    setInlineValues((prev) => {
+      const nextSortOrder =
+        prev.length === 0
+          ? "0"
+          : String(
+              Math.max(
+                ...prev.map((v) => {
+                  const n = Number(v.sort_order);
+                  return Number.isFinite(n) ? n : -1;
+                })
+              ) + 1
+            );
+      return [
+        ...prev,
+        { name: "", price_delta: "0", is_default: false, sort_order: nextSortOrder },
+      ];
+    });
   };
 
   const updateInlineValue = (index: number, field: keyof InlineValue, value: string | boolean) => {
