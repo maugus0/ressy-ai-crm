@@ -245,6 +245,7 @@ export function NotificationHistory() {
                   <SelectItem value="order">Orders</SelectItem>
                   <SelectItem value="reservation">Reservations</SelectItem>
                   <SelectItem value="escalation">Escalations</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
                 </SelectContent>
               </Select>
 

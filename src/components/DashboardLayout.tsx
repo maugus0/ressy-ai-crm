@@ -61,6 +61,15 @@ const getEventIcon = (event: SSEEvent) => {
 
 // Get event title
 const getEventTitle = (event: SSEEvent) => {
+  if (event.event_type === "system" && event.subtype === "kill_switch_toggled") {
+    const enabled = Boolean(event.data?.enabled);
+    return enabled ? "RessyAI Agent Disabled" : "RessyAI Agent Enabled";
+  }
+
+  if (event.event_type === "system" && event.subtype === "kill_switch_bulk_updated") {
+    return "RessyAI Agent Bulk Status Updated";
+  }
+
   // Use backend-provided title when available (e.g. sms_redirect_failed)
   if (
     event.data?.title &&
@@ -74,6 +83,9 @@ const getEventTitle = (event: SSEEvent) => {
     internal_server_error: "System Error",
     suspected_spam: "Spam Detected",
     sms_redirect_failed: "SMS Redirect Failed",
+    kill_switch_redirected: "RessyAI Agent Bypassed",
+    kill_switch_toggled: "RessyAI Agent Status Updated",
+    kill_switch_bulk_updated: "RessyAI Agent Bulk Status Updated",
     new_order: "New Order",
     order_updated: "Order Updated",
     order_cancelled: "Order Cancelled",
@@ -96,6 +108,15 @@ const getEventDescription = (event: SSEEvent) => {
   }
   if (event_type === "escalation" && data?.caller_phone) {
     return `Caller: ${data.caller_phone}`;
+  }
+  if (event_type === "system" && event.subtype === "kill_switch_toggled") {
+    const actor = (data?.actor_email as string) || (data?.actor_type as string);
+    if (actor) return `Changed by ${actor}`;
+  }
+  if (event_type === "system" && event.subtype === "kill_switch_bulk_updated") {
+    const updatedCount = Number(data?.updated_count ?? 0);
+    const skippedCount = Number(data?.skipped_count ?? 0);
+    return `Updated ${updatedCount} restaurants, skipped ${skippedCount}`;
   }
   return undefined;
 };
@@ -185,6 +206,9 @@ export function DashboardLayout() {
         break;
       case "reservation":
         navigate("/dashboard/reservations");
+        break;
+      case "system":
+        navigate("/dashboard/settings");
         break;
       default:
         // For unknown event types, do nothing

@@ -106,6 +106,9 @@ export interface ClientRestaurant {
   twilio_phone_number: string | null;
   forward_escalations: boolean | null;
   escalation_phone_number: string | null;
+  kill_switch_enabled: boolean;
+  kill_switch_can_redirect: boolean;
+  kill_switch_blockers: string[];
   /** Forward minutes for reservation booking window */
   forward_minutes: number;
   /** Backward minutes for cancellation window */
@@ -144,6 +147,10 @@ export interface ClientRestaurantUpdateRequest {
   reservation_advance_days?: number;
   features?: Partial<RestaurantFeatures>;
   // Note: twilio_phone_number is read-only and cannot be updated by client
+}
+
+export interface ClientRestaurantKillSwitchUpdateRequest {
+  enabled: boolean;
 }
 
 // ============================================================================
@@ -679,7 +686,8 @@ export type CallStatus =
   | "voicemail"
   | "in_progress"
   | "failed"
-  | "abandoned";
+  | "abandoned"
+  | "agent_bypassed";
 export type CallOutcome = "booking" | "inquiry" | "cancelled" | "other";
 export type CallSentiment = "positive" | "neutral" | "negative";
 
@@ -1446,7 +1454,7 @@ export interface OutcomeData {
  * SSE Event Types
  * The main event categories sent by the backend
  */
-export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+export type SSEEventType = "escalation" | "order" | "reservation" | "system" | "heartbeat";
 
 /**
  * SSE Event Subtypes
@@ -1456,7 +1464,9 @@ export type SSEEscalationSubtype =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
-  | "sms_redirect_failed";
+  | "sms_redirect_failed"
+  | "kill_switch_redirected";
+export type SSESystemSubtype = "kill_switch_toggled" | "kill_switch_bulk_updated";
 export type SSEOrderSubtype = "new_order" | "order_updated" | "order_cancelled";
 export type SSEReservationSubtype =
   | "new_reservation"
@@ -1464,6 +1474,7 @@ export type SSEReservationSubtype =
   | "reservation_cancelled";
 export type SSEEventSubtype =
   | SSEEscalationSubtype
+  | SSESystemSubtype
   | SSEOrderSubtype
   | SSEReservationSubtype
   | "heartbeat";
@@ -1476,7 +1487,8 @@ export type SSEEscalationType =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
-  | "sms_redirect_failed";
+  | "sms_redirect_failed"
+  | "kill_switch_redirected";
 
 /**
  * SSE Event

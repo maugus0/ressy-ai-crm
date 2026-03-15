@@ -45,6 +45,7 @@ import {
   Radio,
   ChevronLeft,
   Send,
+  Power,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
 import { formatLocalDateTimeParts, parseApiDate, formatLocalDateTime } from "@/lib/utils/timezone";
@@ -110,6 +111,12 @@ const getEscalationInfo = (subtype: SSEEventSubtype) => {
       description: "Could not send redirect link to customer via SMS",
       icon: <Send className="h-5 w-5" />,
       color: "bg-blue-500",
+    },
+    kill_switch_redirected: {
+      title: "RessyAI Agent Bypassed",
+      description: "Call was automatically redirected because RessyAI Agent is disabled",
+      icon: <Power className="h-5 w-5" />,
+      color: "bg-rose-500",
     },
   };
   return (
@@ -197,6 +204,8 @@ export function Escalations() {
     internal_server_error: escalations.filter((e) => e.subtype === "internal_server_error").length,
     suspected_spam: escalations.filter((e) => e.subtype === "suspected_spam").length,
     sms_redirect_failed: escalations.filter((e) => e.subtype === "sms_redirect_failed").length,
+    kill_switch_redirected: escalations.filter((e) => e.subtype === "kill_switch_redirected")
+      .length,
   };
 
   return (
@@ -271,6 +280,9 @@ export function Escalations() {
                       <SelectItem value="sms_redirect_failed">
                         SMS Redirect Failed ({counts.sms_redirect_failed})
                       </SelectItem>
+                      <SelectItem value="kill_switch_redirected">
+                        RessyAI Agent Bypassed ({counts.kill_switch_redirected})
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -290,7 +302,7 @@ export function Escalations() {
 
               {/* Stats Cards */}
               {escalations.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                   <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
                     <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
                       Total Alerts
@@ -329,6 +341,14 @@ export function Escalations() {
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">
                       {counts.sms_redirect_failed}
+                    </p>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-rose-50 dark:bg-rose-950/20">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+                      RessyAI Agent Bypassed
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-rose-600">
+                      {counts.kill_switch_redirected}
                     </p>
                   </div>
                 </div>
@@ -767,15 +787,14 @@ function EscalationCard({ escalation, onDismiss, onViewCall }: EscalationCardPro
                   ? "default"
                   : escalation.subtype === "internal_server_error"
                     ? "destructive"
-                    : escalation.subtype === "sms_redirect_failed"
+                    : escalation.subtype === "sms_redirect_failed" ||
+                        escalation.subtype === "kill_switch_redirected"
                       ? "outline"
                       : "secondary"
               }
               className="text-[10px] sm:text-xs"
             >
-              {escalation.data?.title &&
-              typeof escalation.data.title === "string" &&
-              escalation.subtype === "sms_redirect_failed"
+              {escalation.data?.title && typeof escalation.data.title === "string"
                 ? escalation.data.title
                 : escalation.subtype.replace(/_/g, " ")}
             </Badge>

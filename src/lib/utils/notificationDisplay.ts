@@ -1,9 +1,9 @@
 /**
  * Notification display helpers
- * Human-readable labels for notification types and escalation subtypes
+ * Human-readable labels for notification types and subtypes
  */
 
-import type { Notification, EscalationSubtype } from "@/types/notification.types";
+import type { EscalationSubtype, Notification, SystemSubtype } from "@/types/notification.types";
 
 /** Human-readable labels for escalation subtypes */
 export const ESCALATION_SUBTYPE_LABELS: Record<EscalationSubtype, string> = {
@@ -11,6 +11,12 @@ export const ESCALATION_SUBTYPE_LABELS: Record<EscalationSubtype, string> = {
   internal_server_error: "System Error",
   suspected_spam: "Spam Detected",
   sms_redirect_failed: "SMS Redirect Failed",
+  kill_switch_redirected: "RessyAI Agent Bypassed",
+};
+
+export const SYSTEM_SUBTYPE_LABELS: Record<SystemSubtype, string> = {
+  kill_switch_toggled: "RessyAI Agent Status Updated",
+  kill_switch_bulk_updated: "RessyAI Agent Bulk Status Updated",
 };
 
 /**
@@ -19,11 +25,21 @@ export const ESCALATION_SUBTYPE_LABELS: Record<EscalationSubtype, string> = {
  * or a friendly subtype label for escalation types.
  */
 export function getNotificationDisplayTitle(notification: Notification): string {
+  if (notification.type === "system" && notification.subtype === "kill_switch_toggled") {
+    const enabled = Boolean(notification.data?.enabled);
+    return enabled ? "RessyAI Agent Disabled" : "RessyAI Agent Enabled";
+  }
+
+  if (notification.type === "system" && notification.subtype) {
+    const label = SYSTEM_SUBTYPE_LABELS[notification.subtype as SystemSubtype];
+    if (label) return label;
+  }
+
   const dataTitle = notification.data?.title;
   if (dataTitle && typeof dataTitle === "string") {
     return dataTitle;
   }
-  // Fallback: for escalation notifications without data.title, use a friendly subtype label
+
   if (notification.type === "escalation" && notification.subtype) {
     const label = ESCALATION_SUBTYPE_LABELS[notification.subtype as EscalationSubtype];
     if (label) return label;
@@ -36,6 +52,18 @@ export function getNotificationDisplayTitle(notification: Notification): string 
  * Prefers data.description (from backend) when available; otherwise uses notification.message.
  */
 export function getNotificationDisplayMessage(notification: Notification): string {
+  if (notification.type === "system" && notification.subtype === "kill_switch_toggled") {
+    const actor =
+      (notification.data?.actor_email as string) || (notification.data?.actor_type as string);
+    return actor ? `Changed by ${actor}` : notification.message;
+  }
+
+  if (notification.type === "system" && notification.subtype === "kill_switch_bulk_updated") {
+    const updatedCount = Number(notification.data?.updated_count ?? 0);
+    const skippedCount = Number(notification.data?.skipped_count ?? 0);
+    return `Updated ${updatedCount} restaurants, skipped ${skippedCount}.`;
+  }
+
   const dataDesc = notification.data?.description;
   if (dataDesc && typeof dataDesc === "string") {
     return dataDesc;

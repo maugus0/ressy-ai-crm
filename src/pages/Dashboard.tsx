@@ -31,6 +31,7 @@ import {
   XCircle,
   Timer,
   HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   BarChart,
@@ -208,6 +209,8 @@ function StatusIcon({ status }: { status: string }) {
     case "preparing":
     case "in_progress":
       return <Timer className="h-4 w-4 text-orange-500" />;
+    case "agent_bypassed":
+      return <AlertTriangle className="h-4 w-4 text-amber-500" />;
     default:
       return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
   }

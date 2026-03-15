@@ -11,14 +11,16 @@
 // ============================================================================
 
 /** Notification types matching backend enum */
-export type NotificationType = "order" | "reservation" | "escalation";
+export type NotificationType = "order" | "reservation" | "escalation" | "system";
 
 /** Escalation subtypes from backend (user_requested, internal_server_error, etc.) */
 export type EscalationSubtype =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
-  | "sms_redirect_failed";
+  | "sms_redirect_failed"
+  | "kill_switch_redirected";
+export type SystemSubtype = "kill_switch_toggled" | "kill_switch_bulk_updated";
 
 /** Notification subtypes for granular categorization */
 export type NotificationSubtype =
@@ -30,7 +32,8 @@ export type NotificationSubtype =
   | "reservation_cancelled"
   | "escalation_raised"
   | "escalation_resolved"
-  | EscalationSubtype;
+  | EscalationSubtype
+  | SystemSubtype;
 
 // ============================================================================
 // Core Interfaces

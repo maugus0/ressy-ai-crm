@@ -77,6 +77,16 @@ export function getNotificationNavigationTarget(notification: Notification): Nav
       return { path: "/dashboard/escalations" };
     }
 
+    case "system": {
+      if (
+        notification.subtype === "kill_switch_toggled" ||
+        notification.subtype === "kill_switch_bulk_updated"
+      ) {
+        return { path: "/dashboard/settings" };
+      }
+      return { path: "/dashboard/notifications" };
+    }
+
     default:
       return { path: "/dashboard/notifications" };
   }

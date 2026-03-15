@@ -107,10 +107,14 @@ const getStatusColor = (status: string) => {
       return "destructive" as const;
     case "abandoned":
       return "outline" as const;
+    case "agent_bypassed":
+      return "secondary" as const;
     default:
       return "outline" as const;
   }
 };
+
+const formatStatusLabel = (status: string) => status.replace(/_/g, " ").replace(/-/g, " ");
 
 /**
  * Get day name from day of week number
@@ -693,7 +697,7 @@ export function Calls() {
                       variant={getStatusColor(status)}
                       className="text-[10px] sm:text-xs"
                     >
-                      {status}: {count}
+                      {formatStatusLabel(status)}: {count}
                     </Badge>
                   ))}
                 {(!analytics?.status_breakdown ||
@@ -873,6 +877,7 @@ export function Calls() {
                   <SelectItem value="missed">Missed</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="abandoned">Abandoned</SelectItem>
+                  <SelectItem value="agent_bypassed">Agent Bypassed</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1071,7 +1076,7 @@ export function Calls() {
                                 variant={getStatusColor(call.status)}
                                 className="capitalize text-[10px] sm:text-xs whitespace-nowrap"
                               >
-                                {call.status}
+                                {formatStatusLabel(call.status)}
                               </Badge>
                             </TableCell>
                             <TableCell className="hidden md:table-cell whitespace-nowrap">
@@ -1241,7 +1246,7 @@ export function Calls() {
                       variant={getStatusColor(selectedCall.status)}
                       className="capitalize text-[10px] sm:text-xs"
                     >
-                      {selectedCall.status}
+                      {formatStatusLabel(selectedCall.status)}
                     </Badge>
                   </div>
                 </div>
