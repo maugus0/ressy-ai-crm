@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
@@ -53,7 +52,6 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
-  Power,
   Shield,
   ShieldOff,
   PhoneForwarded,
@@ -72,6 +70,7 @@ import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/time";
 import type {
   ClientRestaurant,
   ClientRestaurantUpdateRequest,
+  EscalationMode,
   OperatingHours,
   SMSRedirectConfig,
 } from "@/types/api.types";
@@ -94,6 +93,10 @@ const KILL_SWITCH_BLOCKER_MESSAGES: Record<string, string> = {
   forward_escalations_disabled: "Escalation forwarding is currently disabled.",
   escalation_phone_number_missing: "Escalation phone number is not configured.",
 };
+
+const VALID_ESCALATION_MODES: EscalationMode[] = ["always", "open_hours_only"];
+const normalizeEscalationMode = (value: string | undefined | null): EscalationMode =>
+  VALID_ESCALATION_MODES.includes(value as EscalationMode) ? (value as EscalationMode) : "always";
 
 // Default SMS redirect config
 const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
@@ -285,8 +288,7 @@ interface SettingsFormData {
   reservations_sms_redirect_enabled: boolean;
   reservations_sms_redirect_url: string;
   reservations_sms_redirect_message: string;
-  // Escalation mode
-  escalation_mode: string;
+  escalation_mode: EscalationMode;
 }
 
 export function Settings() {
@@ -530,7 +532,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
-        escalation_mode: data.escalation_mode || "always",
+        escalation_mode: normalizeEscalationMode(data.escalation_mode),
       });
       setHasChanges(false);
     } catch (err) {
@@ -643,7 +645,7 @@ export function Settings() {
             (originalData.features?.reservations_enabled ?? true) ||
           ordersSmsRedirectChanged ||
           reservationsSmsRedirectChanged ||
-          newData.escalation_mode !== (originalData.escalation_mode || "always");
+          newData.escalation_mode !== normalizeEscalationMode(originalData.escalation_mode);
         setHasChanges(hasChanged);
       }
       return newData;
@@ -822,7 +824,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: updatedReservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: updatedReservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: updatedReservationsSmsRedirect.redirect_message || "",
-        escalation_mode: updatedData.escalation_mode || "always",
+        escalation_mode: normalizeEscalationMode(updatedData.escalation_mode),
       });
       setHasChanges(false);
       toast.success("Settings saved successfully");
@@ -880,7 +882,7 @@ export function Settings() {
         reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
         reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
         reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
-        escalation_mode: originalData.escalation_mode || "always",
+        escalation_mode: normalizeEscalationMode(originalData.escalation_mode),
       });
       setFormErrors({});
       setHasChanges(false);
@@ -902,7 +904,7 @@ export function Settings() {
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
     const name = restaurantName || "Your Restaurant";
 
-    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} — menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you'd prefer to speak with staff directly, just say "escalate" or "transfer" and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go — if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
+    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} - menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you'd prefer to speak with staff directly, just say "escalate" or "transfer" and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go - if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
   };
 
   const formatKillSwitchBlocker = (blocker: string): string =>
@@ -1103,7 +1105,7 @@ export function Settings() {
                   RessyAI Agent Control
                 </h3>
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  Emergency override — route all incoming calls to your staff line
+                  Emergency override - route all incoming calls to your staff line
                 </p>
               </div>
             </div>
@@ -1184,7 +1186,7 @@ export function Settings() {
           {/* Escalation info + action */}
           <div className="space-y-3">
             {!killSwitchEnabled &&
-              (escalationPhoneNumber || originalData?.escalation_mode === "open_hours_only") && (
+              (escalationPhoneNumber || formData.escalation_mode === "open_hours_only") && (
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {escalationPhoneNumber && (
                     <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-secondary/60 border border-primary/10 text-[9px] sm:text-[11px] text-muted-foreground">
@@ -1192,7 +1194,7 @@ export function Settings() {
                       <span className="font-mono">{escalationPhoneNumber}</span>
                     </div>
                   )}
-                  {originalData?.escalation_mode === "open_hours_only" && (
+                  {formData.escalation_mode === "open_hours_only" && (
                     <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-secondary/60 border border-primary/10 text-[9px] sm:text-[11px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
                       Open hours only
